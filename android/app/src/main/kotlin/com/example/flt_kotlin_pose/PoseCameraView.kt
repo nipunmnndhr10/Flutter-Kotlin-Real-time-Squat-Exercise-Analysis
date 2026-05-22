@@ -25,17 +25,22 @@ internal object PoseLandmarkEventBus {
    @Volatile
    var eventSink: EventChannel.EventSink? = null
 
-   fun emit(landmarks: List<PoseLandmarkPayload>) {
+   fun emit(framePayload: PoseFramePayload) {
       mainHandler.post {
          eventSink?.success(
-                 landmarks.map {
-                    mapOf(
-                            "x" to it.x,
-                            "y" to it.y,
-                            "visibility" to it.visibility,
-                            "presence" to it.presence,
-                    )
-                 }
+                 mapOf(
+                         "frameWidth" to framePayload.frameWidth,
+                         "frameHeight" to framePayload.frameHeight,
+                         "landmarks" to framePayload.landmarks.map {
+                            mapOf(
+                                    "index" to it.index,
+                                    "x" to it.x,
+                                    "y" to it.y,
+                                    "visibility" to it.visibility,
+                                    "presence" to it.presence,
+                            )
+                         },
+                 )
          )
       }
    }
@@ -43,6 +48,21 @@ internal object PoseLandmarkEventBus {
    fun error(message: String) {
       mainHandler.post {
          eventSink?.error("POSE_ERROR", message, null)
+      }
+   }
+}
+
+internal object PoseCameraRegistry {
+   @Volatile
+   var processor: PoseLandmarkerProcessor? = null
+
+   fun updateConfig(context: Context, config: PoseDetectorConfig) {
+      processor?.updateConfig(context, config)
+   }
+
+   fun clear(processor: PoseLandmarkerProcessor) {
+      if (this.processor === processor) {
+         this.processor = null
       }
    }
 }
@@ -64,13 +84,18 @@ private class PoseCameraView(
            PreviewView(context).apply {
               implementationMode = PreviewView.ImplementationMode.COMPATIBLE
               scaleType = PreviewView.ScaleType.FILL_CENTER
-              layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+              layoutParams =
+                      LayoutParams(
+                              ViewGroup.LayoutParams.MATCH_PARENT,
+                              ViewGroup.LayoutParams.MATCH_PARENT,
+                      )
            }
    private val cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
    private val poseLandmarkerProcessor = PoseLandmarkerProcessor(context)
    private var cameraProvider: ProcessCameraProvider? = null
 
    init {
+      PoseCameraRegistry.processor = poseLandmarkerProcessor
       addView(previewView)
       startCamera(context)
    }
@@ -117,6 +142,7 @@ private class PoseCameraView(
    override fun dispose() {
       cameraProvider?.unbindAll()
       cameraExecutor.shutdownNow()
+      PoseCameraRegistry.clear(poseLandmarkerProcessor)
       poseLandmarkerProcessor.close()
    }
 }

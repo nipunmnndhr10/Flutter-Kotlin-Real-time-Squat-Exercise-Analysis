@@ -14,6 +14,7 @@ class MainActivity : FlutterActivity() {
    private val poseChannelName = "pose_landmarks"
    private val cameraViewType = "native_pose_camera"
    private val permissionChannelName = "pose_permissions"
+   private val settingsChannelName = "pose_settings"
    private val cameraPermissionRequestCode = 1001
    private var pendingPermissionResult: MethodChannel.Result? = null
 
@@ -55,6 +56,35 @@ class MainActivity : FlutterActivity() {
                  }
               }
 
+                  MethodChannel(flutterEngine.dartExecutor.binaryMessenger, settingsChannelName)
+                     .setMethodCallHandler { call, result ->
+                   when (call.method) {
+                      "updatePoseConfig" -> {
+                         val arguments = call.arguments as? Map<*, *>
+                         if (arguments == null) {
+                       result.error("BAD_ARGS", "Pose settings payload is missing", null)
+                       return@setMethodCallHandler
+                         }
+
+                         val config =
+                            PoseDetectorConfig(
+                               detectionThreshold =
+                                  (arguments["detectionThreshold"] as? Number)
+                                     ?.toFloat() ?: 0.5f,
+                               trackingThreshold =
+                                  (arguments["trackingThreshold"] as? Number)
+                                     ?.toFloat() ?: 0.5f,
+                               presenceThreshold =
+                                  (arguments["presenceThreshold"] as? Number)
+                                     ?.toFloat() ?: 0.5f,
+                            )
+                         PoseCameraRegistry.updateConfig(this, config)
+                         result.success(null)
+                      }
+                      else -> result.notImplemented()
+                   }
+                     }
+
       flutterEngine.platformViewsController.registry.registerViewFactory(
               cameraViewType,
               PoseCameraViewFactory(this)
@@ -82,6 +112,7 @@ class MainActivity : FlutterActivity() {
    }
 
    private fun hasCameraPermission(): Boolean {
-      return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+         return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
    }
 }
