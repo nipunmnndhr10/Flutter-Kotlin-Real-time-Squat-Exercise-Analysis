@@ -19,38 +19,6 @@ import io.flutter.plugin.platform.PlatformViewFactory
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-internal object PoseLandmarkEventBus {
-   private val mainHandler = Handler(Looper.getMainLooper())
-
-   @Volatile
-   var eventSink: EventChannel.EventSink? = null
-
-   fun emit(framePayload: PoseFramePayload) {
-      mainHandler.post {
-         eventSink?.success(
-                 mapOf(
-                         "frameWidth" to framePayload.frameWidth,
-                         "frameHeight" to framePayload.frameHeight,
-                         "landmarks" to framePayload.landmarks.map {
-                            mapOf(
-                                    "index" to it.index,
-                                    "x" to it.x,
-                                    "y" to it.y,
-                                    "visibility" to it.visibility,
-                                    "presence" to it.presence,
-                            )
-                         },
-                 )
-         )
-      }
-   }
-
-   fun error(message: String) {
-      mainHandler.post {
-         eventSink?.error("POSE_ERROR", message, null)
-      }
-   }
-}
 
 internal object PoseCameraRegistry {
    @Volatile
