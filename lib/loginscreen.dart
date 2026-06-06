@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'pose_screen.dart';
 import 'validators.dart';
 import 'login_components.dart';
+import 'signup_screen.dart';
 
 // Spacing constants
 const double kSpacingXs = 4.0;
@@ -333,7 +334,13 @@ class _LoginScreenState extends State<LoginScreen>
                                       ),
                                     ),
                                     GestureDetector(
-                                      onTap: () {},
+                                      onTap: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => const SignupScreen(),
+                                          ),
+                                        );
+                                      },
                                       child: const Text(
                                         'Join SquatMate',
                                         style: TextStyle(
