@@ -42,10 +42,9 @@ android {
         }
     }
 }
-
-dependencies{
+dependencies {
     implementation(
-    "com.google.mediapipe:tasks-vision:0.10.14"
+        "com.google.mediapipe:tasks-vision:0.10.35"
     )
 
     implementation(
