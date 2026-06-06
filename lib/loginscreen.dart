@@ -203,8 +203,8 @@ class _LoginScreenState extends State<LoginScreen>
                                             _obscurePassword = !_obscurePassword),
                                         child: Icon(
                                           _obscurePassword
-                                              ? Icons.remove_red_eye_outlined
-                                              : Icons.visibility_off_outlined,
+                                              ? Icons.visibility_off_outlined
+                                              : Icons.remove_red_eye_outlined,
                                           color: textGray,
                                           size: 20,
                                         ),
@@ -248,10 +248,10 @@ class _LoginScreenState extends State<LoginScreen>
                                             ? null
                                             : _handleLogin,
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: primaryGreen,
+                                          backgroundColor: const Color.fromRGBO(17, 24, 32, 1),
                                           foregroundColor: Colors.white,
                                             disabledBackgroundColor:
-                                              primaryGreen.withAlpha(180),
+                                              const Color.fromRGBO(209, 213, 219, 1),
                                           elevation: 0,
                                           shadowColor: Colors.transparent,
                                           shape: RoundedRectangleBorder(
