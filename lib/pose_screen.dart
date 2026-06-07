@@ -54,6 +54,14 @@ class _PoseScreenState extends State<PoseScreen> {
         if (parsed != null) {
           _frameData.value = parsed;
         }
+        // Reset pose-lost timer on every frame — the pose channel fires
+        // regardless of landmark confidence, so silence here means the
+        // camera genuinely sees no person (stepped out of frame entirely).
+        _poseLostTimer?.cancel();
+        _poseLostTimer = Timer(const Duration(seconds: 2), () {
+          if (mounted) setState(() => _isPoseLost = true);
+        });
+        if (_isPoseLost) setState(() => _isPoseLost = false);
       },
       onError: (Object error) {
         debugPrint('Pose stream error: $error');
@@ -65,14 +73,7 @@ class _PoseScreenState extends State<PoseScreen> {
     _squatSubscription = _squatChannel.receiveBroadcastStream().listen(
       (event) {
         if (event is! Map) return;
-        _poseLostTimer?.cancel();
-        _poseLostTimer = Timer(const Duration(seconds: 1), () {
-          if (mounted) setState(() => _isPoseLost = true);
-        });
-        setState(() {
-          _squatFeedback = SquatFeedbackData.fromMap(event);
-          _isPoseLost = false;
-        });
+        setState(() => _squatFeedback = SquatFeedbackData.fromMap(event));
       },
       onError: (Object error) {
         debugPrint('Squat feedback error: $error');
@@ -324,6 +325,8 @@ class NativePosePreview extends StatelessWidget {
   }
 }
 
+
+
 // Data Models for pose frame and squat feedback
 
 class PoseFrameData {
@@ -399,7 +402,23 @@ class SquatFeedbackData {
   final bool         isLandmarkReliable;
 }
 
-// Pose Painter: Draws pose landmarks and connections on canvas
+// ─── Premium Pose Painter ────────────────────────────────────────────────────
+//
+// Visual design:
+//   • Connections are drawn as gradient-glowing "bones" — a thick blurred
+//     outer glow layer + a bright inner core, each segment coloured by body
+//     region (shoulders: cyan, arms: violet, torso: gold, legs: emerald).
+//   • Joints are rendered as a layered halo: faint outer ring → coloured
+//     mid-ring → bright filled disc. Key joints (hips, knees, ankles,
+//     shoulders) are slightly larger.
+//   • A subtle drop-shadow is applied to every element so the overlay reads
+//     clearly against any background.
+//
+// Segment colour palette (ARGB hex):
+//   Shoulders / upper torso  → cyan   #00E5FF
+//   Arms / hands              → violet #D500F9
+//   Core / spine              → gold   #FFD600
+//   Legs / feet               → green  #00E676
 
 class PosePainter extends CustomPainter {
   PosePainter({
@@ -411,24 +430,76 @@ class PosePainter extends CustomPainter {
   final ValueListenable<PoseFrameData> _repaint;
   final bool isFrontCamera;
 
+  // ── Connections grouped by body region ──────────────────────────────────
+  // Each entry: [landmarkA, landmarkB, _SegmentKind]
   static const List<List<int>> _connections = [
-    [11, 12], [11, 13], [13, 15], [15, 17], [17, 19], [19, 21],
+    // shoulder bar
+    [11, 12],
+    // left arm
+    [11, 13], [13, 15], [15, 17], [17, 19], [19, 21],
+    // right arm
     [12, 14], [14, 16], [16, 18], [18, 20], [20, 22],
+    // torso sides + hip bar
     [11, 23], [12, 24], [23, 24],
+    // left leg
     [23, 25], [25, 27], [27, 29], [29, 31],
+    // right leg
     [24, 26], [26, 28], [28, 30], [30, 32],
   ];
 
+  // Indices that get a larger joint dot
+  static const Set<int> _majorJoints = {11, 12, 23, 24, 25, 26, 27, 28};
+
+  // ── Colour look-up ───────────────────────────────────────────────────────
+  static Color _segmentColor(int a, int b) {
+    // shoulder bar
+    if ((a == 11 && b == 12)) return const Color(0xFF00E5FF);
+    // arms (elbow/wrist/hand range 13-22)
+    if (a >= 11 && a <= 22 && b >= 11 && b <= 22) return const Color(0xFFD500F9);
+    // torso & hip bar (23-24 with shoulder 11/12)
+    if ((a == 11 || a == 12) && (b == 23 || b == 24)) return const Color(0xFFFFD600);
+    if (a == 23 && b == 24) return const Color(0xFFFFD600);
+    // legs (25-32)
+    return const Color(0xFF00E676);
+  }
+
+  static Color _jointColor(int index) {
+    if (index == 11 || index == 12) return const Color(0xFF00E5FF);
+    if (index >= 13 && index <= 22) return const Color(0xFFD500F9);
+    if (index == 23 || index == 24) return const Color(0xFFFFD600);
+    return const Color(0xFF00E676);
+  }
+
+  // ── Paint helpers ────────────────────────────────────────────────────────
+  Paint _glowPaint(Color color, double width) => Paint()
+    ..color = color.withAlpha(60)
+    ..strokeWidth = width
+    ..strokeCap = StrokeCap.round
+    ..style = PaintingStyle.stroke
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+
+  Paint _corePaint(Color color, double width) => Paint()
+    ..color = color
+    ..strokeWidth = width
+    ..strokeCap = StrokeCap.round
+    ..style = PaintingStyle.stroke;
+
+  Paint _shadowPaint(double width) => Paint()
+    ..color = Colors.black.withAlpha(120)
+    ..strokeWidth = width + 2
+    ..strokeCap = StrokeCap.round
+    ..style = PaintingStyle.stroke
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+
+  // ── Main paint ───────────────────────────────────────────────────────────
   @override
   void paint(Canvas canvas, Size size) {
     final frame = _repaint.value;
     if (frame.landmarks.isEmpty) return;
 
-    // Detect if native frame orientation (typically landscape from sensor) mismatch with screen
     final bool isScreenPortrait = size.height > size.width;
     final bool isFrameLandscape = frame.frameWidth > frame.frameHeight;
 
-    // Swap aspect calculations if coordinates arrive side-oriented
     final double adjustedFrameWidth = (isScreenPortrait && isFrameLandscape)
         ? frame.frameHeight.toDouble()
         : frame.frameWidth.toDouble();
@@ -436,59 +507,94 @@ class PosePainter extends CustomPainter {
         ? frame.frameWidth.toDouble()
         : frame.frameHeight.toDouble();
 
-    final scaleX = size.width / adjustedFrameWidth;
-    final scaleY = size.height / adjustedFrameHeight;
-    final scale = math.max(scaleX, scaleY); // Fill Center boundary map
+    final double scaleX = size.width / adjustedFrameWidth;
+    final double scaleY = size.height / adjustedFrameHeight;
+    final double scale  = math.max(scaleX, scaleY);
 
-    final renderedWidth  = adjustedFrameWidth  * scale;
-    final renderedHeight = adjustedFrameHeight * scale;
-    final offsetX = (size.width  - renderedWidth)  / 2.0;
-    final offsetY = (size.height - renderedHeight) / 2.0;
+    final double renderedWidth  = adjustedFrameWidth  * scale;
+    final double renderedHeight = adjustedFrameHeight * scale;
+    final double offsetX = (size.width  - renderedWidth)  / 2.0;
+    final double offsetY = (size.height - renderedHeight) / 2.0;
 
-    Offset mapPoint(PoseLandmarkPoint point) {
-      double x = point.x;
-      double y = point.y;
-
-      // Translate 90 degrees clockwise if framework raw frame buffer orientation differs
+    Offset mapPoint(PoseLandmarkPoint pt) {
+      double x = pt.x;
+      double y = pt.y;
       if (isScreenPortrait && isFrameLandscape) {
-        final double temp = x;
+        final double tmp = x;
         x = 1.0 - y;
-        y = temp;
+        y = tmp;
       }
+      return Offset(offsetX + x * renderedWidth, offsetY + y * renderedHeight);
+    }
 
-      // Front-Facing Camera Mirror Fix: Flips horizontal positioning accurately
-      if (isFrontCamera) {
-        x = 1.0 - x;
-      }
+    // ── Pass 1: bone glow + core ─────────────────────────────────────────
+    for (final conn in _connections) {
+      final a = frame.landmarks[conn[0]];
+      final b = frame.landmarks[conn[1]];
+      if (!_isVisible(a) || !_isVisible(b)) continue;
 
-      return Offset(
-        offsetX + x * renderedWidth,
-        offsetY + y * renderedHeight,
+      final pA = mapPoint(a!);
+      final pB = mapPoint(b!);
+      final color = _segmentColor(conn[0], conn[1]);
+
+      // drop shadow
+      canvas.drawLine(pA, pB, _shadowPaint(5));
+      // outer glow
+      canvas.drawLine(pA, pB, _glowPaint(color, 14));
+      // bright core line
+      canvas.drawLine(pA, pB, _corePaint(color, 2.5));
+      // hair-line white centre for sparkle
+      canvas.drawLine(
+        pA, pB,
+        Paint()
+          ..color = Colors.white.withAlpha(200)
+          ..strokeWidth = 0.8
+          ..strokeCap = StrokeCap.round,
       );
     }
 
-    final pointPaint = Paint()
-      ..color = const Color(0xFFFF5D5D)
-      ..strokeWidth = 5
-      ..style = PaintingStyle.fill;
+    // ── Pass 2: joints ───────────────────────────────────────────────────
+    for (final lm in frame.landmarks.values) {
+      if (!_isVisible(lm)) continue;
 
-    final linePaint = Paint()
-      ..color = const Color(0xFF7FF0B0)
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
+      final p = mapPoint(lm);
+      final color = _jointColor(lm.index);
+      final isMajor = _majorJoints.contains(lm.index);
+      final double r = isMajor ? 7.0 : 4.5;
 
-    for (final connection in _connections) {
-      final first  = frame.landmarks[connection[0]];
-      final second = frame.landmarks[connection[1]];
-      if (_isVisible(first) && _isVisible(second)) {
-        canvas.drawLine(mapPoint(first!), mapPoint(second!), linePaint);
-      }
-    }
+      // shadow
+      canvas.drawCircle(p, r + 3,
+          Paint()
+            ..color = Colors.black.withAlpha(100)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
 
-    for (final landmark in frame.landmarks.values) {
-      if (_isVisible(landmark)) {
-        canvas.drawCircle(mapPoint(landmark), 4, pointPaint);
-      }
+      // outer halo ring
+      canvas.drawCircle(
+        p, r + 5,
+        Paint()
+          ..color = color.withAlpha(40)
+          ..style = PaintingStyle.fill
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+
+      // coloured ring
+      canvas.drawCircle(
+        p, r + 1.5,
+        Paint()
+          ..color = color.withAlpha(160)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5,
+      );
+
+      // filled disc
+      canvas.drawCircle(p, r, Paint()..color = color);
+
+      // white specular dot
+      canvas.drawCircle(
+        Offset(p.dx - r * 0.28, p.dy - r * 0.28),
+        r * 0.28,
+        Paint()..color = Colors.white.withAlpha(200),
+      );
     }
   }
 
@@ -576,7 +682,7 @@ class _FaultBanner extends StatelessWidget {
 
   String _label(String fault) => switch (fault) {
     'GO_DEEPER'       => 'Go deeper',
-    'LEAN_FORWARD'    => "Chest up — don't lean forward",
+    'LEAN_FORWARD'    => "Chest up : don't lean forward",
     'LEFT_KNEE_CAVE'  => 'Push your left knee out',
     'RIGHT_KNEE_CAVE' => 'Push your right knee out',
     _                 => fault,
