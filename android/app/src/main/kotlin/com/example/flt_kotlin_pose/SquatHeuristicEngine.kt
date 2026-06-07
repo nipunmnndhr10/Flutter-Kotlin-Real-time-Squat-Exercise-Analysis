@@ -7,7 +7,8 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
     private var currentPhase = SquatPhase.STANDING
     private var repCount = 0
-    private var wasAtBottom = false
+    private var minKneeAngleThisRep = 180f
+    private var isInsideRep = false
 
     // Smoothing — avoid phase flicker from single noisy frames
     private val kneeAngleBuffer = FloatArray(5)
@@ -19,85 +20,102 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     fun analyze(frame: PoseFramePayload): SquatFeedback? {
         val lm = frame.landmarks.associateBy { it.index }
 
-        // Need these 7 landmarks minimum — bail if any are missing or low-confidence.
-        // RIGHT_HIP (24) is not used in angle calculations so it is intentionally
-        // excluded from the required set; all other used landmarks are listed here.
-        val required = listOf(
-            LM.LEFT_HIP, LM.LEFT_KNEE, LM.LEFT_ANKLE,
-            LM.LEFT_SHOULDER, LM.RIGHT_SHOULDER,
-            LM.RIGHT_KNEE, LM.RIGHT_ANKLE,
-        )
-
-        val reliable = required.all { idx ->
+        // 1. Verify tracking viability independently for Left and Right profiles
+        val leftProfileValid = listOf(LM.LEFT_SHOULDER, LM.LEFT_HIP, LM.LEFT_KNEE, LM.LEFT_ANKLE).all { idx ->
             val l = lm[idx]
-            l != null && (l.visibility ?: 0f) > 0.5f && (l.presence ?: 0f) > 0.5f
+            l != null && (l.visibility ?: 0f) > 0.45f && (l.presence ?: 0f) > 0.45f
         }
 
-        if (!reliable) return null  // skip frame, don't corrupt state
+        val rightProfileValid = listOf(LM.RIGHT_SHOULDER, LM.RIGHT_HIP, LM.RIGHT_KNEE, LM.RIGHT_ANKLE).all { idx ->
+            val l = lm[idx]
+            l != null && (l.visibility ?: 0f) > 0.45f && (l.presence ?: 0f) > 0.45f
+        }
 
-        val leftHip       = lm[LM.LEFT_HIP]!!
-        val leftKnee      = lm[LM.LEFT_KNEE]!!
-        val leftAnkle     = lm[LM.LEFT_ANKLE]!!
-        val leftShoulder  = lm[LM.LEFT_SHOULDER]!!
-        val rightShoulder = lm[LM.RIGHT_SHOULDER]!!
-        val rightKnee     = lm[LM.RIGHT_KNEE]!!
-        val rightAnkle    = lm[LM.RIGHT_ANKLE]!!
+        if (!leftProfileValid && !rightProfileValid) return null
+
+        // 2. Auto-select the optimal side for profile plane angle tracking
+        val useLeftSide = when {
+            leftProfileValid && !rightProfileValid -> true
+            !leftProfileValid && rightProfileValid -> false
+            else -> {
+                val leftScore = listOf(LM.LEFT_SHOULDER, LM.LEFT_HIP, LM.LEFT_KNEE, LM.LEFT_ANKLE).map { lm[it]?.visibility ?: 0f }.sum()
+                val rightScore = listOf(LM.RIGHT_SHOULDER, LM.RIGHT_HIP, LM.RIGHT_KNEE, LM.RIGHT_ANKLE).map { lm[it]?.visibility ?: 0f }.sum()
+                leftScore >= rightScore
+            }
+        }
+
+        val hip      = if (useLeftSide) lm[LM.LEFT_HIP]!!      else lm[LM.RIGHT_HIP]!!
+        val knee     = if (useLeftSide) lm[LM.LEFT_KNEE]!!     else lm[LM.RIGHT_KNEE]!!
+        val ankle    = if (useLeftSide) lm[LM.LEFT_ANKLE]!!    else lm[LM.RIGHT_ANKLE]!!
+        val shoulder = if (useLeftSide) lm[LM.LEFT_SHOULDER]!! else lm[LM.RIGHT_SHOULDER]!!
 
         val w = frame.frameWidth
         val h = frame.frameHeight
 
-        // Calculate aspect-ratio-corrected angles
-        val rawKneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle, w, h)
-        val hipAngle     = calculateAngle(leftShoulder, leftHip, leftKnee, w, h)
+        // 3. Calculate aspect-ratio corrected angles
+        val rawKneeAngle = calculateAngle(hip, knee, ankle, w, h)
+        val hipAngle     = calculateAngle(shoulder, hip, knee, w, h)
 
-        // FIX: Write into the circular buffer first, then average only the
-        // slots that have actually been filled. On early frames (bufferIndex < 5)
-        // the unfilled slots still hold 0f, which would pull the average down
-        // and could falsely trigger a BOTTOM phase on the very first frames.
-        val slot = bufferIndex % kneeAngleBuffer.size
-        kneeAngleBuffer[slot] = rawKneeAngle
+        // Rolling average to smooth knee angle pathing
+        kneeAngleBuffer[bufferIndex % kneeAngleBuffer.size] = rawKneeAngle
         bufferIndex++
-        val filledSlots = minOf(bufferIndex, kneeAngleBuffer.size)
-        val kneeAngle = kneeAngleBuffer.take(filledSlots).average().toFloat()
+        val kneeAngle = kneeAngleBuffer.take(
+            minOf(bufferIndex, kneeAngleBuffer.size)
+        ).average().toFloat()
 
+        // 4. Run State Machine Update
         updatePhaseAndReps(kneeAngle)
 
-        val faults = detectFaults(
-            kneeAngle, hipAngle,
-            leftShoulder, rightShoulder,
-            leftKnee, leftAnkle, rightKnee, rightAnkle,
-        )
+        val isFrontView = leftProfileValid && rightProfileValid
+        val faults = detectFaults(kneeAngle, hipAngle, lm, isFrontView, w, h)
 
-        // Trigger audio for new faults only (debounced per rep)
+        // Trigger safe debounced audio feedback
         triggerAudioFeedback(faults)
 
         return SquatFeedback(
-            phase              = currentPhase,
-            repCount           = repCount,
-            activeFaults       = faults,
-            kneeAngle          = kneeAngle,
-            hipAngle           = hipAngle,
+            phase = currentPhase,
+            repCount = repCount,
+            activeFaults = faults,
+            kneeAngle = kneeAngle,
+            hipAngle = hipAngle,
             isLandmarkReliable = true,
         )
     }
 
     private fun updatePhaseAndReps(kneeAngle: Float) {
-        val newPhase = when {
-            kneeAngle > 155f -> SquatPhase.STANDING
-            kneeAngle < 100f -> SquatPhase.BOTTOM
-            kneeAngle < 140f -> if (wasAtBottom) SquatPhase.ASCENDING else SquatPhase.DESCENDING
-            else             -> currentPhase  // hold current phase in ambiguous range
+        // Open the rep window when starting descent
+        if (kneeAngle < 140f) {
+            if (!isInsideRep) {
+                isInsideRep = true
+                minKneeAngleThisRep = 180f
+            }
+            if (kneeAngle < minKneeAngleThisRep) {
+                minKneeAngleThisRep = kneeAngle
+            }
         }
 
-        if (currentPhase == SquatPhase.BOTTOM) wasAtBottom = true
+        // Determine phase mapping for the UI state
+        val newPhase = when {
+            kneeAngle > 145f -> SquatPhase.STANDING
+            kneeAngle < 105f -> SquatPhase.BOTTOM
+            else -> {
+                // Ascending if driving upward from lowest recorded depth
+                if (isInsideRep && kneeAngle > minKneeAngleThisRep + 5f) {
+                    SquatPhase.ASCENDING
+                } else {
+                    SquatPhase.DESCENDING
+                }
+            }
+        }
 
-        // Rep counted on transition: ASCENDING → STANDING
-        if (currentPhase == SquatPhase.ASCENDING && newPhase == SquatPhase.STANDING) {
-            if (wasAtBottom) repCount++
-
-            // Reset rep-scoped state for the next squat
-            wasAtBottom = false
-            faultsAnnouncedThisRep.clear()
+        // Handle full standing completion cleanly
+        if (isInsideRep && kneeAngle > 145f) {
+            if (minKneeAngleThisRep <= 105f) {
+                repCount++ // Validated rep depth met
+            }
+            isInsideRep = false
+            minKneeAngleThisRep = 180f
+            faultsAnnouncedThisRep.clear() // Ready for next rep
         }
 
         currentPhase = newPhase
@@ -106,27 +124,70 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     private fun detectFaults(
         kneeAngle: Float,
         hipAngle: Float,
-        leftShoulder:  PoseLandmarkPayload,
-        rightShoulder: PoseLandmarkPayload,
-        leftKnee:  PoseLandmarkPayload,
-        leftAnkle: PoseLandmarkPayload,
-        rightKnee:  PoseLandmarkPayload,
-        rightAnkle: PoseLandmarkPayload,
+        lm: Map<Int, PoseLandmarkPayload>,
+        isFrontView: Boolean,
+        w: Int,
+        h: Int
     ): List<SquatFault> {
         val faults = mutableListOf<SquatFault>()
 
-        // Only check faults at bottom of squat — avoids false positives mid-descent
-        if (currentPhase == SquatPhase.BOTTOM) {
-            if (kneeAngle > 115f) faults.add(SquatFault.GO_DEEPER)
-            if (hipAngle < 40f)   faults.add(SquatFault.LEAN_FORWARD)
+        // Analyze form continuously throughout the movement window
+        if (currentPhase != SquatPhase.STANDING) {
 
-            // Dynamic ruler: knee-cave threshold scales with the user's own
-            // shoulder width in normalized space, so it's camera-distance-agnostic.
-            val shoulderWidth  = abs(leftShoulder.x - rightShoulder.x)
-            val caveThreshold  = shoulderWidth * 0.15f
+            // 1. Depth Fault: Catch shallow depth dynamically as soon as the user starts driving upward early
+            if (currentPhase == SquatPhase.ASCENDING && minKneeAngleThisRep > 105f) {
+                faults.add(SquatFault.GO_DEEPER)
+            }
 
-            if (leftKnee.x  > leftAnkle.x  + caveThreshold) faults.add(SquatFault.LEFT_KNEE_CAVE)
-            if (rightKnee.x < rightAnkle.x - caveThreshold) faults.add(SquatFault.RIGHT_KNEE_CAVE)
+            // 2. Posture Lean Fault ("Chest Up!") — Evaluated under load (below 130 deg)
+            if (kneeAngle < 130f) {
+                if (isFrontView) {
+                    val leftShoulder  = lm[LM.LEFT_SHOULDER]!!
+                    val rightShoulder = lm[LM.RIGHT_SHOULDER]!!
+                    val leftHip       = lm[LM.LEFT_HIP]!!
+                    val rightHip      = lm[LM.RIGHT_HIP]!!
+
+                    // Convert calculations to TRUE PIXEL SPACE to neutralize device aspect ratios
+                    val shoulderWidthPx = abs((leftShoulder.x * w) - (rightShoulder.x * w))
+                    val avgTorsoHeightPx = (abs((leftShoulder.y * h) - (leftHip.y * h)) + abs((rightShoulder.y * h) - (rightHip.y * h))) / 2f
+
+                    if (avgTorsoHeightPx < shoulderWidthPx * 0.78f) {
+                        faults.add(SquatFault.LEAN_FORWARD)
+                    }
+                } else {
+                    if (hipAngle < 55f) {
+                        faults.add(SquatFault.LEAN_FORWARD)
+                    }
+                }
+            }
+
+            // 3. Knee Alignment Faults ("Knees Out!") — Tracked in pixel space during active range
+            if (isFrontView && kneeAngle < 125f) {
+                val leftShoulder  = lm[LM.LEFT_SHOULDER]!!
+                val rightShoulder = lm[LM.RIGHT_SHOULDER]!!
+                val leftKnee      = lm[LM.LEFT_KNEE]!!
+                val leftAnkle     = lm[LM.LEFT_ANKLE]!!
+                val rightKnee     = lm[LM.RIGHT_KNEE]!!
+                val rightAnkle    = lm[LM.RIGHT_ANKLE]!!
+
+                val shoulderWidthPx = abs((leftShoulder.x * w) - (rightShoulder.x * w))
+                val caveThresholdPx = shoulderWidthPx * 0.15f 
+                val ankleMidpointXPx = ((leftAnkle.x * w) + (rightAnkle.x * w)) / 2f
+                
+                val leftAnkleDistPx = abs((leftAnkle.x * w) - ankleMidpointXPx)
+                val leftKneeDistPx  = abs((leftKnee.x * w) - ankleMidpointXPx)
+                
+                val rightAnkleDistPx = abs((rightAnkle.x * w) - ankleMidpointXPx)
+                val rightKneeDistPx  = abs((rightKnee.x * w) - ankleMidpointXPx)
+
+                if (leftKneeDistPx < leftAnkleDistPx - caveThresholdPx) {
+                    faults.add(SquatFault.LEFT_KNEE_CAVE)
+                }
+                    
+                if (rightKneeDistPx < rightAnkleDistPx - caveThresholdPx) {
+                    faults.add(SquatFault.RIGHT_KNEE_CAVE)
+                }
+            }
         }
 
         return faults
@@ -134,7 +195,8 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
     private fun triggerAudioFeedback(currentFaults: List<SquatFault>) {
         for (fault in currentFaults) {
-            if (faultsAnnouncedThisRep.add(fault)) {   // add() returns false if already present
+            if (!faultsAnnouncedThisRep.contains(fault)) {
+                faultsAnnouncedThisRep.add(fault)
                 audioController.playCue(fault.cueName)
             }
         }
@@ -142,28 +204,31 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
     fun reset() {
         currentPhase = SquatPhase.STANDING
-        repCount     = 0
-        wasAtBottom  = false
-        bufferIndex  = 0
+        repCount = 0
+        minKneeAngleThisRep = 180f
+        isInsideRep = false
+        bufferIndex = 0
         kneeAngleBuffer.fill(0f)
         faultsAnnouncedThisRep.clear()
     }
 
-    // 2D angle at vertex b, using pixel coordinates for aspect-ratio correctness
     private fun calculateAngle(
         a: PoseLandmarkPayload,
-        b: PoseLandmarkPayload,  // vertex
+        b: PoseLandmarkPayload,
         c: PoseLandmarkPayload,
         width: Int,
-        height: Int,
+        height: Int
     ): Float {
-        val ax = a.x * width;  val ay = a.y * height
-        val bx = b.x * width;  val by = b.y * height
-        val cx = c.x * width;  val cy = c.y * height
+        val ax = a.x * width
+        val ay = a.y * height
+        val bx = b.x * width
+        val by = b.y * height
+        val cx = c.x * width
+        val cy = c.y * height
 
         val radians = atan2((cy - by).toDouble(), (cx - bx).toDouble()) -
                       atan2((ay - by).toDouble(), (ax - bx).toDouble())
-
+                      
         var angle = abs(Math.toDegrees(radians)).toFloat()
         if (angle > 180f) angle = 360f - angle
         return angle
