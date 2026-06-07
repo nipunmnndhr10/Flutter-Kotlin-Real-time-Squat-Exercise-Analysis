@@ -1,15 +1,9 @@
 import 'package:flutter/material.dart';
+import 'app_constants.dart';
 import 'pose_screen.dart';
 import 'validators.dart';
 import 'login_components.dart';
 import 'signup_screen.dart';
-
-// Spacing constants
-const double kSpacingXs = 4.0;
-const double kSpacingSm = 8.0;
-const double kSpacingMd = 12.0;
-const double kSpacingLg = 16.0;
-const double kSpacingXl = 20.0;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
