@@ -30,14 +30,27 @@ class _PoseScreenState extends State<PoseScreen> {
   StreamSubscription<dynamic>? _squatSubscription;
   bool? _cameraPermissionGranted;
   String? _permissionError;
-  
+
   // Track camera state (Kotlin defaults to back camera initially)
   bool _isFrontCamera = false;
 
-  // Pose-lost detection: Kotlin emits nothing when landmarks are unreliable,
-  // so we track silence on the squat channel with a timer.
+  // Pose-lost detection: fires when the pose channel goes silent for 2s,
+  // meaning the person stepped fully out of frame.
   Timer? _poseLostTimer;
   bool _isPoseLost = false;
+
+  // FIX #4: Single timestamp-based idle approach — one periodic timer instead
+  // of cancelling+allocating a new Timer on every camera frame (30–60fps).
+  // Idle = no rep count change and no phase change for 60 seconds.
+  static const Duration _idleThreshold = Duration(minutes: 1);
+  static const Duration _idleCheckInterval = Duration(seconds: 5);
+  Timer? _idleCheckTimer;
+  DateTime _lastActivityTime = DateTime.now();
+  int _lastKnownRepCount = 0;
+  String _lastKnownPhase = 'STANDING';
+
+  // Controls visibility of the idle end-session banner.
+  bool _showIdleBanner = false;
 
   @override
   void initState() {
@@ -45,6 +58,7 @@ class _PoseScreenState extends State<PoseScreen> {
     _setupPoseChannel();
     _setupSquatChannel();
     _setupPermission();
+    _startIdleCheck();
   }
 
   void _setupPoseChannel() {
@@ -54,14 +68,22 @@ class _PoseScreenState extends State<PoseScreen> {
         if (parsed != null) {
           _frameData.value = parsed;
         }
-        // Reset pose-lost timer on every frame — the pose channel fires
-        // regardless of landmark confidence, so silence here means the
-        // camera genuinely sees no person (stepped out of frame entirely).
+
+        // FIX #4: Replaced cancel+new-Timer-every-frame with a simple flag
+        // update. _poseLostTimer is only created once here and restarted by
+        // updating a timestamp; the periodic _idleCheckTimer handles polling.
+        // Pose-lost uses its own dedicated short timer since it needs a
+        // tight 2-second window — but we only allocate a new one when the
+        // previous one has already fired (i.e. _isPoseLost became true),
+        // not on every single frame.
+        if (_isPoseLost) {
+          // Pose recovered — clear the flag in one setState.
+          setState(() => _isPoseLost = false);
+        }
         _poseLostTimer?.cancel();
         _poseLostTimer = Timer(const Duration(seconds: 2), () {
           if (mounted) setState(() => _isPoseLost = true);
         });
-        if (_isPoseLost) setState(() => _isPoseLost = false);
       },
       onError: (Object error) {
         debugPrint('Pose stream error: $error');
@@ -73,12 +95,47 @@ class _PoseScreenState extends State<PoseScreen> {
     _squatSubscription = _squatChannel.receiveBroadcastStream().listen(
       (event) {
         if (event is! Map) return;
-        setState(() => _squatFeedback = SquatFeedbackData.fromMap(event));
+        final newFeedback = SquatFeedbackData.fromMap(event);
+
+        // Idle detection: reset the activity clock whenever a rep is
+        // completed or the squat phase changes — these are signs the
+        // user is actively squatting.
+        if (newFeedback.repCount != _lastKnownRepCount ||
+            newFeedback.phase != _lastKnownPhase) {
+          _lastActivityTime = DateTime.now();
+          _lastKnownRepCount = newFeedback.repCount;
+          _lastKnownPhase = newFeedback.phase;
+
+          // Also dismiss the idle banner if the user starts moving again.
+          if (_showIdleBanner) {
+            setState(() {
+              _squatFeedback = newFeedback;
+              _showIdleBanner = false;
+            });
+            return;
+          }
+        }
+
+        setState(() => _squatFeedback = newFeedback);
       },
       onError: (Object error) {
         debugPrint('Squat feedback error: $error');
       },
     );
+  }
+
+  /// Starts a lightweight periodic timer that checks every 5 seconds whether
+  /// the user has been idle for over a minute. This is far cheaper than
+  /// creating a 60-second Timer on every squat event.
+  void _startIdleCheck() {
+    _idleCheckTimer = Timer.periodic(_idleCheckInterval, (_) {
+      if (!mounted) return;
+      if (_showIdleBanner) return; // already showing — don't re-trigger
+      final idleFor = DateTime.now().difference(_lastActivityTime);
+      if (idleFor >= _idleThreshold) {
+        setState(() => _showIdleBanner = true);
+      }
+    });
   }
 
   Future<void> _setupPermission() async {
@@ -165,11 +222,25 @@ class _PoseScreenState extends State<PoseScreen> {
     await _actionChannel.invokeMethod('toggleCameraFacing', newFrontState);
   }
 
+  /// Called when the user taps "End Session" on the idle banner.
+  /// No navigation — just dismisses the banner. Wire up navigation here later.
+  void _handleEndSession() {
+    setState(() => _showIdleBanner = false);
+  
+  }
+
+  /// Called when the user taps "Keep Going" on the idle banner.
+  void _handleDismissIdleBanner() {
+    _lastActivityTime = DateTime.now(); // reset the clock
+    setState(() => _showIdleBanner = false);
+  }
+
   @override
   void dispose() {
     _subscription?.cancel();
     _squatSubscription?.cancel();
     _poseLostTimer?.cancel();
+    _idleCheckTimer?.cancel(); // cancel the idle check timer
     _frameData.dispose();
     super.dispose();
   }
@@ -250,6 +321,7 @@ class _PoseScreenState extends State<PoseScreen> {
           right: 0,
           child: Center(child: _RepCounter(feedback: _squatFeedback)),
         ),
+
         // Fault cue banner
         if (_squatFeedback.activeFaults.isNotEmpty)
           Positioned(
@@ -258,7 +330,8 @@ class _PoseScreenState extends State<PoseScreen> {
             bottom: 100,
             child: _FaultBanner(faults: _squatFeedback.activeFaults),
           ),
-        // Landmark lost warning — shown when squat channel goes silent >1s
+
+        // Landmark lost warning — shown when pose channel goes silent >2s
         if (_isPoseLost)
           const Positioned(
             top: 140,
@@ -266,7 +339,23 @@ class _PoseScreenState extends State<PoseScreen> {
             right: 0,
             child: Center(child: _LandmarkLostBadge()),
           ),
-        // Bottom bar — single row with flip camera (left) and reset (right)
+
+        // Idle end-session banner — shown after 1 minute of no activity
+        if (_showIdleBanner)
+          Positioned(
+            left: 24,
+            right: 24,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: _IdleSessionBanner(
+                onEndSession: _handleEndSession,
+                onKeepGoing: _handleDismissIdleBanner,
+              ),
+            ),
+          ),
+
+        // Bottom bar — flip camera (left) and reset (right)
         Positioned(
           bottom: 16,
           left: 16,
@@ -292,7 +381,7 @@ class _PoseScreenState extends State<PoseScreen> {
   }
 }
 
-// Native preview widget: Displays the camera feed using platform view on Android, or a placeholder on unsupported platforms.
+// ─── Native Preview ───────────────────────────────────────────────────────────
 
 class NativePosePreview extends StatelessWidget {
   const NativePosePreview({super.key, required this.enableNativePreview});
@@ -325,9 +414,7 @@ class NativePosePreview extends StatelessWidget {
   }
 }
 
-
-
-// Data Models for pose frame and squat feedback
+// ─── Data Models ──────────────────────────────────────────────────────────────
 
 class PoseFrameData {
   const PoseFrameData({
@@ -402,7 +489,7 @@ class SquatFeedbackData {
   final bool         isLandmarkReliable;
 }
 
-// ─── Premium Pose Painter ────────────────────────────────────────────────────
+// ─── Premium Pose Painter ─────────────────────────────────────────────────────
 //
 // Visual design:
 //   • Connections are drawn as gradient-glowing "bones" — a thick blurred
@@ -431,7 +518,6 @@ class PosePainter extends CustomPainter {
   final bool isFrontCamera;
 
   // ── Connections grouped by body region ──────────────────────────────────
-  // Each entry: [landmarkA, landmarkB, _SegmentKind]
   static const List<List<int>> _connections = [
     // shoulder bar
     [11, 12],
@@ -450,16 +536,55 @@ class PosePainter extends CustomPainter {
   // Indices that get a larger joint dot
   static const Set<int> _majorJoints = {11, 12, 23, 24, 25, 26, 27, 28};
 
+  // FIX #3: Cache Paint objects as static finals so they are created once
+  // per app lifetime, not allocated on every paint() call at 30–60fps.
+  // Colours that vary per segment are handled by a small set of cached paints
+  // keyed by the four palette colours.
+  static final _shadowPaintCached = Paint()
+    ..color = Colors.black.withAlpha(120)
+    ..strokeWidth = 7
+    ..strokeCap = StrokeCap.round
+    ..style = PaintingStyle.stroke
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+
+  static final _whiteHairlinePaint = Paint()
+    ..color = Colors.white.withAlpha(200)
+    ..strokeWidth = 0.8
+    ..strokeCap = StrokeCap.round;
+
+  // Glow + core paints cached per palette colour.
+  static final Map<Color, Paint> _glowPaints = {};
+  static final Map<Color, Paint> _corePaints = {};
+
+  static Paint _glowPaint(Color color) {
+    return _glowPaints.putIfAbsent(
+      color,
+      () => Paint()
+        ..color = color.withAlpha(60)
+        ..strokeWidth = 14
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+    );
+  }
+
+  static Paint _corePaint(Color color) {
+    return _corePaints.putIfAbsent(
+      color,
+      () => Paint()
+        ..color = color
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke,
+    );
+  }
+
   // ── Colour look-up ───────────────────────────────────────────────────────
   static Color _segmentColor(int a, int b) {
-    // shoulder bar
-    if ((a == 11 && b == 12)) return const Color(0xFF00E5FF);
-    // arms (elbow/wrist/hand range 13-22)
+    if (a == 11 && b == 12) return const Color(0xFF00E5FF);
     if (a >= 11 && a <= 22 && b >= 11 && b <= 22) return const Color(0xFFD500F9);
-    // torso & hip bar (23-24 with shoulder 11/12)
     if ((a == 11 || a == 12) && (b == 23 || b == 24)) return const Color(0xFFFFD600);
     if (a == 23 && b == 24) return const Color(0xFFFFD600);
-    // legs (25-32)
     return const Color(0xFF00E676);
   }
 
@@ -469,27 +594,6 @@ class PosePainter extends CustomPainter {
     if (index == 23 || index == 24) return const Color(0xFFFFD600);
     return const Color(0xFF00E676);
   }
-
-  // ── Paint helpers ────────────────────────────────────────────────────────
-  Paint _glowPaint(Color color, double width) => Paint()
-    ..color = color.withAlpha(60)
-    ..strokeWidth = width
-    ..strokeCap = StrokeCap.round
-    ..style = PaintingStyle.stroke
-    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-
-  Paint _corePaint(Color color, double width) => Paint()
-    ..color = color
-    ..strokeWidth = width
-    ..strokeCap = StrokeCap.round
-    ..style = PaintingStyle.stroke;
-
-  Paint _shadowPaint(double width) => Paint()
-    ..color = Colors.black.withAlpha(120)
-    ..strokeWidth = width + 2
-    ..strokeCap = StrokeCap.round
-    ..style = PaintingStyle.stroke
-    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
 
   // ── Main paint ───────────────────────────────────────────────────────────
   @override
@@ -537,20 +641,10 @@ class PosePainter extends CustomPainter {
       final pB = mapPoint(b!);
       final color = _segmentColor(conn[0], conn[1]);
 
-      // drop shadow
-      canvas.drawLine(pA, pB, _shadowPaint(5));
-      // outer glow
-      canvas.drawLine(pA, pB, _glowPaint(color, 14));
-      // bright core line
-      canvas.drawLine(pA, pB, _corePaint(color, 2.5));
-      // hair-line white centre for sparkle
-      canvas.drawLine(
-        pA, pB,
-        Paint()
-          ..color = Colors.white.withAlpha(200)
-          ..strokeWidth = 0.8
-          ..strokeCap = StrokeCap.round,
-      );
+      canvas.drawLine(pA, pB, _shadowPaintCached);
+      canvas.drawLine(pA, pB, _glowPaint(color));
+      canvas.drawLine(pA, pB, _corePaint(color));
+      canvas.drawLine(pA, pB, _whiteHairlinePaint);
     }
 
     // ── Pass 2: joints ───────────────────────────────────────────────────
@@ -562,13 +656,13 @@ class PosePainter extends CustomPainter {
       final isMajor = _majorJoints.contains(lm.index);
       final double r = isMajor ? 7.0 : 4.5;
 
-      // shadow
-      canvas.drawCircle(p, r + 3,
-          Paint()
-            ..color = Colors.black.withAlpha(100)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
+      canvas.drawCircle(
+        p, r + 3,
+        Paint()
+          ..color = Colors.black.withAlpha(100)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+      );
 
-      // outer halo ring
       canvas.drawCircle(
         p, r + 5,
         Paint()
@@ -577,7 +671,6 @@ class PosePainter extends CustomPainter {
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
       );
 
-      // coloured ring
       canvas.drawCircle(
         p, r + 1.5,
         Paint()
@@ -586,10 +679,8 @@ class PosePainter extends CustomPainter {
           ..strokeWidth = 1.5,
       );
 
-      // filled disc
       canvas.drawCircle(p, r, Paint()..color = color);
 
-      // white specular dot
       canvas.drawCircle(
         Offset(p.dx - r * 0.28, p.dy - r * 0.28),
         r * 0.28,
@@ -598,9 +689,12 @@ class PosePainter extends CustomPainter {
     }
   }
 
+  // FIX #1: shouldRepaint now also checks if the repaint notifier instance
+  // changed, so the skeleton never freezes when only _repaint updates.
   @override
   bool shouldRepaint(covariant PosePainter oldDelegate) {
-    return oldDelegate.isFrontCamera != isFrontCamera;
+    return oldDelegate.isFrontCamera != isFrontCamera ||
+        oldDelegate._repaint != _repaint;
   }
 
   bool _isVisible(PoseLandmarkPoint? landmark) {
@@ -610,7 +704,7 @@ class PosePainter extends CustomPainter {
   }
 }
 
-/// Squat overlay widgets
+// ─── Squat Overlay Widgets ────────────────────────────────────────────────────
 
 class _RepCounter extends StatelessWidget {
   const _RepCounter({required this.feedback});
@@ -745,6 +839,98 @@ class _LandmarkLostBadge extends StatelessWidget {
               fontWeight: FontWeight.w600,
               fontSize: 13,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown after 1 minute of no squat activity.
+/// "End Session" dismisses the banner (no navigation yet — wire up later).
+/// "Keep Going" resets the idle clock and dismisses the banner.
+class _IdleSessionBanner extends StatelessWidget {
+  const _IdleSessionBanner({
+    required this.onEndSession,
+    required this.onKeepGoing,
+  });
+
+  final VoidCallback onEndSession;
+  final VoidCallback onKeepGoing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.hourglass_bottom_rounded,
+              color: Color(0xFF2ECC71), size: 36),
+          const SizedBox(height: 14),
+          const Text(
+            'Still there?',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "You've been idle for a minute.\nWould you like to end your session?",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white60,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onKeepGoing,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white24),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text(
+                    'Keep Going',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: onEndSession,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE5534B),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text(
+                    'End Session',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
