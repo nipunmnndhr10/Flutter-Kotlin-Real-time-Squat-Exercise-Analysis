@@ -21,7 +21,6 @@ class _LoginScreenState extends State<LoginScreen>
   String? _passwordError;
   bool _obscurePassword = true;
   bool _isLoading = false;
-
   bool _formValid = false;
 
   late AnimationController _animationController;
@@ -348,7 +347,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                               ),
 
-                              const SizedBox(height: kSpacingLg),
+                              const SizedBox(height: 10),
 
                               Flexible(
                                 flex: 0,
