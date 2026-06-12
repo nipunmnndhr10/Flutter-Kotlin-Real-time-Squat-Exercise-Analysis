@@ -34,23 +34,28 @@ class _PoseScreenState extends State<PoseScreen> {
   // Track camera state (Kotlin defaults to back camera initially)
   bool _isFrontCamera = false;
 
-  // Pose-lost detection: fires when the pose channel goes silent for 2s,
-  // meaning the person stepped fully out of frame.
+  // Pose-lost detection: fires when the pose channel goes silent for 2s
   Timer? _poseLostTimer;
   bool _isPoseLost = false;
 
-  // FIX #4: Single timestamp-based idle approach — one periodic timer instead
-  // of cancelling+allocating a new Timer on every camera frame (30–60fps).
-  // Idle = no rep count change and no phase change for 60 seconds.
-  static const Duration _idleThreshold = Duration(minutes: 1);
+  // Idle detection
+  static const Duration _idleThreshold    = Duration(minutes: 1);
   static const Duration _idleCheckInterval = Duration(seconds: 5);
   Timer? _idleCheckTimer;
-  DateTime _lastActivityTime = DateTime.now();
-  int _lastKnownRepCount = 0;
-  String _lastKnownPhase = 'STANDING';
+  DateTime _lastActivityTime  = DateTime.now();
+  int    _lastKnownRepCount   = 0;
+  String _lastKnownPhase      = 'STANDING';
+  bool   _showIdleBanner      = false;
 
-  // Controls visibility of the idle end-session banner.
-  bool _showIdleBanner = false;
+  // ── Depth preset ────────────────────────────────────────────────────────
+  static const _presets = [
+    _SquatPreset('Explosive Power (¼ Squat)', 140.0, 'Vertical jump, sprinting, basketball'),
+    _SquatPreset('Athletic Strength (½ Squat)', 120.0, 'Sports performance, power development'),
+    _SquatPreset('Full Strength (Full Squat)', 90.0, 'Strength training, muscle growth'),
+  ];
+  _SquatPreset _selectedPreset = const _SquatPreset(
+    'Full Strength (Full Squat)', 90.0, 'Strength training, muscle growth',
+  );
 
   @override
   void initState() {
@@ -61,33 +66,21 @@ class _PoseScreenState extends State<PoseScreen> {
     _startIdleCheck();
   }
 
+  // ── Channel setup ────────────────────────────────────────────────────────
+
   void _setupPoseChannel() {
     _subscription = _poseChannel.receiveBroadcastStream().listen(
       (event) {
         final parsed = _parseFrameData(event);
-        if (parsed != null) {
-          _frameData.value = parsed;
-        }
+        if (parsed != null) _frameData.value = parsed;
 
-        // FIX #4: Replaced cancel+new-Timer-every-frame with a simple flag
-        // update. _poseLostTimer is only created once here and restarted by
-        // updating a timestamp; the periodic _idleCheckTimer handles polling.
-        // Pose-lost uses its own dedicated short timer since it needs a
-        // tight 2-second window — but we only allocate a new one when the
-        // previous one has already fired (i.e. _isPoseLost became true),
-        // not on every single frame.
-        if (_isPoseLost) {
-          // Pose recovered — clear the flag in one setState.
-          setState(() => _isPoseLost = false);
-        }
+        if (_isPoseLost) setState(() => _isPoseLost = false);
         _poseLostTimer?.cancel();
         _poseLostTimer = Timer(const Duration(seconds: 2), () {
           if (mounted) setState(() => _isPoseLost = true);
         });
       },
-      onError: (Object error) {
-        debugPrint('Pose stream error: $error');
-      },
+      onError: (Object error) => debugPrint('Pose stream error: $error'),
     );
   }
 
@@ -97,16 +90,12 @@ class _PoseScreenState extends State<PoseScreen> {
         if (event is! Map) return;
         final newFeedback = SquatFeedbackData.fromMap(event);
 
-        // Idle detection: reset the activity clock whenever a rep is
-        // completed or the squat phase changes — these are signs the
-        // user is actively squatting.
         if (newFeedback.repCount != _lastKnownRepCount ||
             newFeedback.phase != _lastKnownPhase) {
-          _lastActivityTime = DateTime.now();
+          _lastActivityTime  = DateTime.now();
           _lastKnownRepCount = newFeedback.repCount;
-          _lastKnownPhase = newFeedback.phase;
+          _lastKnownPhase    = newFeedback.phase;
 
-          // Also dismiss the idle banner if the user starts moving again.
           if (_showIdleBanner) {
             setState(() {
               _squatFeedback = newFeedback;
@@ -118,21 +107,14 @@ class _PoseScreenState extends State<PoseScreen> {
 
         setState(() => _squatFeedback = newFeedback);
       },
-      onError: (Object error) {
-        debugPrint('Squat feedback error: $error');
-      },
+      onError: (Object error) => debugPrint('Squat feedback error: $error'),
     );
   }
 
-  /// Starts a lightweight periodic timer that checks every 5 seconds whether
-  /// the user has been idle for over a minute. This is far cheaper than
-  /// creating a 60-second Timer on every squat event.
   void _startIdleCheck() {
     _idleCheckTimer = Timer.periodic(_idleCheckInterval, (_) {
-      if (!mounted) return;
-      if (_showIdleBanner) return; // already showing — don't re-trigger
-      final idleFor = DateTime.now().difference(_lastActivityTime);
-      if (idleFor >= _idleThreshold) {
+      if (!mounted || _showIdleBanner) return;
+      if (DateTime.now().difference(_lastActivityTime) >= _idleThreshold) {
         setState(() => _showIdleBanner = true);
       }
     });
@@ -140,45 +122,66 @@ class _PoseScreenState extends State<PoseScreen> {
 
   Future<void> _setupPermission() async {
     if (!widget.enableNativePreview ||
-        defaultTargetPlatform != TargetPlatform.android) {
-      return;
-    }
-
+        defaultTargetPlatform != TargetPlatform.android) return;
     try {
       final granted =
-          await _permissionChannel.invokeMethod<bool>(
-                'requestCameraPermission',
-              ) ??
-              false;
+          await _permissionChannel.invokeMethod<bool>('requestCameraPermission') ?? false;
       if (!mounted) return;
-
       setState(() {
         _cameraPermissionGranted = granted;
-        _permissionError = granted
-            ? null
-            : 'Camera permission is required to start tracking.';
+        _permissionError = granted ? null : 'Camera permission is required to start tracking.';
       });
     } on PlatformException catch (error) {
       if (!mounted) return;
       setState(() {
         _cameraPermissionGranted = false;
-        _permissionError =
-            error.message ?? 'Unable to request camera permission.';
+        _permissionError = error.message ?? 'Unable to request camera permission.';
       });
     }
   }
 
+  // ── Actions ──────────────────────────────────────────────────────────────
+
+  Future<void> _resetSession() async {
+    if (!widget.enableNativePreview ||
+        defaultTargetPlatform != TargetPlatform.android) return;
+    await _actionChannel.invokeMethod<void>('resetSquatSession');
+  }
+
+  Future<void> _toggleCamera() async {
+    if (!widget.enableNativePreview ||
+        defaultTargetPlatform != TargetPlatform.android) return;
+    final newFrontState = !_isFrontCamera;
+    setState(() => _isFrontCamera = newFrontState);
+    await _actionChannel.invokeMethod('toggleCameraFacing', newFrontState);
+  }
+
+  Future<void> _setDepthPreset(_SquatPreset preset) async {
+    setState(() => _selectedPreset = preset);
+    if (!widget.enableNativePreview ||
+        defaultTargetPlatform != TargetPlatform.android) return;
+    await _actionChannel.invokeMethod('setDepthThreshold', preset.angle);
+  }
+
+  void _handleEndSession() => setState(() => _showIdleBanner = false);
+
+  void _handleDismissIdleBanner() {
+    _lastActivityTime = DateTime.now();
+    setState(() => _showIdleBanner = false);
+  }
+
+  // ── Frame parsing ────────────────────────────────────────────────────────
+
   PoseFrameData? _parseFrameData(dynamic event) {
     if (event is! Map) return null;
 
-    final frameWidth  = (event['frameWidth']  as num?)?.toInt() ?? 1;
-    final frameHeight = (event['frameHeight'] as num?)?.toInt() ?? 1;
+    final frameWidth   = (event['frameWidth']  as num?)?.toInt() ?? 1;
+    final frameHeight  = (event['frameHeight'] as num?)?.toInt() ?? 1;
     final rawLandmarks = event['landmarks'];
 
     if (rawLandmarks is! List) {
       return PoseFrameData(
-        frameWidth: frameWidth,
-        frameHeight: frameHeight,
+        frameWidth: frameWidth, frameHeight: frameHeight,
         landmarks: const <int, PoseLandmarkPoint>{},
       );
     }
@@ -187,7 +190,6 @@ class _PoseScreenState extends State<PoseScreen> {
     for (final item in rawLandmarks.whereType<Map>()) {
       final index = (item['index'] as num?)?.toInt();
       if (index == null) continue;
-
       landmarks[index] = PoseLandmarkPoint(
         index: index,
         x: (item['x'] as num?)?.toDouble() ?? 0.0,
@@ -198,41 +200,8 @@ class _PoseScreenState extends State<PoseScreen> {
     }
 
     return PoseFrameData(
-      frameWidth: frameWidth,
-      frameHeight: frameHeight,
-      landmarks: landmarks,
+      frameWidth: frameWidth, frameHeight: frameHeight, landmarks: landmarks,
     );
-  }
-
-  Future<void> _resetSession() async {
-    if (!widget.enableNativePreview ||
-        defaultTargetPlatform != TargetPlatform.android) {
-      return;
-    }
-    await _actionChannel.invokeMethod<void>('resetSquatSession');
-  }
-
-  Future<void> _toggleCamera() async {
-    if (!widget.enableNativePreview ||
-        defaultTargetPlatform != TargetPlatform.android) {
-      return;
-    }
-    final newFrontState = !_isFrontCamera;
-    setState(() => _isFrontCamera = newFrontState);
-    await _actionChannel.invokeMethod('toggleCameraFacing', newFrontState);
-  }
-
-  /// Called when the user taps "End Session" on the idle banner.
-  /// No navigation — just dismisses the banner. Wire up navigation here later.
-  void _handleEndSession() {
-    setState(() => _showIdleBanner = false);
-  
-  }
-
-  /// Called when the user taps "Keep Going" on the idle banner.
-  void _handleDismissIdleBanner() {
-    _lastActivityTime = DateTime.now(); // reset the clock
-    setState(() => _showIdleBanner = false);
   }
 
   @override
@@ -240,10 +209,12 @@ class _PoseScreenState extends State<PoseScreen> {
     _subscription?.cancel();
     _squatSubscription?.cancel();
     _poseLostTimer?.cancel();
-    _idleCheckTimer?.cancel(); // cancel the idle check timer
+    _idleCheckTimer?.cancel();
     _frameData.dispose();
     super.dispose();
   }
+
+  // ── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -254,6 +225,7 @@ class _PoseScreenState extends State<PoseScreen> {
   }
 
   Widget _buildBody() {
+    // Non-Android / preview-disabled path
     if (!widget.enableNativePreview ||
         defaultTargetPlatform != TargetPlatform.android) {
       return Stack(
@@ -262,17 +234,16 @@ class _PoseScreenState extends State<PoseScreen> {
           const NativePosePreview(enableNativePreview: false),
           RepaintBoundary(
             child: CustomPaint(
-              painter: PosePainter(
-                repaint: _frameData,
-                isFrontCamera: _isFrontCamera,
-              ),
+              painter: PosePainter(repaint: _frameData, isFrontCamera: _isFrontCamera),
               child: const SizedBox.expand(),
             ),
           ),
+          _buildOverlay(),
         ],
       );
     }
 
+    // Permission pending / denied
     if (_cameraPermissionGranted != true) {
       return Center(
         child: Padding(
@@ -283,11 +254,7 @@ class _PoseScreenState extends State<PoseScreen> {
               if (_cameraPermissionGranted == null)
                 const CircularProgressIndicator()
               else
-                const Icon(
-                  Icons.videocam_off_outlined,
-                  color: Colors.white70,
-                  size: 48,
-                ),
+                const Icon(Icons.videocam_off_outlined, color: Colors.white70, size: 48),
               const SizedBox(height: 16),
               Text(
                 _permissionError ?? 'Requesting camera permission...',
@@ -300,53 +267,52 @@ class _PoseScreenState extends State<PoseScreen> {
       );
     }
 
+    // Full live view
     return Stack(
       fit: StackFit.expand,
       children: [
         const NativePosePreview(enableNativePreview: true),
         RepaintBoundary(
           child: CustomPaint(
-            painter: PosePainter(
-              repaint: _frameData,
-              isFrontCamera: _isFrontCamera,
-            ),
+            painter: PosePainter(repaint: _frameData, isFrontCamera: _isFrontCamera),
             child: const SizedBox.expand(),
           ),
         ),
+        _buildOverlay(),
+      ],
+    );
+  }
 
+  /// All HUD elements layered on top of the camera — extracted so both
+  /// the preview path and the live path share identical overlays.
+  Widget _buildOverlay() {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
         // Rep counter
         Positioned(
-          top: 80,
-          left: 0,
-          right: 0,
+          top: 80, left: 0, right: 0,
           child: Center(child: _RepCounter(feedback: _squatFeedback)),
         ),
 
         // Fault cue banner
         if (_squatFeedback.activeFaults.isNotEmpty)
           Positioned(
-            left: 24,
-            right: 24,
-            bottom: 100,
+            left: 24, right: 24, bottom: 140,
             child: _FaultBanner(faults: _squatFeedback.activeFaults),
           ),
 
-        // Landmark lost warning — shown when pose channel goes silent >2s
+        // Landmark lost warning
         if (_isPoseLost)
           const Positioned(
-            top: 140,
-            left: 0,
-            right: 0,
+            top: 140, left: 0, right: 0,
             child: Center(child: _LandmarkLostBadge()),
           ),
 
-        // Idle end-session banner — shown after 1 minute of no activity
+        // Idle end-session banner
         if (_showIdleBanner)
           Positioned(
-            left: 24,
-            right: 24,
-            top: 0,
-            bottom: 0,
+            left: 24, right: 24, top: 0, bottom: 0,
             child: Center(
               child: _IdleSessionBanner(
                 onEndSession: _handleEndSession,
@@ -355,23 +321,32 @@ class _PoseScreenState extends State<PoseScreen> {
             ),
           ),
 
-        // Bottom bar — flip camera (left) and reset (right)
+        // Bottom controls: preset dropdown + flip/reset buttons
         Positioned(
-          bottom: 16,
-          left: 16,
-          right: 16,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          bottom: 16, left: 16, right: 16,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton.filledTonal(
-                onPressed: _toggleCamera,
-                tooltip: 'Flip Camera',
-                icon: const Icon(Icons.flip_camera_android_rounded),
+              _DepthPresetDropdown(
+                presets: _presets,
+                selected: _selectedPreset,
+                onChanged: _setDepthPreset,
               ),
-              IconButton.filledTonal(
-                onPressed: _resetSession,
-                tooltip: 'Reset session',
-                icon: const Icon(Icons.refresh_rounded),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton.filledTonal(
+                    onPressed: _toggleCamera,
+                    tooltip: 'Flip Camera',
+                    icon: const Icon(Icons.flip_camera_android_rounded),
+                  ),
+                  IconButton.filledTonal(
+                    onPressed: _resetSession,
+                    tooltip: 'Reset session',
+                    icon: const Icon(Icons.refresh_rounded),
+                  ),
+                ],
               ),
             ],
           ),
@@ -385,13 +360,11 @@ class _PoseScreenState extends State<PoseScreen> {
 
 class NativePosePreview extends StatelessWidget {
   const NativePosePreview({super.key, required this.enableNativePreview});
-
   final bool enableNativePreview;
 
   @override
   Widget build(BuildContext context) {
-    if (!enableNativePreview ||
-        defaultTargetPlatform != TargetPlatform.android) {
+    if (!enableNativePreview || defaultTargetPlatform != TargetPlatform.android) {
       return const ColoredBox(
         color: Colors.black,
         child: Center(
@@ -406,11 +379,7 @@ class NativePosePreview extends StatelessWidget {
         ),
       );
     }
-
-    return const AndroidView(
-      viewType: 'native_pose_camera',
-      layoutDirection: TextDirection.ltr,
-    );
+    return const AndroidView(viewType: 'native_pose_camera', layoutDirection: TextDirection.ltr);
   }
 }
 
@@ -423,13 +392,9 @@ class PoseFrameData {
     required this.landmarks,
   });
 
-  factory PoseFrameData.empty() {
-    return const PoseFrameData(
-      frameWidth: 1,
-      frameHeight: 1,
-      landmarks: <int, PoseLandmarkPoint>{},
-    );
-  }
+  factory PoseFrameData.empty() => const PoseFrameData(
+    frameWidth: 1, frameHeight: 1, landmarks: <int, PoseLandmarkPoint>{},
+  );
 
   final int frameWidth;
   final int frameHeight;
@@ -445,7 +410,7 @@ class PoseLandmarkPoint {
     this.presence,
   });
 
-  final int index;
+  final int    index;
   final double x;
   final double y;
   final double? visibility;
@@ -460,26 +425,33 @@ class SquatFeedbackData {
     required this.kneeAngle,
     required this.hipAngle,
     required this.isLandmarkReliable,
+    this.activePreset   = 'FULL_SQUAT',
+    this.angleThreshold = 90.0,
+    this.presetLabel    = 'Full Strength (Full Squat)',
   });
 
   const SquatFeedbackData.empty()
-      : phase = 'STANDING',
-        repCount = 0,
-        activeFaults = const [],
-        kneeAngle = 0,
-        hipAngle = 0,
-        isLandmarkReliable = false;
+      : phase             = 'STANDING',
+        repCount          = 0,
+        activeFaults      = const [],
+        kneeAngle         = 0,
+        hipAngle          = 0,
+        isLandmarkReliable = false,
+        activePreset      = 'FULL_SQUAT',
+        angleThreshold    = 90.0,
+        presetLabel       = 'Full Strength (Full Squat)';
 
-  factory SquatFeedbackData.fromMap(Map map) {
-    return SquatFeedbackData(
-      phase:              (map['phase'] as String?) ?? 'STANDING',
-      repCount:           (map['repCount'] as num?)?.toInt() ?? 0,
-      activeFaults:       (map['activeFaults'] as List?)?.cast<String>() ?? [],
-      kneeAngle:          (map['kneeAngle'] as num?)?.toDouble() ?? 0,
-      hipAngle:           (map['hipAngle'] as num?)?.toDouble() ?? 0,
-      isLandmarkReliable: (map['isLandmarkReliable'] as bool?) ?? false,
-    );
-  }
+  factory SquatFeedbackData.fromMap(Map map) => SquatFeedbackData(
+    phase:              (map['phase']             as String?) ?? 'STANDING',
+    repCount:           (map['repCount']          as num?)?.toInt() ?? 0,
+    activeFaults:       (map['activeFaults']      as List?)?.cast<String>() ?? [],
+    kneeAngle:          (map['kneeAngle']         as num?)?.toDouble() ?? 0,
+    hipAngle:           (map['hipAngle']          as num?)?.toDouble() ?? 0,
+    isLandmarkReliable: (map['isLandmarkReliable'] as bool?) ?? false,
+    activePreset:       (map['activePreset']      as String?) ?? 'FULL_SQUAT',
+    angleThreshold:     (map['angleThreshold']    as num?)?.toDouble() ?? 90.0,
+    presetLabel:        (map['presetLabel']       as String?) ?? 'Full Strength (Full Squat)',
+  );
 
   final String       phase;
   final int          repCount;
@@ -487,25 +459,21 @@ class SquatFeedbackData {
   final double       kneeAngle;
   final double       hipAngle;
   final bool         isLandmarkReliable;
+  final String       activePreset;
+  final double       angleThreshold;
+  final String       presetLabel;
+}
+
+// ─── Squat Depth Preset ───────────────────────────────────────────────────────
+
+class _SquatPreset {
+  final String label;
+  final double angle;
+  final String description;
+  const _SquatPreset(this.label, this.angle, this.description);
 }
 
 // ─── Premium Pose Painter ─────────────────────────────────────────────────────
-//
-// Visual design:
-//   • Connections are drawn as gradient-glowing "bones" — a thick blurred
-//     outer glow layer + a bright inner core, each segment coloured by body
-//     region (shoulders: cyan, arms: violet, torso: gold, legs: emerald).
-//   • Joints are rendered as a layered halo: faint outer ring → coloured
-//     mid-ring → bright filled disc. Key joints (hips, knees, ankles,
-//     shoulders) are slightly larger.
-//   • A subtle drop-shadow is applied to every element so the overlay reads
-//     clearly against any background.
-//
-// Segment colour palette (ARGB hex):
-//   Shoulders / upper torso  → cyan   #00E5FF
-//   Arms / hands              → violet #D500F9
-//   Core / spine              → gold   #FFD600
-//   Legs / feet               → green  #00E676
 
 class PosePainter extends CustomPainter {
   PosePainter({
@@ -517,29 +485,17 @@ class PosePainter extends CustomPainter {
   final ValueListenable<PoseFrameData> _repaint;
   final bool isFrontCamera;
 
-  // ── Connections grouped by body region ──────────────────────────────────
   static const List<List<int>> _connections = [
-    // shoulder bar
     [11, 12],
-    // left arm
     [11, 13], [13, 15], [15, 17], [17, 19], [19, 21],
-    // right arm
     [12, 14], [14, 16], [16, 18], [18, 20], [20, 22],
-    // torso sides + hip bar
     [11, 23], [12, 24], [23, 24],
-    // left leg
     [23, 25], [25, 27], [27, 29], [29, 31],
-    // right leg
     [24, 26], [26, 28], [28, 30], [30, 32],
   ];
 
-  // Indices that get a larger joint dot
   static const Set<int> _majorJoints = {11, 12, 23, 24, 25, 26, 27, 28};
 
-  // FIX #3: Cache Paint objects as static finals so they are created once
-  // per app lifetime, not allocated on every paint() call at 30–60fps.
-  // Colours that vary per segment are handled by a small set of cached paints
-  // keyed by the four palette colours.
   static final _shadowPaintCached = Paint()
     ..color = Colors.black.withAlpha(120)
     ..strokeWidth = 7
@@ -552,34 +508,22 @@ class PosePainter extends CustomPainter {
     ..strokeWidth = 0.8
     ..strokeCap = StrokeCap.round;
 
-  // Glow + core paints cached per palette colour.
   static final Map<Color, Paint> _glowPaints = {};
   static final Map<Color, Paint> _corePaints = {};
 
-  static Paint _glowPaint(Color color) {
-    return _glowPaints.putIfAbsent(
-      color,
-      () => Paint()
-        ..color = color.withAlpha(60)
-        ..strokeWidth = 14
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
-    );
-  }
+  static Paint _glowPaint(Color color) => _glowPaints.putIfAbsent(color, () => Paint()
+    ..color = color.withAlpha(60)
+    ..strokeWidth = 14
+    ..strokeCap = StrokeCap.round
+    ..style = PaintingStyle.stroke
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8));
 
-  static Paint _corePaint(Color color) {
-    return _corePaints.putIfAbsent(
-      color,
-      () => Paint()
-        ..color = color
-        ..strokeWidth = 2.5
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke,
-    );
-  }
+  static Paint _corePaint(Color color) => _corePaints.putIfAbsent(color, () => Paint()
+    ..color = color
+    ..strokeWidth = 2.5
+    ..strokeCap = StrokeCap.round
+    ..style = PaintingStyle.stroke);
 
-  // ── Colour look-up ───────────────────────────────────────────────────────
   static Color _segmentColor(int a, int b) {
     if (a == 11 && b == 12) return const Color(0xFF00E5FF);
     if (a >= 11 && a <= 22 && b >= 11 && b <= 22) return const Color(0xFFD500F9);
@@ -595,7 +539,6 @@ class PosePainter extends CustomPainter {
     return const Color(0xFF00E676);
   }
 
-  // ── Main paint ───────────────────────────────────────────────────────────
   @override
   void paint(Canvas canvas, Size size) {
     final frame = _repaint.value;
@@ -604,103 +547,66 @@ class PosePainter extends CustomPainter {
     final bool isScreenPortrait = size.height > size.width;
     final bool isFrameLandscape = frame.frameWidth > frame.frameHeight;
 
-    final double adjustedFrameWidth = (isScreenPortrait && isFrameLandscape)
-        ? frame.frameHeight.toDouble()
-        : frame.frameWidth.toDouble();
-    final double adjustedFrameHeight = (isScreenPortrait && isFrameLandscape)
-        ? frame.frameWidth.toDouble()
-        : frame.frameHeight.toDouble();
+    final double adjW = (isScreenPortrait && isFrameLandscape)
+        ? frame.frameHeight.toDouble() : frame.frameWidth.toDouble();
+    final double adjH = (isScreenPortrait && isFrameLandscape)
+        ? frame.frameWidth.toDouble() : frame.frameHeight.toDouble();
 
-    final double scaleX = size.width / adjustedFrameWidth;
-    final double scaleY = size.height / adjustedFrameHeight;
-    final double scale  = math.max(scaleX, scaleY);
-
-    final double renderedWidth  = adjustedFrameWidth  * scale;
-    final double renderedHeight = adjustedFrameHeight * scale;
-    final double offsetX = (size.width  - renderedWidth)  / 2.0;
-    final double offsetY = (size.height - renderedHeight) / 2.0;
+    final double scale   = math.max(size.width / adjW, size.height / adjH);
+    final double rendW   = adjW * scale;
+    final double rendH   = adjH * scale;
+    final double offsetX = (size.width  - rendW) / 2.0;
+    final double offsetY = (size.height - rendH) / 2.0;
 
     Offset mapPoint(PoseLandmarkPoint pt) {
-      double x = pt.x;
-      double y = pt.y;
+      double x = pt.x, y = pt.y;
       if (isScreenPortrait && isFrameLandscape) {
-        final double tmp = x;
-        x = 1.0 - y;
-        y = tmp;
+        final tmp = x; x = 1.0 - y; y = tmp;
       }
-      return Offset(offsetX + x * renderedWidth, offsetY + y * renderedHeight);
+      return Offset(offsetX + x * rendW, offsetY + y * rendH);
     }
 
-    // ── Pass 1: bone glow + core ─────────────────────────────────────────
+    // Pass 1: bones
     for (final conn in _connections) {
       final a = frame.landmarks[conn[0]];
       final b = frame.landmarks[conn[1]];
       if (!_isVisible(a) || !_isVisible(b)) continue;
-
       final pA = mapPoint(a!);
       final pB = mapPoint(b!);
       final color = _segmentColor(conn[0], conn[1]);
-
       canvas.drawLine(pA, pB, _shadowPaintCached);
       canvas.drawLine(pA, pB, _glowPaint(color));
       canvas.drawLine(pA, pB, _corePaint(color));
       canvas.drawLine(pA, pB, _whiteHairlinePaint);
     }
 
-    // ── Pass 2: joints ───────────────────────────────────────────────────
+    // Pass 2: joints
     for (final lm in frame.landmarks.values) {
       if (!_isVisible(lm)) continue;
-
       final p = mapPoint(lm);
       final color = _jointColor(lm.index);
-      final isMajor = _majorJoints.contains(lm.index);
-      final double r = isMajor ? 7.0 : 4.5;
+      final double r = _majorJoints.contains(lm.index) ? 7.0 : 4.5;
 
-      canvas.drawCircle(
-        p, r + 3,
-        Paint()
-          ..color = Colors.black.withAlpha(100)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
-      );
-
-      canvas.drawCircle(
-        p, r + 5,
-        Paint()
-          ..color = color.withAlpha(40)
-          ..style = PaintingStyle.fill
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
-      );
-
-      canvas.drawCircle(
-        p, r + 1.5,
-        Paint()
-          ..color = color.withAlpha(160)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5,
-      );
-
+      canvas.drawCircle(p, r + 3,
+          Paint()..color = Colors.black.withAlpha(100)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
+      canvas.drawCircle(p, r + 5,
+          Paint()..color = color.withAlpha(40)..style = PaintingStyle.fill..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
+      canvas.drawCircle(p, r + 1.5,
+          Paint()..color = color.withAlpha(160)..style = PaintingStyle.stroke..strokeWidth = 1.5);
       canvas.drawCircle(p, r, Paint()..color = color);
-
-      canvas.drawCircle(
-        Offset(p.dx - r * 0.28, p.dy - r * 0.28),
-        r * 0.28,
-        Paint()..color = Colors.white.withAlpha(200),
-      );
+      canvas.drawCircle(Offset(p.dx - r * 0.28, p.dy - r * 0.28), r * 0.28,
+          Paint()..color = Colors.white.withAlpha(200));
     }
   }
 
-  // FIX #1: shouldRepaint now also checks if the repaint notifier instance
-  // changed, so the skeleton never freezes when only _repaint updates.
   @override
-  bool shouldRepaint(covariant PosePainter oldDelegate) {
-    return oldDelegate.isFrontCamera != isFrontCamera ||
-        oldDelegate._repaint != _repaint;
-  }
+  bool shouldRepaint(covariant PosePainter oldDelegate) =>
+      oldDelegate.isFrontCamera != isFrontCamera || oldDelegate._repaint != _repaint;
 
-  bool _isVisible(PoseLandmarkPoint? landmark) {
-    if (landmark == null) return false;
-    final visibility = landmark.visibility ?? landmark.presence;
-    return visibility == null || visibility > 0.4;
+  bool _isVisible(PoseLandmarkPoint? lm) {
+    if (lm == null) return false;
+    final v = lm.visibility ?? lm.presence;
+    return v == null || v > 0.4;
   }
 }
 
@@ -708,7 +614,6 @@ class PosePainter extends CustomPainter {
 
 class _RepCounter extends StatelessWidget {
   const _RepCounter({required this.feedback});
-
   final SquatFeedbackData feedback;
 
   String get _phaseLabel => switch (feedback.phase) {
@@ -730,37 +635,17 @@ class _RepCounter extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            '${feedback.repCount}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 40,
-              fontWeight: FontWeight.w800,
-              height: 1,
-            ),
-          ),
+          Text('${feedback.repCount}',
+              style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.w800, height: 1)),
           const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'REPS',
-                style: TextStyle(
-                  color: Colors.white60,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              Text(
-                _phaseLabel,
-                style: const TextStyle(
-                  color: Color(0xFF2ECC71),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              const Text('REPS',
+                  style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.2)),
+              Text(_phaseLabel,
+                  style: const TextStyle(color: Color(0xFF2ECC71), fontSize: 13, fontWeight: FontWeight.w600)),
             ],
           ),
         ],
@@ -771,7 +656,6 @@ class _RepCounter extends StatelessWidget {
 
 class _FaultBanner extends StatelessWidget {
   const _FaultBanner({required this.faults});
-
   final List<String> faults;
 
   String _label(String fault) => switch (fault) {
@@ -786,32 +670,23 @@ class _FaultBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      children: faults.map((f) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE5534B).withValues(alpha: 0.85),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.warning_amber_rounded,
-                  color: Colors.white, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                _label(f),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
+      children: faults.map((f) => Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE5534B).withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Text(_label(f),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+          ],
+        ),
+      )).toList(),
     );
   }
 }
@@ -832,29 +707,16 @@ class _LandmarkLostBadge extends StatelessWidget {
         children: [
           Icon(Icons.visibility_off_outlined, color: Colors.white, size: 16),
           SizedBox(width: 6),
-          Text(
-            'Pose lost — step into frame',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
+          Text('Pose lost — step into frame',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
         ],
       ),
     );
   }
 }
 
-/// Shown after 1 minute of no squat activity.
-/// "End Session" dismisses the banner (no navigation yet — wire up later).
-/// "Keep Going" resets the idle clock and dismisses the banner.
 class _IdleSessionBanner extends StatelessWidget {
-  const _IdleSessionBanner({
-    required this.onEndSession,
-    required this.onKeepGoing,
-  });
-
+  const _IdleSessionBanner({required this.onEndSession, required this.onKeepGoing});
   final VoidCallback onEndSession;
   final VoidCallback onKeepGoing;
 
@@ -871,27 +733,15 @@ class _IdleSessionBanner extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.hourglass_bottom_rounded,
-              color: Color(0xFF2ECC71), size: 36),
+          const Icon(Icons.hourglass_bottom_rounded, color: Color(0xFF2ECC71), size: 36),
           const SizedBox(height: 14),
-          const Text(
-            'Still there?',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.3,
-            ),
-          ),
+          const Text('Still there?',
+              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
           const SizedBox(height: 8),
           const Text(
             "You've been idle for a minute.\nWould you like to end your session?",
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white60,
-              fontSize: 14,
-              height: 1.5,
-            ),
+            style: TextStyle(color: Colors.white60, fontSize: 14, height: 1.5),
           ),
           const SizedBox(height: 24),
           Row(
@@ -902,14 +752,11 @@ class _IdleSessionBanner extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: Colors.white24),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text(
-                    'Keep Going',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
+                  child: const Text('Keep Going',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -920,19 +767,109 @@ class _IdleSessionBanner extends StatelessWidget {
                     backgroundColor: const Color(0xFFE5534B),
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text(
-                    'End Session',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
+                  child: const Text('End Session',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                 ),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Depth Preset Dropdown ────────────────────────────────────────────────────
+
+class _DepthPresetDropdown extends StatelessWidget {
+  const _DepthPresetDropdown({
+    required this.presets,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final List<_SquatPreset> presets;
+  final _SquatPreset selected;
+  final ValueChanged<_SquatPreset> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<_SquatPreset>(
+          value: selected,
+          isExpanded: true,
+          dropdownColor: const Color(0xFF1A1A1A),
+          iconEnabledColor: Colors.white54,
+          style: const TextStyle(color: Colors.white, fontSize: 13),
+          // Collapsed display: icon + label + angle badge
+          selectedItemBuilder: (_) => presets.map((p) => Row(
+            children: [
+              const Icon(Icons.tune_rounded, color: Color(0xFF2ECC71), size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(p.label,
+                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2ECC71).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF2ECC71), width: 0.8),
+                ),
+                child: Text('${p.angle.toInt()}°',
+                    style: const TextStyle(color: Color(0xFF2ECC71), fontSize: 11, fontWeight: FontWeight.w700)),
+              ),
+            ],
+          )).toList(),
+          // Expanded menu items: label + angle + description
+          items: presets.map((p) {
+            final isSelected = p.angle == selected.angle;
+            return DropdownMenuItem<_SquatPreset>(
+              value: p,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(p.label,
+                              style: TextStyle(
+                                color: isSelected ? const Color(0xFF2ECC71) : Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              )),
+                        ),
+                        Text('${p.angle.toInt()}°',
+                            style: const TextStyle(
+                                color: Color(0xFF2ECC71), fontSize: 12, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(p.description,
+                        style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+          onChanged: (preset) { if (preset != null) onChanged(preset); },
+        ),
       ),
     );
   }

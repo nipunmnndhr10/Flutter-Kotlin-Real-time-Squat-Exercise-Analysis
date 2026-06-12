@@ -5,71 +5,115 @@ import kotlin.math.atan2
 
 class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
+    // ---------------- STATE ----------------
     private var currentPhase = SquatPhase.STANDING
     private var repCount = 0
-    private var minKneeAngleThisRep = 180f
-    private var isInsideRep = false
 
-    // Smoothing — avoid phase flicker from single noisy frames
+    private var isInsideRep = false
+    private var reachedBottom = false
+    private var violatedDepth = false
+
+    private var minKneeAngleThisRep = 180f
+
+    // ---------------- DEPTH PROFILE ----------------
+    data class DepthProfile(
+        val minAllowed: Float,   // required depth (bottom target)
+        val maxAllowed: Float    // upper bound for mode validity
+    )
+
+    private var depthProfile = DepthProfile(90f, 180f)
+
+    fun setDepthThreshold(angle: Float) {
+        depthProfile = when (angle) {
+
+            // 1/4 squat → shallow only
+            135f -> DepthProfile(
+                minAllowed = 120f,
+                maxAllowed = 170f
+            )
+
+            // 1/2 squat → medium
+            110f -> DepthProfile(
+                minAllowed = 100f,
+                maxAllowed = 140f
+            )
+
+            // full squat → deep allowed
+            90f -> DepthProfile(
+                minAllowed = 70f,
+                maxAllowed = 180f
+            )
+
+            else -> DepthProfile(70f, 180f)
+        }
+    }
+
+    // ---------------- SMOOTHING ----------------
     private val kneeAngleBuffer = FloatArray(5)
     private var bufferIndex = 0
 
-    // Debouncing — prevent audio spam during a single rep
     private val faultsAnnouncedThisRep = mutableSetOf<SquatFault>()
 
+    // ---------------- MAIN ENTRY ----------------
     fun analyze(frame: PoseFramePayload): SquatFeedback? {
+
         val lm = frame.landmarks.associateBy { it.index }
 
-        // 1. Verify tracking viability independently for Left and Right profiles
-        val leftProfileValid = listOf(LM.LEFT_SHOULDER, LM.LEFT_HIP, LM.LEFT_KNEE, LM.LEFT_ANKLE).all { idx ->
-            val l = lm[idx]
+        val leftProfileValid = listOf(
+            LM.LEFT_SHOULDER, LM.LEFT_HIP, LM.LEFT_KNEE, LM.LEFT_ANKLE
+        ).all {
+            val l = lm[it]
             l != null && (l.visibility ?: 0f) > 0.45f && (l.presence ?: 0f) > 0.45f
         }
 
-        val rightProfileValid = listOf(LM.RIGHT_SHOULDER, LM.RIGHT_HIP, LM.RIGHT_KNEE, LM.RIGHT_ANKLE).all { idx ->
-            val l = lm[idx]
+        val rightProfileValid = listOf(
+            LM.RIGHT_SHOULDER, LM.RIGHT_HIP, LM.RIGHT_KNEE, LM.RIGHT_ANKLE
+        ).all {
+            val l = lm[it]
             l != null && (l.visibility ?: 0f) > 0.45f && (l.presence ?: 0f) > 0.45f
         }
 
         if (!leftProfileValid && !rightProfileValid) return null
 
-        // 2. Auto-select the optimal side for profile plane angle tracking
         val useLeftSide = when {
             leftProfileValid && !rightProfileValid -> true
             !leftProfileValid && rightProfileValid -> false
             else -> {
-                val leftScore = listOf(LM.LEFT_SHOULDER, LM.LEFT_HIP, LM.LEFT_KNEE, LM.LEFT_ANKLE).map { lm[it]?.visibility ?: 0f }.sum()
-                val rightScore = listOf(LM.RIGHT_SHOULDER, LM.RIGHT_HIP, LM.RIGHT_KNEE, LM.RIGHT_ANKLE).map { lm[it]?.visibility ?: 0f }.sum()
+                val leftScore = listOf(
+                    LM.LEFT_SHOULDER, LM.LEFT_HIP, LM.LEFT_KNEE, LM.LEFT_ANKLE
+                ).sumOf { lm[it]?.visibility ?: 0f }
+
+                val rightScore = listOf(
+                    LM.RIGHT_SHOULDER, LM.RIGHT_HIP, LM.RIGHT_KNEE, LM.RIGHT_ANKLE
+                ).sumOf { lm[it]?.visibility ?: 0f }
+
                 leftScore >= rightScore
             }
         }
 
-        val hip      = if (useLeftSide) lm[LM.LEFT_HIP]!!      else lm[LM.RIGHT_HIP]!!
-        val knee     = if (useLeftSide) lm[LM.LEFT_KNEE]!!     else lm[LM.RIGHT_KNEE]!!
-        val ankle    = if (useLeftSide) lm[LM.LEFT_ANKLE]!!    else lm[LM.RIGHT_ANKLE]!!
+        val hip = if (useLeftSide) lm[LM.LEFT_HIP]!! else lm[LM.RIGHT_HIP]!!
+        val knee = if (useLeftSide) lm[LM.LEFT_KNEE]!! else lm[LM.RIGHT_KNEE]!!
+        val ankle = if (useLeftSide) lm[LM.LEFT_ANKLE]!! else lm[LM.RIGHT_ANKLE]!!
         val shoulder = if (useLeftSide) lm[LM.LEFT_SHOULDER]!! else lm[LM.RIGHT_SHOULDER]!!
 
         val w = frame.frameWidth
         val h = frame.frameHeight
 
-        // 3. Calculate aspect-ratio corrected angles
         val rawKneeAngle = calculateAngle(hip, knee, ankle, w, h)
-        val hipAngle     = calculateAngle(shoulder, hip, knee, w, h)
+        val hipAngle = calculateAngle(shoulder, hip, knee, w, h)
 
-        // Rolling average to smooth knee angle pathing
+        // smoothing
         kneeAngleBuffer[bufferIndex % kneeAngleBuffer.size] = rawKneeAngle
         bufferIndex++
-        val kneeAngle = kneeAngleBuffer.take(
-            minOf(bufferIndex, kneeAngleBuffer.size)
-        ).average().toFloat()
 
-        // 4. Run State Machine Update
+        val kneeAngle = kneeAngleBuffer
+            .take(minOf(bufferIndex, kneeAngleBuffer.size))
+            .average()
+            .toFloat()
+
         updatePhaseAndReps(kneeAngle)
 
-        val isFrontView = leftProfileValid && rightProfileValid
-        val faults = detectFaults(kneeAngle, hipAngle, lm, isFrontView, w, h)
-
-        // Trigger safe debounced audio feedback
+        val faults = detectFaults(kneeAngle, hipAngle, lm, true, w, h)
         triggerAudioFeedback(faults)
 
         return SquatFeedback(
@@ -78,49 +122,72 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             activeFaults = faults,
             kneeAngle = kneeAngle,
             hipAngle = hipAngle,
-            isLandmarkReliable = true,
+            isLandmarkReliable = true
         )
     }
 
+    // ---------------- CORE STATE MACHINE ----------------
     private fun updatePhaseAndReps(kneeAngle: Float) {
-        // Open the rep window when starting descent
-        if (kneeAngle < 140f) {
+
+        val min = depthProfile.minAllowed
+        val max = depthProfile.maxAllowed
+
+        // HARD VIOLATION (too deep for selected mode)
+        if (kneeAngle < min - 10f) {
+            violatedDepth = true
+            audioController.playCue("too_low")
+        }
+
+        // START REP
+        if (kneeAngle < max) {
             if (!isInsideRep) {
                 isInsideRep = true
+                reachedBottom = false
+                violatedDepth = false
                 minKneeAngleThisRep = 180f
             }
+
             if (kneeAngle < minKneeAngleThisRep) {
                 minKneeAngleThisRep = kneeAngle
             }
         }
 
-        // Determine phase mapping for the UI state
-        val newPhase = when {
-            kneeAngle > 145f -> SquatPhase.STANDING
-            kneeAngle < 105f -> SquatPhase.BOTTOM
-            else -> {
-                // Ascending if driving upward from lowest recorded depth
-                if (isInsideRep && kneeAngle > minKneeAngleThisRep + 5f) {
-                    SquatPhase.ASCENDING
-                } else {
-                    SquatPhase.DESCENDING
-                }
-            }
+        // BOTTOM CONFIRMATION
+        if (kneeAngle <= min) {
+            reachedBottom = true
         }
 
-        // Handle full standing completion cleanly
-        if (isInsideRep && kneeAngle > 145f) {
-            if (minKneeAngleThisRep <= 105f) {
-                repCount++ // Validated rep depth met
+        // END REP (standing again)
+        val isStanding = kneeAngle > max - 5f
+
+        if (isInsideRep && isStanding) {
+
+            val validRep =
+                reachedBottom &&
+                !violatedDepth &&
+                minKneeAngleThisRep <= max
+
+            if (validRep) {
+                repCount++
             }
+
+            // reset cycle
             isInsideRep = false
+            reachedBottom = false
+            violatedDepth = false
             minKneeAngleThisRep = 180f
-            faultsAnnouncedThisRep.clear() // Ready for next rep
+            faultsAnnouncedThisRep.clear()
         }
 
-        currentPhase = newPhase
+        currentPhase = when {
+            !isInsideRep -> SquatPhase.STANDING
+            kneeAngle <= min -> SquatPhase.BOTTOM
+            kneeAngle < max -> SquatPhase.DESCENDING
+            else -> SquatPhase.ASCENDING
+        }
     }
 
+    // ---------------- FAULT DETECTION ----------------
     private fun detectFaults(
         kneeAngle: Float,
         hipAngle: Float,
@@ -129,27 +196,31 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         w: Int,
         h: Int
     ): List<SquatFault> {
+
         val faults = mutableListOf<SquatFault>()
 
-        // Analyze form continuously throughout the movement window
         if (currentPhase != SquatPhase.STANDING) {
 
-            // 1. Depth Fault: Catch shallow depth dynamically as soon as the user starts driving upward early
-            if (currentPhase == SquatPhase.ASCENDING && minKneeAngleThisRep > 105f) {
+            if (currentPhase == SquatPhase.ASCENDING &&
+                minKneeAngleThisRep > depthProfile.minAllowed + 15f
+            ) {
                 faults.add(SquatFault.GO_DEEPER)
             }
 
-            // 2. Posture Lean Fault ("Chest Up!") — Evaluated under load (below 130 deg)
             if (kneeAngle < 130f) {
-                if (isFrontView) {
-                    val leftShoulder  = lm[LM.LEFT_SHOULDER]!!
-                    val rightShoulder = lm[LM.RIGHT_SHOULDER]!!
-                    val leftHip       = lm[LM.LEFT_HIP]!!
-                    val rightHip      = lm[LM.RIGHT_HIP]!!
 
-                    // Convert calculations to TRUE PIXEL SPACE to neutralize device aspect ratios
-                    val shoulderWidthPx = abs((leftShoulder.x * w) - (rightShoulder.x * w))
-                    val avgTorsoHeightPx = (abs((leftShoulder.y * h) - (leftHip.y * h)) + abs((rightShoulder.y * h) - (rightHip.y * h))) / 2f
+                if (isFrontView) {
+                    val leftShoulder = lm[LM.LEFT_SHOULDER]!!
+                    val rightShoulder = lm[LM.RIGHT_SHOULDER]!!
+                    val leftHip = lm[LM.LEFT_HIP]!!
+                    val rightHip = lm[LM.RIGHT_HIP]!!
+
+                    val shoulderWidthPx =
+                        abs((leftShoulder.x * w) - (rightShoulder.x * w))
+
+                    val avgTorsoHeightPx =
+                        (abs((leftShoulder.y * h) - (leftHip.y * h)) +
+                                abs((rightShoulder.y * h) - (rightHip.y * h))) / 2f
 
                     if (avgTorsoHeightPx < shoulderWidthPx * 0.78f) {
                         faults.add(SquatFault.LEAN_FORWARD)
@@ -161,30 +232,30 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
                 }
             }
 
-            // 3. Knee Alignment Faults ("Knees Out!") — Tracked in pixel space during active range
             if (isFrontView && kneeAngle < 125f) {
-                val leftShoulder  = lm[LM.LEFT_SHOULDER]!!
-                val rightShoulder = lm[LM.RIGHT_SHOULDER]!!
-                val leftKnee      = lm[LM.LEFT_KNEE]!!
-                val leftAnkle     = lm[LM.LEFT_ANKLE]!!
-                val rightKnee     = lm[LM.RIGHT_KNEE]!!
-                val rightAnkle    = lm[LM.RIGHT_ANKLE]!!
 
-                val shoulderWidthPx = abs((leftShoulder.x * w) - (rightShoulder.x * w))
-                val caveThresholdPx = shoulderWidthPx * 0.15f 
-                val ankleMidpointXPx = ((leftAnkle.x * w) + (rightAnkle.x * w)) / 2f
-                
-                val leftAnkleDistPx = abs((leftAnkle.x * w) - ankleMidpointXPx)
-                val leftKneeDistPx  = abs((leftKnee.x * w) - ankleMidpointXPx)
-                
-                val rightAnkleDistPx = abs((rightAnkle.x * w) - ankleMidpointXPx)
-                val rightKneeDistPx  = abs((rightKnee.x * w) - ankleMidpointXPx)
+                val leftKnee = lm[LM.LEFT_KNEE]!!
+                val rightKnee = lm[LM.RIGHT_KNEE]!!
+                val leftAnkle = lm[LM.LEFT_ANKLE]!!
+                val rightAnkle = lm[LM.RIGHT_ANKLE]!!
 
-                if (leftKneeDistPx < leftAnkleDistPx - caveThresholdPx) {
+                val ankleMidX =
+                    ((leftAnkle.x * w) + (rightAnkle.x * w)) / 2f
+
+                val caveThreshold = abs((lm[LM.LEFT_SHOULDER]!!.x * w) -
+                        (lm[LM.RIGHT_SHOULDER]!!.x * w)) * 0.15f
+
+                val leftKneeDist = abs((leftKnee.x * w) - ankleMidX)
+                val rightKneeDist = abs((rightKnee.x * w) - ankleMidX)
+
+                val leftAnkleDist = abs((leftAnkle.x * w) - ankleMidX)
+                val rightAnkleDist = abs((rightAnkle.x * w) - ankleMidX)
+
+                if (leftKneeDist < leftAnkleDist - caveThreshold) {
                     faults.add(SquatFault.LEFT_KNEE_CAVE)
                 }
-                    
-                if (rightKneeDistPx < rightAnkleDistPx - caveThresholdPx) {
+
+                if (rightKneeDist < rightAnkleDist - caveThreshold) {
                     faults.add(SquatFault.RIGHT_KNEE_CAVE)
                 }
             }
@@ -205,8 +276,10 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     fun reset() {
         currentPhase = SquatPhase.STANDING
         repCount = 0
-        minKneeAngleThisRep = 180f
         isInsideRep = false
+        reachedBottom = false
+        violatedDepth = false
+        minKneeAngleThisRep = 180f
         bufferIndex = 0
         kneeAngleBuffer.fill(0f)
         faultsAnnouncedThisRep.clear()
@@ -219,6 +292,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         width: Int,
         height: Int
     ): Float {
+
         val ax = a.x * width
         val ay = a.y * height
         val bx = b.x * width
@@ -227,10 +301,11 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         val cy = c.y * height
 
         val radians = atan2((cy - by).toDouble(), (cx - bx).toDouble()) -
-                      atan2((ay - by).toDouble(), (ax - bx).toDouble())
-                      
+                atan2((ay - by).toDouble(), (ax - bx).toDouble())
+
         var angle = abs(Math.toDegrees(radians)).toFloat()
         if (angle > 180f) angle = 360f - angle
+
         return angle
     }
 }
