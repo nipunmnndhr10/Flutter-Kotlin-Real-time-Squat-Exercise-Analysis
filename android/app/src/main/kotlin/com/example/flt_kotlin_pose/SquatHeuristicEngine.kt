@@ -10,15 +10,15 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     private var repCount = 0
 
     private var isInsideRep = false
-    private var reachedBottom = false
     private var violatedDepth = false
 
     private var minKneeAngleThisRep = 180f
+    private var maxDepthReachedThisRep = 180f
 
     // ---------------- DEPTH PROFILE ----------------
     data class DepthProfile(
-        val minAllowed: Float,   // required depth (bottom target)
-        val maxAllowed: Float    // upper bound for mode validity
+        val targetBottom: Float,   // ideal bottom
+        val maxAllowed: Float      // standing cutoff
     )
 
     private var depthProfile = DepthProfile(90f, 180f)
@@ -26,23 +26,9 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     fun setDepthThreshold(angle: Float) {
         depthProfile = when (angle) {
 
-            // 1/4 squat → shallow only
-            135f -> DepthProfile(
-                minAllowed = 120f,
-                maxAllowed = 170f
-            )
-
-            // 1/2 squat → medium
-            110f -> DepthProfile(
-                minAllowed = 100f,
-                maxAllowed = 140f
-            )
-
-            // full squat → deep allowed
-            90f -> DepthProfile(
-                minAllowed = 70f,
-                maxAllowed = 180f
-            )
+            140f -> DepthProfile(130f, 175f) // 1/4 squat
+            120f -> DepthProfile(105f, 150f) // 1/2 squat
+            90f  -> DepthProfile(70f, 180f)  // full squat
 
             else -> DepthProfile(70f, 180f)
         }
@@ -54,56 +40,52 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
     private val faultsAnnouncedThisRep = mutableSetOf<SquatFault>()
 
-    // ---------------- MAIN ENTRY ----------------
+    // ---------------- COOLDOWN ----------------
+    private val faultCooldowns = HashMap<SquatFault, Long>()
+    private val faultCooldownTime = 900L
+
+    // ---------------- MAIN ----------------
     fun analyze(frame: PoseFramePayload): SquatFeedback? {
 
         val lm = frame.landmarks.associateBy { it.index }
 
-        val leftProfileValid = listOf(
+        val leftValid = listOf(
             LM.LEFT_SHOULDER, LM.LEFT_HIP, LM.LEFT_KNEE, LM.LEFT_ANKLE
-        ).all {
-            val l = lm[it]
-            l != null && (l.visibility ?: 0f) > 0.45f && (l.presence ?: 0f) > 0.45f
-        }
+        ).all { lm[it]?.visibility ?: 0f > 0.45f }
 
-        val rightProfileValid = listOf(
+        val rightValid = listOf(
             LM.RIGHT_SHOULDER, LM.RIGHT_HIP, LM.RIGHT_KNEE, LM.RIGHT_ANKLE
-        ).all {
-            val l = lm[it]
-            l != null && (l.visibility ?: 0f) > 0.45f && (l.presence ?: 0f) > 0.45f
-        }
+        ).all { lm[it]?.visibility ?: 0f > 0.45f }
 
-        if (!leftProfileValid && !rightProfileValid) return null
+        if (!leftValid && !rightValid) return null
 
-        val useLeftSide = when {
-            leftProfileValid && !rightProfileValid -> true
-            !leftProfileValid && rightProfileValid -> false
+        val useLeft = when {
+            leftValid && !rightValid -> true
+            !leftValid && rightValid -> false
             else -> {
-                val leftScore = listOf(
-                    LM.LEFT_SHOULDER, LM.LEFT_HIP, LM.LEFT_KNEE, LM.LEFT_ANKLE
-                ).sumOf { lm[it]?.visibility ?: 0f }
+                val l = listOf(LM.LEFT_SHOULDER, LM.LEFT_HIP, LM.LEFT_KNEE, LM.LEFT_ANKLE)
+                    .sumOf { (lm[it]?.visibility ?: 0f).toDouble() }
 
-                val rightScore = listOf(
-                    LM.RIGHT_SHOULDER, LM.RIGHT_HIP, LM.RIGHT_KNEE, LM.RIGHT_ANKLE
-                ).sumOf { lm[it]?.visibility ?: 0f }
+                val r = listOf(LM.RIGHT_SHOULDER, LM.RIGHT_HIP, LM.RIGHT_KNEE, LM.RIGHT_ANKLE)
+                    .sumOf { (lm[it]?.visibility ?: 0f).toDouble() }
 
-                leftScore >= rightScore
+                l >= r
             }
         }
 
-        val hip = if (useLeftSide) lm[LM.LEFT_HIP]!! else lm[LM.RIGHT_HIP]!!
-        val knee = if (useLeftSide) lm[LM.LEFT_KNEE]!! else lm[LM.RIGHT_KNEE]!!
-        val ankle = if (useLeftSide) lm[LM.LEFT_ANKLE]!! else lm[LM.RIGHT_ANKLE]!!
-        val shoulder = if (useLeftSide) lm[LM.LEFT_SHOULDER]!! else lm[LM.RIGHT_SHOULDER]!!
+        val hip = if (useLeft) lm[LM.LEFT_HIP]!! else lm[LM.RIGHT_HIP]!!
+        val knee = if (useLeft) lm[LM.LEFT_KNEE]!! else lm[LM.RIGHT_KNEE]!!
+        val ankle = if (useLeft) lm[LM.LEFT_ANKLE]!! else lm[LM.RIGHT_ANKLE]!!
+        val shoulder = if (useLeft) lm[LM.LEFT_SHOULDER]!! else lm[LM.RIGHT_SHOULDER]!!
 
         val w = frame.frameWidth
         val h = frame.frameHeight
 
-        val rawKneeAngle = calculateAngle(hip, knee, ankle, w, h)
+        val rawAngle = calculateAngle(hip, knee, ankle, w, h)
         val hipAngle = calculateAngle(shoulder, hip, knee, w, h)
 
-        // smoothing
-        kneeAngleBuffer[bufferIndex % kneeAngleBuffer.size] = rawKneeAngle
+        // ---------------- SMOOTHING ----------------
+        kneeAngleBuffer[bufferIndex % kneeAngleBuffer.size] = rawAngle
         bufferIndex++
 
         val kneeAngle = kneeAngleBuffer
@@ -126,25 +108,24 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         )
     }
 
-    // ---------------- CORE STATE MACHINE ----------------
+    // ---------------- FIXED CORE LOGIC ----------------
     private fun updatePhaseAndReps(kneeAngle: Float) {
 
-        val min = depthProfile.minAllowed
-        val max = depthProfile.maxAllowed
+        val bottom = depthProfile.targetBottom
+        val top = depthProfile.maxAllowed
 
-        // HARD VIOLATION (too deep for selected mode)
-        if (kneeAngle < min - 10f) {
-            violatedDepth = true
-            audioController.playCue("too_low")
+        // track deepest point in rep
+        if (kneeAngle < maxDepthReachedThisRep) {
+            maxDepthReachedThisRep = kneeAngle
         }
 
-        // START REP
-        if (kneeAngle < max) {
+        // start rep
+        if (kneeAngle < top) {
             if (!isInsideRep) {
                 isInsideRep = true
-                reachedBottom = false
                 violatedDepth = false
                 minKneeAngleThisRep = 180f
+                maxDepthReachedThisRep = 180f
             }
 
             if (kneeAngle < minKneeAngleThisRep) {
@@ -152,42 +133,49 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             }
         }
 
-        // BOTTOM CONFIRMATION
-        if (kneeAngle <= min) {
-            reachedBottom = true
+        // ❗ IMPROVED TOO_LOW LOGIC (FIXED FOR ALL MODES)
+        val tooLowThreshold = bottom - when {
+            bottom >= 125f -> 8f   // shallow squat
+            bottom >= 100f -> 10f  // mid squat
+            else -> 12f            // deep squat
         }
 
-        // END REP (standing again)
-        val isStanding = kneeAngle > max - 5f
+        if (kneeAngle < tooLowThreshold) {
+            violatedDepth = true
+            audioController.playCue("too_low")
+        }
+
+        // end rep condition (standing)
+        val isStanding = kneeAngle > top - 6f
 
         if (isInsideRep && isStanding) {
 
-            val validRep =
-                reachedBottom &&
-                !violatedDepth &&
-                minKneeAngleThisRep <= max
+            val depthAchieved =
+                maxDepthReachedThisRep <= (bottom + 15f)
+
+            val validRep = depthAchieved && !violatedDepth
 
             if (validRep) {
                 repCount++
             }
 
-            // reset cycle
+            // reset
             isInsideRep = false
-            reachedBottom = false
             violatedDepth = false
             minKneeAngleThisRep = 180f
+            maxDepthReachedThisRep = 180f
             faultsAnnouncedThisRep.clear()
         }
 
         currentPhase = when {
             !isInsideRep -> SquatPhase.STANDING
-            kneeAngle <= min -> SquatPhase.BOTTOM
-            kneeAngle < max -> SquatPhase.DESCENDING
+            kneeAngle <= bottom -> SquatPhase.BOTTOM
+            kneeAngle < top -> SquatPhase.DESCENDING
             else -> SquatPhase.ASCENDING
         }
     }
 
-    // ---------------- FAULT DETECTION ----------------
+    // ---------------- FAULTS ----------------
     private fun detectFaults(
         kneeAngle: Float,
         hipAngle: Float,
@@ -198,77 +186,47 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     ): List<SquatFault> {
 
         val faults = mutableListOf<SquatFault>()
+        val now = System.currentTimeMillis()
 
-        if (currentPhase != SquatPhase.STANDING) {
-
-            if (currentPhase == SquatPhase.ASCENDING &&
-                minKneeAngleThisRep > depthProfile.minAllowed + 15f
-            ) {
-                faults.add(SquatFault.GO_DEEPER)
+        fun addFault(f: SquatFault) {
+            val last = faultCooldowns[f] ?: 0L
+            if (now - last > faultCooldownTime) {
+                faultCooldowns[f] = now
+                faults.add(f)
             }
+        }
 
-            if (kneeAngle < 130f) {
+        if (currentPhase == SquatPhase.STANDING) return faults
 
-                if (isFrontView) {
-                    val leftShoulder = lm[LM.LEFT_SHOULDER]!!
-                    val rightShoulder = lm[LM.RIGHT_SHOULDER]!!
-                    val leftHip = lm[LM.LEFT_HIP]!!
-                    val rightHip = lm[LM.RIGHT_HIP]!!
+        if (kneeAngle < 130f) {
 
-                    val shoulderWidthPx =
-                        abs((leftShoulder.x * w) - (rightShoulder.x * w))
+            if (isFrontView) {
+                val lS = lm[LM.LEFT_SHOULDER]!!
+                val rS = lm[LM.RIGHT_SHOULDER]!!
+                val lH = lm[LM.LEFT_HIP]!!
+                val rH = lm[LM.RIGHT_HIP]!!
 
-                    val avgTorsoHeightPx =
-                        (abs((leftShoulder.y * h) - (leftHip.y * h)) +
-                                abs((rightShoulder.y * h) - (rightHip.y * h))) / 2f
+                val shoulderWidth = abs((lS.x * w) - (rS.x * w))
+                val torsoHeight =
+                    (abs((lS.y * h) - (lH.y * h)) +
+                     abs((rS.y * h) - (rH.y * h))) / 2f
 
-                    if (avgTorsoHeightPx < shoulderWidthPx * 0.78f) {
-                        faults.add(SquatFault.LEAN_FORWARD)
-                    }
-                } else {
-                    if (hipAngle < 55f) {
-                        faults.add(SquatFault.LEAN_FORWARD)
-                    }
+                if (torsoHeight < shoulderWidth * 0.78f) {
+                    addFault(SquatFault.LEAN_FORWARD)
                 }
-            }
-
-            if (isFrontView && kneeAngle < 125f) {
-
-                val leftKnee = lm[LM.LEFT_KNEE]!!
-                val rightKnee = lm[LM.RIGHT_KNEE]!!
-                val leftAnkle = lm[LM.LEFT_ANKLE]!!
-                val rightAnkle = lm[LM.RIGHT_ANKLE]!!
-
-                val ankleMidX =
-                    ((leftAnkle.x * w) + (rightAnkle.x * w)) / 2f
-
-                val caveThreshold = abs((lm[LM.LEFT_SHOULDER]!!.x * w) -
-                        (lm[LM.RIGHT_SHOULDER]!!.x * w)) * 0.15f
-
-                val leftKneeDist = abs((leftKnee.x * w) - ankleMidX)
-                val rightKneeDist = abs((rightKnee.x * w) - ankleMidX)
-
-                val leftAnkleDist = abs((leftAnkle.x * w) - ankleMidX)
-                val rightAnkleDist = abs((rightAnkle.x * w) - ankleMidX)
-
-                if (leftKneeDist < leftAnkleDist - caveThreshold) {
-                    faults.add(SquatFault.LEFT_KNEE_CAVE)
-                }
-
-                if (rightKneeDist < rightAnkleDist - caveThreshold) {
-                    faults.add(SquatFault.RIGHT_KNEE_CAVE)
-                }
+            } else {
+                if (hipAngle < 55f) addFault(SquatFault.LEAN_FORWARD)
             }
         }
 
         return faults
     }
 
-    private fun triggerAudioFeedback(currentFaults: List<SquatFault>) {
-        for (fault in currentFaults) {
-            if (!faultsAnnouncedThisRep.contains(fault)) {
-                faultsAnnouncedThisRep.add(fault)
-                audioController.playCue(fault.cueName)
+    private fun triggerAudioFeedback(faults: List<SquatFault>) {
+        for (f in faults) {
+            if (!faultsAnnouncedThisRep.contains(f)) {
+                faultsAnnouncedThisRep.add(f)
+                audioController.playCue(f.cueName)
             }
         }
     }
@@ -277,12 +235,13 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         currentPhase = SquatPhase.STANDING
         repCount = 0
         isInsideRep = false
-        reachedBottom = false
         violatedDepth = false
         minKneeAngleThisRep = 180f
+        maxDepthReachedThisRep = 180f
         bufferIndex = 0
         kneeAngleBuffer.fill(0f)
         faultsAnnouncedThisRep.clear()
+        faultCooldowns.clear()
     }
 
     private fun calculateAngle(
