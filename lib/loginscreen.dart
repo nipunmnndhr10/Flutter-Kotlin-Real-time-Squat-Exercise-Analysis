@@ -3,7 +3,8 @@ import 'app_constants.dart';
 import 'validators.dart';
 import 'login_components.dart';
 import 'signup_screen.dart';
-import 'dashboard_screen.dart';
+//import 'dashboard_screen.dart';
+import 'pose_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -106,7 +107,8 @@ class _LoginScreenState extends State<LoginScreen>
     if (!mounted) return;
     setState(() => _isLoading = false);
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => DashboardScreen(userName: _emailController.text.split('@').first)),
+      //MaterialPageRoute(builder: (_) => DashboardScreen(userName: _emailController.text.split('@').first)),
+      MaterialPageRoute(builder: (_) => const PoseScreen()),
     );
   }
 

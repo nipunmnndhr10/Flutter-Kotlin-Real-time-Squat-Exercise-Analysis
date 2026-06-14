@@ -16,7 +16,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Live Pose Tracking',
+      title: 'SquatMate',
       theme: ThemeData.light(useMaterial3: true),
       home: LoginScreen(),
     );
