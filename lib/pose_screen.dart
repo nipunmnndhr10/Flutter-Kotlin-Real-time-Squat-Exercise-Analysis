@@ -122,7 +122,8 @@ class _PoseScreenState extends State<PoseScreen> {
 
   Future<void> _setupPermission() async {
     if (!widget.enableNativePreview ||
-        defaultTargetPlatform != TargetPlatform.android) return;
+        defaultTargetPlatform != TargetPlatform.android)
+        {return;}
     try {
       final granted =
           await _permissionChannel.invokeMethod<bool>('requestCameraPermission') ?? false;
@@ -144,13 +145,15 @@ class _PoseScreenState extends State<PoseScreen> {
 
   Future<void> _resetSession() async {
     if (!widget.enableNativePreview ||
-        defaultTargetPlatform != TargetPlatform.android) return;
+        defaultTargetPlatform != TargetPlatform.android) 
+        {return;}
     await _actionChannel.invokeMethod<void>('resetSquatSession');
   }
 
   Future<void> _toggleCamera() async {
     if (!widget.enableNativePreview ||
-        defaultTargetPlatform != TargetPlatform.android) return;
+        defaultTargetPlatform != TargetPlatform.android) 
+        {return;}
     final newFrontState = !_isFrontCamera;
     setState(() => _isFrontCamera = newFrontState);
     await _actionChannel.invokeMethod('toggleCameraFacing', newFrontState);
@@ -159,7 +162,8 @@ class _PoseScreenState extends State<PoseScreen> {
   Future<void> _setDepthPreset(_SquatPreset preset) async {
     setState(() => _selectedPreset = preset);
     if (!widget.enableNativePreview ||
-        defaultTargetPlatform != TargetPlatform.android) return;
+        defaultTargetPlatform != TargetPlatform.android) 
+        {return;}
     await _actionChannel.invokeMethod('setDepthThreshold', preset.angle);
   }
 
