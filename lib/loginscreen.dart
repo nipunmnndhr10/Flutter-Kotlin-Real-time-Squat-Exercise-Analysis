@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'app_constants.dart';
-import 'pose_screen.dart';
 import 'validators.dart';
 import 'login_components.dart';
 import 'signup_screen.dart';
@@ -106,11 +105,8 @@ class _LoginScreenState extends State<LoginScreen>
     await Future.delayed(const Duration(milliseconds: 1500));
     if (!mounted) return;
     setState(() => _isLoading = false);
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => DashboardScreen(userName: 'Prayan Shrestha'),
-      ),
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => DashboardScreen(userName: _emailController.text.split('@').first)),
     );
   }
 
