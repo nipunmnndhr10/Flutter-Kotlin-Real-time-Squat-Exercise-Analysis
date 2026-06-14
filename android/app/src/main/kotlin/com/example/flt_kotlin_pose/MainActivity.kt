@@ -83,20 +83,26 @@ class MainActivity : FlutterActivity() {
 
         // 4. Session control
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, resetChannelName)
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "resetSquatSession" -> {
-                        squatEngine.reset()
-                        result.success(null)
-                    }
-                    "toggleCameraFacing" -> {
-                        val useFront = call.arguments as? Boolean ?: false
-                        PoseCameraRegistry.toggleCamera(this, useFront)
-                        result.success(null)
-                    }
-                    else -> result.notImplemented()
+        .setMethodCallHandler { call, result ->
+            when (call.method) {
+                "resetSquatSession" -> {
+                    squatEngine.reset()
+                    result.success(null)
                 }
+                "toggleCameraFacing" -> {
+                    val useFront = call.arguments as? Boolean ?: false
+                    PoseCameraRegistry.toggleCamera(this, useFront)
+                    result.success(null)
+                }
+                "setDepthThreshold" -> {
+                    val angle = (call.arguments as? Double)?.toFloat() ?: 90f
+                    squatEngine.setDepthThreshold(angle)
+                    result.success(null)
+                }
+                else -> result.notImplemented()
             }
+    }
+
 
         // 5. Native camera view
         flutterEngine.platformViewsController.registry.registerViewFactory(

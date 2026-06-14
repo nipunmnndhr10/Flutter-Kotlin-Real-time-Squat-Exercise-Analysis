@@ -13,10 +13,19 @@ class SquatAudioController(private val context: Context) {
     private var soundPool: SoundPool? = null
     private val soundMap = HashMap<String, Int>()
 
-    // Count how many sounds have finished loading — only play once ALL are ready
-    private val totalSounds = 3
+    private val totalSounds = 4
     private val loadedCount = AtomicInteger(0)
     private val isReady get() = loadedCount.get() >= totalSounds
+
+    // ---------------- FASTER COOLDOWNS (REDUCED PAUSE TIME) ----------------
+    private val lastPlayedTime = HashMap<String, Long>()
+
+    private val cooldownMs = mapOf(
+        "go_deeper" to 700L,
+        "chest_up" to 900L,
+        "knees_out" to 900L,
+        "too_low" to 1200L
+    )
 
     init {
         val audioAttributes = AudioAttributes.Builder()
@@ -25,7 +34,7 @@ class SquatAudioController(private val context: Context) {
             .build()
 
         soundPool = SoundPool.Builder()
-            .setMaxStreams(3)
+            .setMaxStreams(4)
             .setAudioAttributes(audioAttributes)
             .build()
 
@@ -33,17 +42,16 @@ class SquatAudioController(private val context: Context) {
             if (status == 0) {
                 val count = loadedCount.incrementAndGet()
                 if (count >= totalSounds) {
-                    Log.d(TAG, "All $totalSounds audio assets loaded — ready to play.")
+                    Log.d(TAG, "Audio ready for real-time coaching")
                 }
-            } else {
-                Log.e(TAG, "A sound asset failed to load (status=$status).")
             }
         }
 
         soundPool?.let { pool ->
             loadSound(pool, "go_deeper", R.raw.go_deeper)
-            loadSound(pool, "chest_up",  R.raw.chest_up)
+            loadSound(pool, "chest_up", R.raw.chest_up)
             loadSound(pool, "knees_out", R.raw.knees_out)
+            loadSound(pool, "too_low", R.raw.too_low)
         }
     }
 
@@ -52,29 +60,34 @@ class SquatAudioController(private val context: Context) {
             val soundId = pool.load(context, resId, 1)
             soundMap[key] = soundId
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load audio resource for cue: $key", e)
+            Log.e(TAG, "Failed loading cue: $key", e)
         }
     }
 
     fun playCue(cueName: String) {
-        if (!isReady) {
-            Log.w(TAG, "Cue '$cueName' skipped — SoundPool still loading.")
-            return
-        }
-        val soundId = soundMap[cueName]
-        if (soundId == null) {
-            Log.w(TAG, "Cue '$cueName' not found in soundMap.")
-            return
-        }
-        soundPool?.play(soundId, 1.0f, 1.0f, 1, 0, 1.0f)
-        Log.d(TAG, "Playing cue: $cueName")
+        if (!isReady) return
+
+        val soundId = soundMap[cueName] ?: return
+
+        val now = System.currentTimeMillis()
+        val last = lastPlayedTime[cueName] ?: 0L
+        val cooldown = cooldownMs[cueName] ?: 800L
+
+        // ---------------- LOWER LATENCY FEEDBACK ----------------
+        if (now - last < cooldown) return
+
+        lastPlayedTime[cueName] = now
+
+        soundPool?.play(soundId, 1f, 1f, 1, 0, 1f)
+
+        Log.d(TAG, "Cue: $cueName")
     }
 
     fun release() {
         soundPool?.release()
         soundPool = null
         soundMap.clear()
+        lastPlayedTime.clear()
         loadedCount.set(0)
-        Log.d(TAG, "SoundPool released.")
     }
 }

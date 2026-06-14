@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'app_constants.dart';
 import 'login_components.dart';
 import 'validators.dart';
-import 'pose_screen.dart';
+// import 'pose_screen.dart';
+import 'dashboard_screen.dart';
 
 // Design tokens
 const _kBg = Color(0xFFF7F8FA);
@@ -134,17 +135,20 @@ class _SignupScreenState extends State<SignupScreen> {
     });
   }
 
-  Future<void> _handleSignup() async {
-    _validateAll();
-    // FIX #5: Read cached _formValid — no getter logic runs here.
-    if (!_formValid) return;
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 1500));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-    Navigator.of(context)
-        .pushReplacement(MaterialPageRoute(builder: (_) => const PoseScreen()));
-  }
+Future<void> _handleSignup() async {
+  _validateAll();
+  if (!_formValid) return;
+  setState(() => _isLoading = true);
+  await Future.delayed(const Duration(milliseconds: 1500));
+  if (!mounted) return;
+  setState(() => _isLoading = false);
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => DashboardScreen(userName: 'Prayan Shrestha'),
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
