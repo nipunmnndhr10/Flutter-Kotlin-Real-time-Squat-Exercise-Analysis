@@ -51,7 +51,8 @@ enum class SquatFault(val cueName: String) {
     GO_DEEPER("go_deeper"),
     LEAN_FORWARD("chest_up"),
     LEFT_KNEE_CAVE("knees_out"),
-    RIGHT_KNEE_CAVE("knees_out")
+    RIGHT_KNEE_CAVE("knees_out"),
+    TOO_LOW("too_low"),
 }
 
 data class SquatFeedback(
