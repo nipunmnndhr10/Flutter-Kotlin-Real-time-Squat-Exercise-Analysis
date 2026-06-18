@@ -15,6 +15,7 @@ import io.flutter.plugin.platform.PlatformView
 import io.flutter.plugin.platform.PlatformViewFactory
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 internal object PoseCameraRegistry {
     @Volatile var processor: PoseLandmarkerProcessor? = null
@@ -121,7 +122,16 @@ internal class PoseCameraView(
 
     override fun dispose() {
         cameraProvider?.unbindAll()
-        cameraExecutor.shutdownNow()
+        // Graceful shutdown: wait for the current frame to finish instead of
+        // interrupting it mid-flight. Falls back to shutdownNow() on timeout.
+        cameraExecutor.shutdown()
+        try {
+            if (!cameraExecutor.awaitTermination(1, TimeUnit.SECONDS)) {
+                cameraExecutor.shutdownNow()
+            }
+        } catch (_: InterruptedException) {
+            cameraExecutor.shutdownNow()
+        }
         PoseCameraRegistry.unregister(this)
         PoseCameraRegistry.clear(poseLandmarkerProcessor)
         poseLandmarkerProcessor.close()
