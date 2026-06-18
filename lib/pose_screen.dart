@@ -667,6 +667,7 @@ class _FaultBanner extends StatelessWidget {
     'LEAN_FORWARD'    => "Chest up : don't lean forward",
     'LEFT_KNEE_CAVE'  => 'Push your left knee out',
     'RIGHT_KNEE_CAVE' => 'Push your right knee out',
+    'TOO_LOW'         => 'Too low — ease up',
     _                 => fault,
   };
 
