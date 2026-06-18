@@ -10,7 +10,25 @@ internal object SquatFeedbackEventBus {
     @Volatile
     var eventSink: EventChannel.EventSink? = null
 
+    // Deduplication cache — only emit when UI-visible state changes
+    private var lastPhase: SquatPhase? = null
+    private var lastRepCount: Int = -1
+    private var lastFaults: List<SquatFault> = emptyList()
+
     fun emit(feedback: SquatFeedback) {
+        // Skip if phase, repCount, and activeFaults are unchanged.
+        // This prevents 30fps setState() spam on the Flutter UI thread.
+        if (feedback.phase == lastPhase &&
+            feedback.repCount == lastRepCount &&
+            feedback.activeFaults == lastFaults
+        ) {
+            return
+        }
+
+        lastPhase = feedback.phase
+        lastRepCount = feedback.repCount
+        lastFaults = feedback.activeFaults
+
         mainHandler.post {
             eventSink?.success(
                 mapOf(
