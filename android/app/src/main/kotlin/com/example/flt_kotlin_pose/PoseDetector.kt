@@ -2,6 +2,7 @@ package com.example.flt_kotlin_pose
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Matrix
 import android.os.SystemClock
 import android.util.Log
@@ -13,6 +14,7 @@ import com.google.mediapipe.tasks.core.Delegate
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
+import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 
 private const val TAG = "PoseLandmarkerProcessor"
@@ -22,7 +24,6 @@ private val TRACKED_LANDMARK_INDICES = setOf(
     23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
 )
 
-// Hardcoded — tuned for squat analysis
 private val SQUAT_CONFIG = PoseDetectorConfig(
     detectionThreshold = 0.5f,
     trackingThreshold  = 0.6f,
@@ -51,14 +52,18 @@ data class PoseFramePayload(
 
 class PoseLandmarkerProcessor(
     context: Context,
-    // FIX: mirrorLandmarks is now a @Volatile var so it can be toggled
-    // at runtime when the user switches between front and back camera.
     @Volatile var mirrorLandmarks: Boolean = false,
 ) {
     private val lock = Any()
     private val isProcessingFrame = AtomicBoolean(false)
     private var poseLandmarker: PoseLandmarker = createPoseLandmarker(context)
-    private var pendingBitmap: Bitmap? = null
+
+    // Reusable bitmaps — zero per-frame allocation.
+    // Lazily resized when camera dimensions change (e.g. front/back switch).
+    private var bufferBitmap: Bitmap? = null
+    private var rotatedBitmap: Bitmap? = null
+    private var pixelArray: IntArray? = null
+    private var rotationCanvas: Canvas? = null
 
     fun detectLiveStream(imageProxy: ImageProxy) {
         if (!isProcessingFrame.compareAndSet(false, true)) {
@@ -68,46 +73,40 @@ class PoseLandmarkerProcessor(
 
         try {
             val rotationDegrees = imageProxy.imageInfo.rotationDegrees
-            val bitmapBuffer = Bitmap.createBitmap(
-                imageProxy.width, imageProxy.height, Bitmap.Config.ARGB_8888
-            )
-            bitmapBuffer.copyPixelsFromBuffer(imageProxy.planes[0].buffer)
-
-            // FIX: Read mirrorLandmarks once per frame so it's consistent
-            // across the matrix operations even if toggled mid-frame.
             val shouldMirror = mirrorLandmarks
 
+            val srcW = imageProxy.width
+            val srcH = imageProxy.height
+            val isRotated90 = rotationDegrees % 180 != 0
+            val dstW = if (isRotated90) srcH else srcW
+            val dstH = if (isRotated90) srcW else srcH
+
+            // Ensure reusable bitmaps match current dimensions
+            val buf = getOrResizeBitmap(bufferBitmap, srcW, srcH).also { bufferBitmap = it }
+            val rot = getOrResizeBitmap(rotatedBitmap, dstW, dstH).also { rotatedBitmap = it }
+
+            // Stride-safe buffer copy (handles CameraX padding)
+            val plane = imageProxy.planes[0]
+            copyPixelsWithStride(plane.buffer, plane.rowStride, srcW, srcH, buf)
+
+            imageProxy.close()
+
+            // Zero-allocation rotation via Canvas + Matrix
             val matrix = Matrix().apply {
                 postRotate(rotationDegrees.toFloat())
                 if (shouldMirror) {
-                    postScale(-1f, 1f, bitmapBuffer.width / 2f, bitmapBuffer.height / 2f)
+                    postScale(-1f, 1f, dstW / 2f, dstH / 2f)
                 }
             }
+            val canvas = getOrCreateCanvas(rot).also { rotationCanvas = it }
+            canvas.drawBitmap(buf, matrix, null)
 
-            val rotatedBitmap = Bitmap.createBitmap(
-                bitmapBuffer, 0, 0,
-                bitmapBuffer.width, bitmapBuffer.height,
-                matrix, true,
-            )
-
-            bitmapBuffer.recycle()
-            imageProxy.close()
-
-            val mpImage: MPImage = BitmapImageBuilder(rotatedBitmap).build()
-
-            synchronized(lock) {
-                pendingBitmap?.recycle()
-                pendingBitmap = rotatedBitmap
-            }
+            val mpImage: MPImage = BitmapImageBuilder(rot).build()
 
             synchronized(lock) { poseLandmarker }.detectAsync(mpImage, SystemClock.uptimeMillis())
 
         } catch (error: Throwable) {
             imageProxy.close()
-            synchronized(lock) {
-                pendingBitmap?.recycle()
-                pendingBitmap = null
-            }
             isProcessingFrame.set(false)
             Log.e(TAG, "Failed to process frame", error)
         }
@@ -116,6 +115,10 @@ class PoseLandmarkerProcessor(
     fun close() {
         synchronized(lock) { poseLandmarker.close() }
         isProcessingFrame.set(false)
+        bufferBitmap?.recycle(); bufferBitmap = null
+        rotatedBitmap?.recycle(); rotatedBitmap = null
+        pixelArray = null
+        rotationCanvas = null
     }
 
     private fun createPoseLandmarker(context: Context): PoseLandmarker {
@@ -158,21 +161,74 @@ class PoseLandmarkerProcessor(
             )
         )
 
-        synchronized(lock) {
-            pendingBitmap?.recycle()
-            pendingBitmap = null
-        }
         isProcessingFrame.set(false)
         Log.v(TAG, "Landmarks emitted: ${input.width}x${input.height}")
     }
 
     private fun onError(error: RuntimeException) {
         PoseLandmarkEventBus.error(error.message ?: "Pose landmarker error")
-        synchronized(lock) {
-            pendingBitmap?.recycle()
-            pendingBitmap = null
-        }
         isProcessingFrame.set(false)
         Log.e(TAG, error.message ?: "Pose landmarker error")
+    }
+
+    // ---------- Reusable helpers ----------
+
+    private fun getOrResizeBitmap(existing: Bitmap?, width: Int, height: Int): Bitmap {
+        if (existing != null && existing.width == width && existing.height == height) {
+            return existing
+        }
+        existing?.recycle()
+        return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    }
+
+    private fun getOrCreateCanvas(bitmap: Bitmap): Canvas {
+        val existing = rotationCanvas
+        if (existing != null) {
+            existing.setBitmap(bitmap)
+            return existing
+        }
+        return Canvas(bitmap).also { rotationCanvas = it }
+    }
+
+    /** Copies a CameraX ImageProxy buffer into a Bitmap, handling row-stride padding. */
+    private fun copyPixelsWithStride(
+        buffer: ByteBuffer,
+        rowStride: Int,
+        width: Int,
+        height: Int,
+        bitmap: Bitmap,
+    ) {
+        // Fast path: tightly packed buffer — no padding
+        if (rowStride == width * 4) {
+            buffer.rewind()
+            bitmap.copyPixelsFromBuffer(buffer)
+            return
+        }
+
+        // Safe path: row-by-row respecting stride
+        val pixels = getOrResizePixelArray(width * height)
+        buffer.rewind()
+
+        for (y in 0 until height) {
+            val rowBase = y * rowStride
+            val pixelRow = y * width
+            for (x in 0 until width) {
+                val pos = rowBase + x * 4
+                val r = buffer.get(pos).toInt() and 0xFF
+                val g = buffer.get(pos + 1).toInt() and 0xFF
+                val b = buffer.get(pos + 2).toInt() and 0xFF
+                val a = buffer.get(pos + 3).toInt() and 0xFF
+                pixels[pixelRow + x] = (a shl 24) or (r shl 16) or (g shl 8) or b
+            }
+        }
+        bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
+    }
+
+    private fun getOrResizePixelArray(size: Int): IntArray {
+        val existing = pixelArray
+        if (existing != null && existing.size >= size) {
+            return existing
+        }
+        return IntArray(size).also { pixelArray = it }
     }
 }
