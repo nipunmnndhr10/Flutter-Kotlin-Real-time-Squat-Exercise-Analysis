@@ -45,4 +45,10 @@ internal object SquatFeedbackEventBus {
             )
         }
     }
+
+    fun reset() {
+        lastPhase = null
+        lastRepCount = -1
+        lastFaults = emptyList()
+    }
 }
