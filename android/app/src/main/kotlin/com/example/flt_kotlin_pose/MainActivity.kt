@@ -111,11 +111,6 @@ class MainActivity : FlutterActivity() {
         )
     }
 
-    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
-        flutterEngine.platformViewsController.registry.unregisterViewFactory(cameraViewType)
-        super.cleanUpFlutterEngine(flutterEngine)
-    }
-
     override fun onDestroy() {
         PoseLandmarkEventBus.eventSink  = null
         PoseLandmarkEventBus.onFrame    = null
