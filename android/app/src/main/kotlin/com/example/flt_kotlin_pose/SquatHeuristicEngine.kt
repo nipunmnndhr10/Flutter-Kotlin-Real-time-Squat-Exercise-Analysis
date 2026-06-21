@@ -214,8 +214,8 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
         // 1) GO_DEEPER — descending but not deep enough yet
         if (currentPhase == SquatPhase.DESCENDING &&
-            kneeAngle > bottom + 15f &&
-            kneeAngle < top - 10f
+            kneeAngle > depthProfile.targetBottom + 15f &&
+            kneeAngle < depthProfile.maxAllowed - 10f
         ) {
             addFault(SquatFault.GO_DEEPER)
         }
