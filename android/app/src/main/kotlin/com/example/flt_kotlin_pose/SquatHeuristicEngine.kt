@@ -87,7 +87,23 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         val w = frame.frameWidth
         val h = frame.frameHeight
 
-        val rawAngle = calculateAngle(hip, knee, ankle, w, h)
+        // Compute BOTH knee angles so we track the most-bent side.
+        // This ensures a caved knee is detected even if useLeft picked the straight side.
+        val leftKneeAngle = if (leftValid) {
+            val lH = landmarkArray[LM.LEFT_HIP]!!
+            val lK = landmarkArray[LM.LEFT_KNEE]!!
+            val lA = landmarkArray[LM.LEFT_ANKLE]!!
+            calculateAngle(lH, lK, lA, w, h)
+        } else 180f
+
+        val rightKneeAngle = if (rightValid) {
+            val rH = landmarkArray[LM.RIGHT_HIP]!!
+            val rK = landmarkArray[LM.RIGHT_KNEE]!!
+            val rA = landmarkArray[LM.RIGHT_ANKLE]!!
+            calculateAngle(rH, rK, rA, w, h)
+        } else 180f
+
+        val rawAngle = minOf(leftKneeAngle, rightKneeAngle)
         val hipAngle = calculateAngle(shoulder, hip, knee, w, h)
 
         // Rolling-sum smoothing — zero allocation
@@ -242,23 +258,34 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             }
         }
 
-        // 3) KNEE CAVE — front view only; side view cannot see medial/lateral knee drift
-        if (isFrontView && kneeAngle < 150f) {
+        // 3) KNEE CAVE — front view only; use the MINIMUM of both knee angles
+        // so a caved side is detected even if the other side is straight.
+        if (isFrontView) {
+            val lH = lm[LM.LEFT_HIP]
             val lK = lm[LM.LEFT_KNEE]
             val lA = lm[LM.LEFT_ANKLE]
-            if (lK != null && lA != null) {
-                // Left knee caves inward → x increases toward the center
-                if (lK.x > lA.x + 0.03f) {
-                    addFault(SquatFault.LEFT_KNEE_CAVE)
-                }
-            }
+            val leftKneeAngle = if (lH != null && lK != null && lA != null)
+                calculateAngle(lH, lK, lA, w, h) else 180f
 
+            val rH = lm[LM.RIGHT_HIP]
             val rK = lm[LM.RIGHT_KNEE]
             val rA = lm[LM.RIGHT_ANKLE]
-            if (rK != null && rA != null) {
-                // Right knee caves inward → x decreases toward the center
-                if (rK.x < rA.x - 0.03f) {
-                    addFault(SquatFault.RIGHT_KNEE_CAVE)
+            val rightKneeAngle = if (rH != null && rK != null && rA != null)
+                calculateAngle(rH, rK, rA, w, h) else 180f
+
+            val minKneeAngle = minOf(leftKneeAngle, rightKneeAngle)
+            if (minKneeAngle < 150f) {
+                if (lK != null && lA != null) {
+                    // Left knee caves inward → x increases toward the center
+                    if (lK.x > lA.x + 0.03f) {
+                        addFault(SquatFault.LEFT_KNEE_CAVE)
+                    }
+                }
+                if (rK != null && rA != null) {
+                    // Right knee caves inward → x decreases toward the center
+                    if (rK.x < rA.x - 0.03f) {
+                        addFault(SquatFault.RIGHT_KNEE_CAVE)
+                    }
                 }
             }
         }
