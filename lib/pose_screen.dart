@@ -15,10 +15,12 @@ class PoseScreen extends StatefulWidget {
 }
 
 class _PoseScreenState extends State<PoseScreen> {
-  static const EventChannel  _poseChannel       = EventChannel('pose_landmarks');
-  static const EventChannel  _squatChannel      = EventChannel('squat_feedback');
-  static const MethodChannel _permissionChannel = MethodChannel('pose_permissions');
-  static const MethodChannel _actionChannel     = MethodChannel('pose_settings');
+  static const EventChannel _poseChannel = EventChannel('pose_landmarks');
+  static const EventChannel _squatChannel = EventChannel('squat_feedback');
+  static const MethodChannel _permissionChannel = MethodChannel(
+    'pose_permissions',
+  );
+  static const MethodChannel _actionChannel = MethodChannel('pose_settings');
 
   final ValueNotifier<PoseFrameData> _frameData = ValueNotifier<PoseFrameData>(
     PoseFrameData.empty(),
@@ -39,22 +41,36 @@ class _PoseScreenState extends State<PoseScreen> {
   bool _isPoseLost = false;
 
   // Idle detection
-  static const Duration _idleThreshold    = Duration(minutes: 1);
+  static const Duration _idleThreshold = Duration(minutes: 1);
   static const Duration _idleCheckInterval = Duration(seconds: 5);
   Timer? _idleCheckTimer;
-  DateTime _lastActivityTime  = DateTime.now();
-  int    _lastKnownRepCount   = 0;
-  String _lastKnownPhase      = 'STANDING';
-  bool   _showIdleBanner      = false;
+  DateTime _lastActivityTime = DateTime.now();
+  int _lastKnownRepCount = 0;
+  String _lastKnownPhase = 'STANDING';
+  bool _showIdleBanner = false;
 
   // ── Depth preset ────────────────────────────────────────────────────────
   static const _presets = [
-    _SquatPreset('Explosive Power (¼ Squat)', 140.0, 'Vertical jump, sprinting, basketball'),
-    _SquatPreset('Athletic Strength (½ Squat)', 120.0, 'Sports performance, power development'),
-    _SquatPreset('Full Strength (Full Squat)', 90.0, 'Strength training, muscle growth'),
+    _SquatPreset(
+      'Explosive Power (¼ Squat)',
+      140.0,
+      'Vertical jump, sprinting, basketball',
+    ),
+    _SquatPreset(
+      'Athletic Strength (½ Squat)',
+      120.0,
+      'Sports performance, power development',
+    ),
+    _SquatPreset(
+      'Full Strength (Full Squat)',
+      90.0,
+      'Strength training, muscle growth',
+    ),
   ];
   _SquatPreset _selectedPreset = const _SquatPreset(
-    'Full Strength (Full Squat)', 90.0, 'Strength training, muscle growth',
+    'Full Strength (Full Squat)',
+    90.0,
+    'Strength training, muscle growth',
   );
 
   @override
@@ -69,46 +85,53 @@ class _PoseScreenState extends State<PoseScreen> {
   // ── Channel setup ────────────────────────────────────────────────────────
 
   void _setupPoseChannel() {
-    _subscription = _poseChannel.receiveBroadcastStream().listen(
-      (event) {
-        final parsed = _parseFrameData(event);
-        if (parsed != null) _frameData.value = parsed;
+    _subscription = _poseChannel.receiveBroadcastStream().listen((event) {
+      final parsed = _parseFrameData(event);
+      if (parsed == null) return;
 
-        if (_isPoseLost) setState(() => _isPoseLost = false);
+      _frameData.value = parsed;
+      final hasLandmarks = parsed.landmarks.isNotEmpty;
+
+      if (!hasLandmarks) {
         _poseLostTimer?.cancel();
-        _poseLostTimer = Timer(const Duration(seconds: 2), () {
-          if (mounted) setState(() => _isPoseLost = true);
-        });
-      },
-      onError: (Object error) => debugPrint('Pose stream error: $error'),
-    );
+        if (!_isPoseLost && mounted) {
+          setState(() => _isPoseLost = true);
+        }
+        return;
+      }
+
+      if (_isPoseLost && mounted) {
+        setState(() => _isPoseLost = false);
+      }
+      _poseLostTimer?.cancel();
+      _poseLostTimer = Timer(const Duration(seconds: 2), () {
+        if (mounted) setState(() => _isPoseLost = true);
+      });
+    }, onError: (Object error) => debugPrint('Pose stream error: $error'));
   }
 
   void _setupSquatChannel() {
-    _squatSubscription = _squatChannel.receiveBroadcastStream().listen(
-      (event) {
-        if (event is! Map) return;
-        final newFeedback = SquatFeedbackData.fromMap(event);
+    _squatSubscription = _squatChannel.receiveBroadcastStream().listen((event) {
+      if (event is! Map) return;
+      final newFeedback = SquatFeedbackData.fromMap(event);
 
-        if (newFeedback.repCount != _lastKnownRepCount ||
-            newFeedback.phase != _lastKnownPhase) {
-          _lastActivityTime  = DateTime.now();
-          _lastKnownRepCount = newFeedback.repCount;
-          _lastKnownPhase    = newFeedback.phase;
+      if (newFeedback.repCount != _lastKnownRepCount ||
+          newFeedback.phase != _lastKnownPhase) {
+        _lastActivityTime = DateTime.now();
+        _lastKnownRepCount = newFeedback.repCount;
+        _lastKnownPhase = newFeedback.phase;
 
-          if (_showIdleBanner) {
-            setState(() {
-              _squatFeedback = newFeedback;
-              _showIdleBanner = false;
-            });
-            return;
-          }
+        if (_showIdleBanner) {
+          setState(() {
+            _squatFeedback = newFeedback;
+            _showIdleBanner = false;
+          });
+          return;
         }
+      }
 
-        setState(() => _squatFeedback = newFeedback);
-      },
-      onError: (Object error) => debugPrint('Squat feedback error: $error'),
-    );
+      setState(() => _squatFeedback = newFeedback);
+    }, onError: (Object error) => debugPrint('Squat feedback error: $error'));
   }
 
   void _startIdleCheck() {
@@ -122,21 +145,28 @@ class _PoseScreenState extends State<PoseScreen> {
 
   Future<void> _setupPermission() async {
     if (!widget.enableNativePreview ||
-        defaultTargetPlatform != TargetPlatform.android)
-        {return;}
+        defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
     try {
       final granted =
-          await _permissionChannel.invokeMethod<bool>('requestCameraPermission') ?? false;
+          await _permissionChannel.invokeMethod<bool>(
+            'requestCameraPermission',
+          ) ??
+          false;
       if (!mounted) return;
       setState(() {
         _cameraPermissionGranted = granted;
-        _permissionError = granted ? null : 'Camera permission is required to start tracking.';
+        _permissionError = granted
+            ? null
+            : 'Camera permission is required to start tracking.';
       });
     } on PlatformException catch (error) {
       if (!mounted) return;
       setState(() {
         _cameraPermissionGranted = false;
-        _permissionError = error.message ?? 'Unable to request camera permission.';
+        _permissionError =
+            error.message ?? 'Unable to request camera permission.';
       });
     }
   }
@@ -145,15 +175,17 @@ class _PoseScreenState extends State<PoseScreen> {
 
   Future<void> _resetSession() async {
     if (!widget.enableNativePreview ||
-        defaultTargetPlatform != TargetPlatform.android) 
-        {return;}
+        defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
     await _actionChannel.invokeMethod<void>('resetSquatSession');
   }
 
   Future<void> _toggleCamera() async {
     if (!widget.enableNativePreview ||
-        defaultTargetPlatform != TargetPlatform.android) 
-        {return;}
+        defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
     final newFrontState = !_isFrontCamera;
     setState(() => _isFrontCamera = newFrontState);
     await _actionChannel.invokeMethod('toggleCameraFacing', newFrontState);
@@ -162,8 +194,9 @@ class _PoseScreenState extends State<PoseScreen> {
   Future<void> _setDepthPreset(_SquatPreset preset) async {
     setState(() => _selectedPreset = preset);
     if (!widget.enableNativePreview ||
-        defaultTargetPlatform != TargetPlatform.android) 
-        {return;}
+        defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
     await _actionChannel.invokeMethod('setDepthThreshold', preset.angle);
   }
 
@@ -179,13 +212,14 @@ class _PoseScreenState extends State<PoseScreen> {
   PoseFrameData? _parseFrameData(dynamic event) {
     if (event is! Map) return null;
 
-    final frameWidth   = (event['frameWidth']  as num?)?.toInt() ?? 1;
-    final frameHeight  = (event['frameHeight'] as num?)?.toInt() ?? 1;
+    final frameWidth = (event['frameWidth'] as num?)?.toInt() ?? 1;
+    final frameHeight = (event['frameHeight'] as num?)?.toInt() ?? 1;
     final rawLandmarks = event['landmarks'];
 
     if (rawLandmarks is! List) {
       return PoseFrameData(
-        frameWidth: frameWidth, frameHeight: frameHeight,
+        frameWidth: frameWidth,
+        frameHeight: frameHeight,
         landmarks: const <int, PoseLandmarkPoint>{},
       );
     }
@@ -199,12 +233,14 @@ class _PoseScreenState extends State<PoseScreen> {
         x: (item['x'] as num?)?.toDouble() ?? 0.0,
         y: (item['y'] as num?)?.toDouble() ?? 0.0,
         visibility: (item['visibility'] as num?)?.toDouble(),
-        presence:   (item['presence']   as num?)?.toDouble(),
+        presence: (item['presence'] as num?)?.toDouble(),
       );
     }
 
     return PoseFrameData(
-      frameWidth: frameWidth, frameHeight: frameHeight, landmarks: landmarks,
+      frameWidth: frameWidth,
+      frameHeight: frameHeight,
+      landmarks: landmarks,
     );
   }
 
@@ -238,7 +274,10 @@ class _PoseScreenState extends State<PoseScreen> {
           const NativePosePreview(enableNativePreview: false),
           RepaintBoundary(
             child: CustomPaint(
-              painter: PosePainter(repaint: _frameData, isFrontCamera: _isFrontCamera),
+              painter: PosePainter(
+                repaint: _frameData,
+                isFrontCamera: _isFrontCamera,
+              ),
               child: const SizedBox.expand(),
             ),
           ),
@@ -258,7 +297,11 @@ class _PoseScreenState extends State<PoseScreen> {
               if (_cameraPermissionGranted == null)
                 const CircularProgressIndicator()
               else
-                const Icon(Icons.videocam_off_outlined, color: Colors.white70, size: 48),
+                const Icon(
+                  Icons.videocam_off_outlined,
+                  color: Colors.white70,
+                  size: 48,
+                ),
               const SizedBox(height: 16),
               Text(
                 _permissionError ?? 'Requesting camera permission...',
@@ -278,7 +321,10 @@ class _PoseScreenState extends State<PoseScreen> {
         const NativePosePreview(enableNativePreview: true),
         RepaintBoundary(
           child: CustomPaint(
-            painter: PosePainter(repaint: _frameData, isFrontCamera: _isFrontCamera),
+            painter: PosePainter(
+              repaint: _frameData,
+              isFrontCamera: _isFrontCamera,
+            ),
             child: const SizedBox.expand(),
           ),
         ),
@@ -295,28 +341,37 @@ class _PoseScreenState extends State<PoseScreen> {
       children: [
         // Rep counter
         Positioned(
-          top: 80, left: 0, right: 0,
+          top: 80,
+          left: 0,
+          right: 0,
           child: Center(child: _RepCounter(feedback: _squatFeedback)),
         ),
 
         // Fault cue banner
         if (_squatFeedback.activeFaults.isNotEmpty)
           Positioned(
-            left: 24, right: 24, bottom: 140,
+            left: 24,
+            right: 24,
+            bottom: 140,
             child: _FaultBanner(faults: _squatFeedback.activeFaults),
           ),
 
         // Landmark lost warning
         if (_isPoseLost)
           const Positioned(
-            top: 140, left: 0, right: 0,
+            top: 140,
+            left: 0,
+            right: 0,
             child: Center(child: _LandmarkLostBadge()),
           ),
 
         // Idle end-session banner
         if (_showIdleBanner)
           Positioned(
-            left: 24, right: 24, top: 0, bottom: 0,
+            left: 24,
+            right: 24,
+            top: 0,
+            bottom: 0,
             child: Center(
               child: _IdleSessionBanner(
                 onEndSession: _handleEndSession,
@@ -327,7 +382,9 @@ class _PoseScreenState extends State<PoseScreen> {
 
         // Bottom controls: preset dropdown + flip/reset buttons
         Positioned(
-          bottom: 16, left: 16, right: 16,
+          bottom: 16,
+          left: 16,
+          right: 16,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -368,7 +425,8 @@ class NativePosePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!enableNativePreview || defaultTargetPlatform != TargetPlatform.android) {
+    if (!enableNativePreview ||
+        defaultTargetPlatform != TargetPlatform.android) {
       return const ColoredBox(
         color: Colors.black,
         child: Center(
@@ -383,7 +441,10 @@ class NativePosePreview extends StatelessWidget {
         ),
       );
     }
-    return const AndroidView(viewType: 'native_pose_camera', layoutDirection: TextDirection.ltr);
+    return const AndroidView(
+      viewType: 'native_pose_camera',
+      layoutDirection: TextDirection.ltr,
+    );
   }
 }
 
@@ -397,7 +458,9 @@ class PoseFrameData {
   });
 
   factory PoseFrameData.empty() => const PoseFrameData(
-    frameWidth: 1, frameHeight: 1, landmarks: <int, PoseLandmarkPoint>{},
+    frameWidth: 1,
+    frameHeight: 1,
+    landmarks: <int, PoseLandmarkPoint>{},
   );
 
   final int frameWidth;
@@ -414,7 +477,7 @@ class PoseLandmarkPoint {
     this.presence,
   });
 
-  final int    index;
+  final int index;
   final double x;
   final double y;
   final double? visibility;
@@ -429,43 +492,44 @@ class SquatFeedbackData {
     required this.kneeAngle,
     required this.hipAngle,
     required this.isLandmarkReliable,
-    this.activePreset   = 'FULL_SQUAT',
+    this.activePreset = 'FULL_SQUAT',
     this.angleThreshold = 90.0,
-    this.presetLabel    = 'Full Strength (Full Squat)',
+    this.presetLabel = 'Full Strength (Full Squat)',
   });
 
   const SquatFeedbackData.empty()
-      : phase             = 'STANDING',
-        repCount          = 0,
-        activeFaults      = const [],
-        kneeAngle         = 0,
-        hipAngle          = 0,
-        isLandmarkReliable = false,
-        activePreset      = 'FULL_SQUAT',
-        angleThreshold    = 90.0,
-        presetLabel       = 'Full Strength (Full Squat)';
+    : phase = 'STANDING',
+      repCount = 0,
+      activeFaults = const [],
+      kneeAngle = 0,
+      hipAngle = 0,
+      isLandmarkReliable = false,
+      activePreset = 'FULL_SQUAT',
+      angleThreshold = 90.0,
+      presetLabel = 'Full Strength (Full Squat)';
 
   factory SquatFeedbackData.fromMap(Map map) => SquatFeedbackData(
-    phase:              (map['phase']             as String?) ?? 'STANDING',
-    repCount:           (map['repCount']          as num?)?.toInt() ?? 0,
-    activeFaults:       (map['activeFaults']      as List?)?.cast<String>() ?? [],
-    kneeAngle:          (map['kneeAngle']         as num?)?.toDouble() ?? 0,
-    hipAngle:           (map['hipAngle']          as num?)?.toDouble() ?? 0,
+    phase: (map['phase'] as String?) ?? 'STANDING',
+    repCount: (map['repCount'] as num?)?.toInt() ?? 0,
+    activeFaults: (map['activeFaults'] as List?)?.cast<String>() ?? [],
+    kneeAngle: (map['kneeAngle'] as num?)?.toDouble() ?? 0,
+    hipAngle: (map['hipAngle'] as num?)?.toDouble() ?? 0,
     isLandmarkReliable: (map['isLandmarkReliable'] as bool?) ?? false,
-    activePreset:       (map['activePreset']      as String?) ?? 'FULL_SQUAT',
-    angleThreshold:     (map['angleThreshold']    as num?)?.toDouble() ?? 90.0,
-    presetLabel:        (map['presetLabel']       as String?) ?? 'Full Strength (Full Squat)',
+    activePreset: (map['activePreset'] as String?) ?? 'FULL_SQUAT',
+    angleThreshold: (map['angleThreshold'] as num?)?.toDouble() ?? 90.0,
+    presetLabel:
+        (map['presetLabel'] as String?) ?? 'Full Strength (Full Squat)',
   );
 
-  final String       phase;
-  final int          repCount;
+  final String phase;
+  final int repCount;
   final List<String> activeFaults;
-  final double       kneeAngle;
-  final double       hipAngle;
-  final bool         isLandmarkReliable;
-  final String       activePreset;
-  final double       angleThreshold;
-  final String       presetLabel;
+  final double kneeAngle;
+  final double hipAngle;
+  final bool isLandmarkReliable;
+  final String activePreset;
+  final double angleThreshold;
+  final String presetLabel;
 }
 
 // ─── Squat Depth Preset ───────────────────────────────────────────────────────
@@ -483,19 +547,35 @@ class PosePainter extends CustomPainter {
   PosePainter({
     required ValueListenable<PoseFrameData> repaint,
     required this.isFrontCamera,
-  })  : _repaint = repaint,
-        super(repaint: repaint);
+  }) : _repaint = repaint,
+       super(repaint: repaint);
 
   final ValueListenable<PoseFrameData> _repaint;
   final bool isFrontCamera;
 
   static const List<List<int>> _connections = [
     [11, 12],
-    [11, 13], [13, 15], [15, 17], [17, 19], [19, 21],
-    [12, 14], [14, 16], [16, 18], [18, 20], [20, 22],
-    [11, 23], [12, 24], [23, 24],
-    [23, 25], [25, 27], [27, 29], [29, 31],
-    [24, 26], [26, 28], [28, 30], [30, 32],
+    [11, 13],
+    [13, 15],
+    [15, 17],
+    [17, 19],
+    [19, 21],
+    [12, 14],
+    [14, 16],
+    [16, 18],
+    [18, 20],
+    [20, 22],
+    [11, 23],
+    [12, 24],
+    [23, 24],
+    [23, 25],
+    [25, 27],
+    [27, 29],
+    [29, 31],
+    [24, 26],
+    [26, 28],
+    [28, 30],
+    [30, 32],
   ];
 
   static const Set<int> _majorJoints = {11, 12, 23, 24, 25, 26, 27, 28};
@@ -515,23 +595,31 @@ class PosePainter extends CustomPainter {
   static final Map<Color, Paint> _glowPaints = {};
   static final Map<Color, Paint> _corePaints = {};
 
-  static Paint _glowPaint(Color color) => _glowPaints.putIfAbsent(color, () => Paint()
-    ..color = color.withAlpha(60)
-    ..strokeWidth = 14
-    ..strokeCap = StrokeCap.round
-    ..style = PaintingStyle.stroke
-    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8));
+  static Paint _glowPaint(Color color) => _glowPaints.putIfAbsent(
+    color,
+    () => Paint()
+      ..color = color.withAlpha(60)
+      ..strokeWidth = 14
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+  );
 
-  static Paint _corePaint(Color color) => _corePaints.putIfAbsent(color, () => Paint()
-    ..color = color
-    ..strokeWidth = 2.5
-    ..strokeCap = StrokeCap.round
-    ..style = PaintingStyle.stroke);
+  static Paint _corePaint(Color color) => _corePaints.putIfAbsent(
+    color,
+    () => Paint()
+      ..color = color
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke,
+  );
 
   static Color _segmentColor(int a, int b) {
     if (a == 11 && b == 12) return const Color(0xFF00E5FF);
-    if (a >= 11 && a <= 22 && b >= 11 && b <= 22) return const Color(0xFFD500F9);
-    if ((a == 11 || a == 12) && (b == 23 || b == 24)) return const Color(0xFFFFD600);
+    if (a >= 11 && a <= 22 && b >= 11 && b <= 22)
+      return const Color(0xFFD500F9);
+    if ((a == 11 || a == 12) && (b == 23 || b == 24))
+      return const Color(0xFFFFD600);
     if (a == 23 && b == 24) return const Color(0xFFFFD600);
     return const Color(0xFF00E676);
   }
@@ -552,20 +640,24 @@ class PosePainter extends CustomPainter {
     final bool isFrameLandscape = frame.frameWidth > frame.frameHeight;
 
     final double adjW = (isScreenPortrait && isFrameLandscape)
-        ? frame.frameHeight.toDouble() : frame.frameWidth.toDouble();
+        ? frame.frameHeight.toDouble()
+        : frame.frameWidth.toDouble();
     final double adjH = (isScreenPortrait && isFrameLandscape)
-        ? frame.frameWidth.toDouble() : frame.frameHeight.toDouble();
+        ? frame.frameWidth.toDouble()
+        : frame.frameHeight.toDouble();
 
-    final double scale   = math.max(size.width / adjW, size.height / adjH);
-    final double rendW   = adjW * scale;
-    final double rendH   = adjH * scale;
-    final double offsetX = (size.width  - rendW) / 2.0;
+    final double scale = math.max(size.width / adjW, size.height / adjH);
+    final double rendW = adjW * scale;
+    final double rendH = adjH * scale;
+    final double offsetX = (size.width - rendW) / 2.0;
     final double offsetY = (size.height - rendH) / 2.0;
 
     Offset mapPoint(PoseLandmarkPoint pt) {
       double x = pt.x, y = pt.y;
       if (isScreenPortrait && isFrameLandscape) {
-        final tmp = x; x = 1.0 - y; y = tmp;
+        final tmp = x;
+        x = 1.0 - y;
+        y = tmp;
       }
       return Offset(offsetX + x * rendW, offsetY + y * rendH);
     }
@@ -591,21 +683,42 @@ class PosePainter extends CustomPainter {
       final color = _jointColor(lm.index);
       final double r = _majorJoints.contains(lm.index) ? 7.0 : 4.5;
 
-      canvas.drawCircle(p, r + 3,
-          Paint()..color = Colors.black.withAlpha(100)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
-      canvas.drawCircle(p, r + 5,
-          Paint()..color = color.withAlpha(40)..style = PaintingStyle.fill..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
-      canvas.drawCircle(p, r + 1.5,
-          Paint()..color = color.withAlpha(160)..style = PaintingStyle.stroke..strokeWidth = 1.5);
+      canvas.drawCircle(
+        p,
+        r + 3,
+        Paint()
+          ..color = Colors.black.withAlpha(100)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+      );
+      canvas.drawCircle(
+        p,
+        r + 5,
+        Paint()
+          ..color = color.withAlpha(40)
+          ..style = PaintingStyle.fill
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+      canvas.drawCircle(
+        p,
+        r + 1.5,
+        Paint()
+          ..color = color.withAlpha(160)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5,
+      );
       canvas.drawCircle(p, r, Paint()..color = color);
-      canvas.drawCircle(Offset(p.dx - r * 0.28, p.dy - r * 0.28), r * 0.28,
-          Paint()..color = Colors.white.withAlpha(200));
+      canvas.drawCircle(
+        Offset(p.dx - r * 0.28, p.dy - r * 0.28),
+        r * 0.28,
+        Paint()..color = Colors.white.withAlpha(200),
+      );
     }
   }
 
   @override
   bool shouldRepaint(covariant PosePainter oldDelegate) =>
-      oldDelegate.isFrontCamera != isFrontCamera || oldDelegate._repaint != _repaint;
+      oldDelegate.isFrontCamera != isFrontCamera ||
+      oldDelegate._repaint != _repaint;
 
   bool _isVisible(PoseLandmarkPoint? lm) {
     if (lm == null) return false;
@@ -622,9 +735,9 @@ class _RepCounter extends StatelessWidget {
 
   String get _phaseLabel => switch (feedback.phase) {
     'DESCENDING' => 'Going down',
-    'BOTTOM'     => 'Hold',
-    'ASCENDING'  => 'Coming up',
-    _            => 'Ready',
+    'BOTTOM' => 'Hold',
+    'ASCENDING' => 'Coming up',
+    _ => 'Ready',
   };
 
   @override
@@ -639,17 +752,37 @@ class _RepCounter extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('${feedback.repCount}',
-              style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.w800, height: 1)),
+          Text(
+            '${feedback.repCount}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 40,
+              fontWeight: FontWeight.w800,
+              height: 1,
+            ),
+          ),
           const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('REPS',
-                  style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.2)),
-              Text(_phaseLabel,
-                  style: const TextStyle(color: Color(0xFF2ECC71), fontSize: 13, fontWeight: FontWeight.w600)),
+              const Text(
+                'REPS',
+                style: TextStyle(
+                  color: Colors.white60,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              Text(
+                _phaseLabel,
+                style: const TextStyle(
+                  color: Color(0xFF2ECC71),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ],
@@ -663,35 +796,49 @@ class _FaultBanner extends StatelessWidget {
   final List<String> faults;
 
   String _label(String fault) => switch (fault) {
-    'GO_DEEPER'       => 'Go deeper',
-    'LEAN_FORWARD'    => "Chest up : don't lean forward",
-    'LEFT_KNEE_CAVE'  => 'Push your left knee out',
+    'GO_DEEPER' => 'Go deeper',
+    'LEAN_FORWARD' => "Chest up : don't lean forward",
+    'LEFT_KNEE_CAVE' => 'Push your left knee out',
     'RIGHT_KNEE_CAVE' => 'Push your right knee out',
-    'TOO_LOW'         => 'Too low — ease up',
-    _                 => fault,
+    'TOO_LOW' => 'Too low — ease up',
+    _ => fault,
   };
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      children: faults.map((f) => Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: const Color(0xFFE5534B).withValues(alpha: 0.85),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
-            const SizedBox(width: 8),
-            Text(_label(f),
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
-          ],
-        ),
-      )).toList(),
+      children: faults
+          .map(
+            (f) => Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE5534B).withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _label(f),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 }
@@ -712,8 +859,14 @@ class _LandmarkLostBadge extends StatelessWidget {
         children: [
           Icon(Icons.visibility_off_outlined, color: Colors.white, size: 16),
           SizedBox(width: 6),
-          Text('Pose lost — step into frame',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+          Text(
+            'Pose lost — step into frame',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
         ],
       ),
     );
@@ -721,7 +874,10 @@ class _LandmarkLostBadge extends StatelessWidget {
 }
 
 class _IdleSessionBanner extends StatelessWidget {
-  const _IdleSessionBanner({required this.onEndSession, required this.onKeepGoing});
+  const _IdleSessionBanner({
+    required this.onEndSession,
+    required this.onKeepGoing,
+  });
   final VoidCallback onEndSession;
   final VoidCallback onKeepGoing;
 
@@ -738,10 +894,21 @@ class _IdleSessionBanner extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.hourglass_bottom_rounded, color: Color(0xFF2ECC71), size: 36),
+          const Icon(
+            Icons.hourglass_bottom_rounded,
+            color: Color(0xFF2ECC71),
+            size: 36,
+          ),
           const SizedBox(height: 14),
-          const Text('Still there?',
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+          const Text(
+            'Still there?',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+            ),
+          ),
           const SizedBox(height: 8),
           const Text(
             "You've been idle for a minute.\nWould you like to end your session?",
@@ -757,11 +924,15 @@ class _IdleSessionBanner extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: Colors.white24),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Keep Going',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  child: const Text(
+                    'Keep Going',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -772,11 +943,15 @@ class _IdleSessionBanner extends StatelessWidget {
                     backgroundColor: const Color(0xFFE5534B),
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('End Session',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  child: const Text(
+                    'End Session',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
                 ),
               ),
             ],
@@ -817,28 +992,54 @@ class _DepthPresetDropdown extends StatelessWidget {
           iconEnabledColor: Colors.white54,
           style: const TextStyle(color: Colors.white, fontSize: 13),
           // Collapsed display: icon + label + angle badge
-          selectedItemBuilder: (_) => presets.map((p) => Row(
-            children: [
-              const Icon(Icons.tune_rounded, color: Color(0xFF2ECC71), size: 16),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(p.label,
-                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                    overflow: TextOverflow.ellipsis),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2ECC71).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF2ECC71), width: 0.8),
+          selectedItemBuilder: (_) => presets
+              .map(
+                (p) => Row(
+                  children: [
+                    const Icon(
+                      Icons.tune_rounded,
+                      color: Color(0xFF2ECC71),
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        p.label,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2ECC71).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: const Color(0xFF2ECC71),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        '${p.angle.toInt()}°',
+                        style: const TextStyle(
+                          color: Color(0xFF2ECC71),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                child: Text('${p.angle.toInt()}°',
-                    style: const TextStyle(color: Color(0xFF2ECC71), fontSize: 11, fontWeight: FontWeight.w700)),
-              ),
-            ],
-          )).toList(),
+              )
+              .toList(),
           // Expanded menu items: label + angle + description
           items: presets.map((p) {
             final isSelected = p.angle == selected.angle;
@@ -853,27 +1054,43 @@ class _DepthPresetDropdown extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(p.label,
-                              style: TextStyle(
-                                color: isSelected ? const Color(0xFF2ECC71) : Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              )),
+                          child: Text(
+                            p.label,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? const Color(0xFF2ECC71)
+                                  : Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                        Text('${p.angle.toInt()}°',
-                            style: const TextStyle(
-                                color: Color(0xFF2ECC71), fontSize: 12, fontWeight: FontWeight.w700)),
+                        Text(
+                          '${p.angle.toInt()}°',
+                          style: const TextStyle(
+                            color: Color(0xFF2ECC71),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Text(p.description,
-                        style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                    Text(
+                      p.description,
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
+                      ),
+                    ),
                   ],
                 ),
               ),
             );
           }).toList(),
-          onChanged: (preset) { if (preset != null) onChanged(preset); },
+          onChanged: (preset) {
+            if (preset != null) onChanged(preset);
+          },
         ),
       ),
     );
