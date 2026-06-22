@@ -215,6 +215,8 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         w: Int,
         h: Int,
     ): List<SquatFault> {
+        val bottom = depthProfile.targetBottom
+        val top = depthProfile.maxAllowed
         val faults = mutableListOf<SquatFault>()
         val now = System.currentTimeMillis()
 

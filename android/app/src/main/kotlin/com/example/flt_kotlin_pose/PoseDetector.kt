@@ -3,7 +3,9 @@ package com.example.flt_kotlin_pose
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.PorterDuff
 import android.os.SystemClock
 import android.util.Log
 import androidx.camera.core.ImageProxy
@@ -91,14 +93,12 @@ class PoseLandmarkerProcessor(
 
             imageProxy.close()
 
-            // Zero-allocation rotation via Canvas + Matrix
-            val matrix = Matrix().apply {
-                postRotate(rotationDegrees.toFloat())
-                if (shouldMirror) {
-                    postScale(-1f, 1f, dstW / 2f, dstH / 2f)
-                }
-            }
             val canvas = getOrCreateCanvas(rot).also { rotationCanvas = it }
+            // Clear reused bitmap before drawing transformed pixels.
+            canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+
+            // Rotate into destination bounds, then optionally mirror for front camera.
+            val matrix = buildTransformMatrix(rotationDegrees, srcW, srcH, dstW, dstH, shouldMirror)
             canvas.drawBitmap(buf, matrix, null)
 
             val mpImage: MPImage = BitmapImageBuilder(rot).build()
@@ -230,5 +230,42 @@ class PoseLandmarkerProcessor(
             return existing
         }
         return IntArray(size).also { pixelArray = it }
+    }
+
+    private fun buildTransformMatrix(
+        rotationDegrees: Int,
+        srcWidth: Int,
+        srcHeight: Int,
+        dstWidth: Int,
+        dstHeight: Int,
+        mirror: Boolean,
+    ): Matrix {
+        val matrix = Matrix()
+
+        when ((rotationDegrees % 360 + 360) % 360) {
+            0 -> Unit
+            90 -> {
+                matrix.postRotate(90f)
+                matrix.postTranslate(dstWidth.toFloat(), 0f)
+            }
+            180 -> {
+                matrix.postRotate(180f)
+                matrix.postTranslate(dstWidth.toFloat(), dstHeight.toFloat())
+            }
+            270 -> {
+                matrix.postRotate(270f)
+                matrix.postTranslate(0f, dstHeight.toFloat())
+            }
+            else -> {
+                matrix.postRotate(rotationDegrees.toFloat(), srcWidth / 2f, srcHeight / 2f)
+                matrix.postTranslate((dstWidth - srcWidth) / 2f, (dstHeight - srcHeight) / 2f)
+            }
+        }
+
+        if (mirror) {
+            matrix.postScale(-1f, 1f, dstWidth / 2f, dstHeight / 2f)
+        }
+
+        return matrix
     }
 }
