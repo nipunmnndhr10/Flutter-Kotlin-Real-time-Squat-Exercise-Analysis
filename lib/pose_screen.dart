@@ -617,9 +617,9 @@ class PosePainter extends CustomPainter {
   static Color _segmentColor(int a, int b) {
     if (a == 11 && b == 12) return const Color(0xFF00E5FF);
     if (a >= 11 && a <= 22 && b >= 11 && b <= 22)
-      return const Color(0xFFD500F9);
+      {return const Color(0xFFD500F9);}
     if ((a == 11 || a == 12) && (b == 23 || b == 24))
-      return const Color(0xFFFFD600);
+      {return const Color(0xFFFFD600);}
     if (a == 23 && b == 24) return const Color(0xFFFFD600);
     return const Color(0xFF00E676);
   }
