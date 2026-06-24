@@ -119,8 +119,8 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             val lS = landmarkArray[LM.LEFT_SHOULDER]
             val rS = landmarkArray[LM.RIGHT_SHOULDER]
             if (lS == null || rS == null) return@run false
-            val shoulderWidth = abs((lS.x * w) - (rS.x * w))
-            shoulderWidth > w * 0.08f  // at least 8% of frame width
+            val shoulderWidthNorm = abs(lS.x - rS.x)
+            shoulderWidthNorm > 0.08f  // at least 8% of normalized frame width
         }
 
         val tooLowFault = updatePhaseAndReps(kneeAngle)
