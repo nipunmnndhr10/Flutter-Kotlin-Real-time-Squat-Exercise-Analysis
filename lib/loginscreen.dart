@@ -122,13 +122,12 @@ class _LoginScreenState extends State<LoginScreen>
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
+      resizeToAvoidBottomInset: true,
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
-        behavior: HitTestBehavior.opaque,
+        behavior: HitTestBehavior.translucent,
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom),
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: availableHeight),
               child: Column(
@@ -349,7 +348,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                               ),
 
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 15),
 
                               Flexible(
                                 flex: 0,
