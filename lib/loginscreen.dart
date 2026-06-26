@@ -4,7 +4,7 @@ import 'validators.dart';
 import 'login_components.dart';
 import 'signup_screen.dart';
 //import 'dashboard_screen.dart';
-import 'pose_screen.dart';
+import 'temp_landing_page.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,12 +22,10 @@ class _LoginScreenState extends State<LoginScreen>
   String? _passwordError;
   bool _obscurePassword = true;
   bool _isLoading = false;
-  bool _formValid = false;
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-
 
   double _heroHeight = 280.0;
 
@@ -48,13 +46,13 @@ class _LoginScreenState extends State<LoginScreen>
       parent: _animationController,
       curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
     );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.08),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
-    ));
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
+          ),
+        );
     _animationController.forward();
   }
 
@@ -63,7 +61,10 @@ class _LoginScreenState extends State<LoginScreen>
     super.didChangeDependencies();
     final media = MediaQuery.of(context);
     final availableHeight =
-        media.size.height - media.padding.top - media.padding.bottom - kToolbarHeight;
+        media.size.height -
+        media.padding.top -
+        media.padding.bottom -
+        kToolbarHeight;
     _heroHeight = (availableHeight * 0.36).clamp(180.0, 340.0);
   }
 
@@ -75,12 +76,10 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-
   void _onEmailChanged(String v) {
     final err = validateEmail(v);
     setState(() {
       _emailError = err;
-      _formValid = err == null && validatePassword(_passwordController.text) == null;
     });
   }
 
@@ -88,34 +87,29 @@ class _LoginScreenState extends State<LoginScreen>
     final err = validatePassword(v);
     setState(() {
       _passwordError = err;
-      _formValid = validateEmail(_emailController.text) == null && err == null;
     });
   }
 
   Future<void> _handleLogin() async {
-    final emailErr = validateEmail(_emailController.text);
-    final passErr = validatePassword(_passwordController.text);
+    // Hardcoded auth bypassed for the temporary flow.
     setState(() {
-      _emailError = emailErr;
-      _passwordError = passErr;
-      _formValid = emailErr == null && passErr == null;
+      _emailError = null;
+      _passwordError = null;
+      _isLoading = true;
     });
-    if (!_formValid) return;
-
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 1500));
+    await Future.delayed(const Duration(milliseconds: 150));
     if (!mounted) return;
     setState(() => _isLoading = false);
     Navigator.of(context).pushReplacement(
-      //MaterialPageRoute(builder: (_) => DashboardScreen(userName: _emailController.text.split('@').first)),
-      MaterialPageRoute(builder: (_) => const PoseScreen()),
+      MaterialPageRoute(builder: (_) => const TemporaryLandingPage()),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     // FIX #4: Read the cached _heroHeight; no LayoutBuilder or MediaQuery here.
-    final availableHeight = MediaQuery.of(context).size.height -
+    final availableHeight =
+        MediaQuery.of(context).size.height -
         MediaQuery.of(context).padding.top -
         MediaQuery.of(context).padding.bottom -
         kToolbarHeight;
@@ -137,9 +131,7 @@ class _LoginScreenState extends State<LoginScreen>
                   SizedBox(
                     height: _heroHeight,
                     width: double.infinity,
-                    child: const RepaintBoundary(
-                      child: HeroSection(),
-                    ),
+                    child: const RepaintBoundary(child: HeroSection()),
                   ),
 
                   SizedBox(
@@ -230,8 +222,10 @@ class _LoginScreenState extends State<LoginScreen>
                                       errorText: _passwordError,
                                       onChanged: _onPasswordChanged,
                                       suffixIcon: GestureDetector(
-                                        onTap: () => setState(() =>
-                                            _obscurePassword = !_obscurePassword),
+                                        onTap: () => setState(
+                                          () => _obscurePassword =
+                                              !_obscurePassword,
+                                        ),
                                         child: Icon(
                                           _obscurePassword
                                               ? Icons.visibility_off_outlined
@@ -250,7 +244,9 @@ class _LoginScreenState extends State<LoginScreen>
                                         onPressed: () {},
                                         style: TextButton.styleFrom(
                                           padding: const EdgeInsets.symmetric(
-                                              horizontal: 0, vertical: 6),
+                                            horizontal: 0,
+                                            vertical: 6,
+                                          ),
                                           minimumSize: Size.zero,
                                           tapTargetSize:
                                               MaterialTapTargetSize.shrinkWrap,
@@ -272,32 +268,41 @@ class _LoginScreenState extends State<LoginScreen>
                                       width: double.infinity,
                                       height: 52,
                                       child: ElevatedButton(
-                                        // FIX #2: Read cached _formValid — no
-                                        // regex runs during build() anymore.
-                                        onPressed: (_isLoading || !_formValid)
+                                        onPressed: _isLoading
                                             ? null
                                             : _handleLogin,
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              const Color.fromRGBO(17, 24, 32, 1),
+                                          backgroundColor: const Color.fromRGBO(
+                                            17,
+                                            24,
+                                            32,
+                                            1,
+                                          ),
                                           foregroundColor: Colors.white,
                                           disabledBackgroundColor:
-                                              const Color.fromRGBO(209, 213, 219, 1),
+                                              const Color.fromRGBO(
+                                                209,
+                                                213,
+                                                219,
+                                                1,
+                                              ),
                                           elevation: 0,
                                           shadowColor: Colors.transparent,
                                           shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(30),
+                                            borderRadius: BorderRadius.circular(
+                                              30,
+                                            ),
                                           ),
                                         ),
                                         child: _isLoading
                                             ? const SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child: CircularProgressIndicator(
-                                                  color: Colors.white,
-                                                  strokeWidth: 2.5,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: Colors.white,
+                                                      strokeWidth: 2.5,
+                                                    ),
                                               )
                                             : const Text(
                                                 'Log In',
@@ -334,11 +339,13 @@ class _LoginScreenState extends State<LoginScreen>
                                         style: OutlinedButton.styleFrom(
                                           backgroundColor: cardBg,
                                           side: const BorderSide(
-                                              color: Color(0xFFE0E0E0),
-                                              width: 1.2),
+                                            color: Color(0xFFE0E0E0),
+                                            width: 1.2,
+                                          ),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(30),
+                                            borderRadius: BorderRadius.circular(
+                                              30,
+                                            ),
                                           ),
                                           elevation: 0,
                                         ),
