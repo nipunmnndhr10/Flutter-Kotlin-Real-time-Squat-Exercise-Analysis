@@ -154,8 +154,6 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             if (!isInsideRep) {
                 isInsideRep = true
                 violatedDepth = false
-                maxDepthReachedThisRep = 180f
-                prevKneeAngle = kneeAngle
             }
         }
 
