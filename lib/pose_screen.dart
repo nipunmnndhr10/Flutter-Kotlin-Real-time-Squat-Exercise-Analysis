@@ -181,6 +181,15 @@ class _PoseScreenState extends State<PoseScreen> {
     await _actionChannel.invokeMethod<void>('resetSquatSession');
   }
 
+  Future<void> _endWorkoutSession() async {
+    if (widget.enableNativePreview &&
+        defaultTargetPlatform == TargetPlatform.android) {
+      await _actionChannel.invokeMethod<void>('resetSquatSession');
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
   Future<void> _toggleCamera() async {
     if (!widget.enableNativePreview ||
         defaultTargetPlatform != TargetPlatform.android) {
@@ -407,6 +416,11 @@ class _PoseScreenState extends State<PoseScreen> {
                     tooltip: 'Reset session',
                     icon: const Icon(Icons.refresh_rounded),
                   ),
+                  IconButton.filledTonal(
+                    onPressed: _endWorkoutSession,
+                    tooltip: 'End workout',
+                    icon: const Icon(Icons.logout_rounded),
+                  ),
                 ],
               ),
             ],
@@ -616,10 +630,12 @@ class PosePainter extends CustomPainter {
 
   static Color _segmentColor(int a, int b) {
     if (a == 11 && b == 12) return const Color(0xFF00E5FF);
-    if (a >= 11 && a <= 22 && b >= 11 && b <= 22)
-      {return const Color(0xFFD500F9);}
-    if ((a == 11 || a == 12) && (b == 23 || b == 24))
-      {return const Color(0xFFFFD600);}
+    if (a >= 11 && a <= 22 && b >= 11 && b <= 22) {
+      return const Color(0xFFD500F9);
+    }
+    if ((a == 11 || a == 12) && (b == 23 || b == 24)) {
+      return const Color(0xFFFFD600);
+    }
     if (a == 23 && b == 24) return const Color(0xFFFFD600);
     return const Color(0xFF00E676);
   }
