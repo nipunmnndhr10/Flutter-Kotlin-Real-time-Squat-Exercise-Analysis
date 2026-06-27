@@ -19,17 +19,19 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     // ---------------- DEPTH PROFILE ----------------
     data class DepthProfile(
         val targetBottom: Float,
-        val maxAllowed: Float,
+        val repStart: Float,
+        val standing: Float,
     )
 
-    private var depthProfile = DepthProfile(90f, 180f)
+    private var activePreset = SquatDepthPreset.DEFAULT
+    private var depthProfile = DepthProfile(70f, 155f, 165f)
 
     fun setDepthThreshold(angle: Float) {
-        depthProfile = when (angle) {
-            140f -> DepthProfile(130f, 175f) // 1/4 squat
-            120f -> DepthProfile(105f, 150f) // 1/2 squat
-            90f  -> DepthProfile(70f, 180f)   // full squat
-            else -> DepthProfile(70f, 180f)
+        activePreset = SquatDepthPreset.fromAngle(angle)
+        depthProfile = when (activePreset) {
+            SquatDepthPreset.QUARTER_SQUAT -> DepthProfile(130f, 170f, 172f)
+            SquatDepthPreset.HALF_SQUAT -> DepthProfile(105f, 155f, 165f)
+            SquatDepthPreset.FULL_SQUAT -> DepthProfile(70f, 155f, 165f)
         }
     }
 
@@ -150,10 +152,6 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         } else 180f
 
         val rawAngle = minOf(leftKneeAngle, rightKneeAngle)
-        android.util.Log.d(
-        "KNEE_DEBUG",
-        "Raw Knee Angle: $rawAngle | Left: $leftKneeAngle | Right: $rightKneeAngle"
-    )
         val hipAngle = calculateAngle(shoulder, hip, knee, w, h)
 
         // Rolling-sum smoothing — zero allocation
@@ -195,13 +193,15 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             kneeAngle = kneeAngle,
             hipAngle = hipAngle,
             isLandmarkReliable = true,
+            activePreset = activePreset,
         )
     }
 
     // ---------------- CORE LOGIC ----------------
     private fun updatePhaseAndReps(kneeAngle: Float): SquatFault? {
         val bottom = depthProfile.targetBottom
-        val top = depthProfile.maxAllowed
+        val repStart = depthProfile.repStart
+        val standing = depthProfile.standing
         var tooLowFault: SquatFault? = null
 
         // Track deepest point in rep
@@ -210,10 +210,11 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         }
 
         // Start rep
-        if (kneeAngle < top) {
+        if (kneeAngle < repStart) {
             if (!isInsideRep) {
                 isInsideRep = true
                 violatedDepth = false
+                maxDepthReachedThisRep = kneeAngle
             }
         }
 
@@ -230,7 +231,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         }
 
         // End rep condition (standing)
-        val isStanding = kneeAngle > top - 6f
+        val isStanding = kneeAngle > standing
 
         if (isInsideRep && isStanding) {
             val depthAchieved = maxDepthReachedThisRep <= (bottom + 15f)
@@ -274,7 +275,6 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         h: Int,
     ): List<SquatFault> {
         val bottom = depthProfile.targetBottom
-        val top = depthProfile.maxAllowed
         val faults = mutableListOf<SquatFault>()
         val now = System.currentTimeMillis()
 
@@ -291,7 +291,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         // 1) GO_DEEPER — descending but not deep enough yet
         if (currentPhase == SquatPhase.DESCENDING &&
             kneeAngle > depthProfile.targetBottom + 15f &&
-            kneeAngle < depthProfile.maxAllowed - 10f
+            kneeAngle < depthProfile.repStart
         ) {
             addFault(SquatFault.GO_DEEPER)
         }

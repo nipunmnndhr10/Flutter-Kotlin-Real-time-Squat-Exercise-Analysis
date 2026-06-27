@@ -106,6 +106,18 @@ class SquatHeuristicEngineTest {
         LM.RIGHT_ANKLE    to Triple(0.60f, 0.90f, 0.95f),
     )
 
+    // Minor standing bend: not deep enough to start an actual repetition.
+    private fun slightBend() = frame(
+        LM.LEFT_SHOULDER  to Triple(0.30f, 0.20f, 0.95f),
+        LM.RIGHT_SHOULDER to Triple(0.70f, 0.20f, 0.95f),
+        LM.LEFT_HIP       to Triple(0.34f, 0.47f, 0.95f),
+        LM.RIGHT_HIP      to Triple(0.66f, 0.47f, 0.95f),
+        LM.LEFT_KNEE      to Triple(0.35f, 0.65f, 0.95f),
+        LM.RIGHT_KNEE     to Triple(0.65f, 0.65f, 0.95f),
+        LM.LEFT_ANKLE     to Triple(0.35f, 0.90f, 0.95f),
+        LM.RIGHT_ANKLE    to Triple(0.65f, 0.90f, 0.95f),
+    )
+
     // Leaning forward (front view): torso compressed, knee angle ~124°
     private fun leaningFront() = frame(
         LM.LEFT_SHOULDER  to Triple(0.30f, 0.55f, 0.95f),
@@ -219,6 +231,17 @@ class SquatHeuristicEngineTest {
         prime(standing())
         val result = engine.analyze(standing())!!
         assertEquals(1, result.repCount)
+    }
+
+    @Test
+    fun `rep NOT started or counted from minor standing movement`() {
+        engine.setDepthThreshold(90f)
+        prime(standing())
+        prime(slightBend())
+        prime(standing())
+        val result = engine.analyze(standing())!!
+        assertEquals(0, result.repCount)
+        assertEquals(SquatPhase.STANDING, result.phase)
     }
 
     @Test
