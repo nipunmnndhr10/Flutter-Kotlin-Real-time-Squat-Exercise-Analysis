@@ -89,6 +89,22 @@ class MainActivity : FlutterActivity() {
                     squatEngine.reset()
                     result.success(null)
                 }
+                "endWorkoutSession" -> {
+                    val summary = squatEngine.endWorkoutSummary()
+                    if (summary != null) {
+                        val summaryMap = mapOf(
+                            "durationSeconds" to summary.durationSeconds,
+                            "totalReps" to summary.totalReps,
+                            "avgKneeAngle" to summary.avgKneeAngle.toDouble(),
+                            "avgHipAngle" to summary.avgHipAngle.toDouble(),
+                            "minKneeAngle" to summary.minKneeAngle.toDouble(),
+                            "minHipAngle" to summary.minHipAngle.toDouble()
+                        )
+                        result.success(summaryMap)
+                    } else {
+                        result.success(null)
+                    }
+                }
                 "toggleCameraFacing" -> {
                     val useFront = call.arguments as? Boolean ?: false
                     PoseCameraRegistry.toggleCamera(this, useFront)
@@ -101,7 +117,7 @@ class MainActivity : FlutterActivity() {
                 }
                 else -> result.notImplemented()
             }
-    }
+        }
 
 
         // 5. Native camera view

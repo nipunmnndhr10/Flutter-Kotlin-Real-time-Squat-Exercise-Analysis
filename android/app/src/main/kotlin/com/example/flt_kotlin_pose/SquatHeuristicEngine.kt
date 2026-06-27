@@ -49,6 +49,52 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     // Pre-allocated landmark lookup — zero-allocation per frame
     private val landmarkArray = Array<PoseLandmarkPayload?>(33) { null }
 
+    // ---------------- SUMMARY STATISTICS ----------------
+    private var sessionFrameCount = 0
+    private var sessionSumKneeAngle = 0f
+    private var sessionSumHipAngle = 0f
+    private var sessionMinKneeAngle = 180f
+    private var sessionMinHipAngle = 180f
+    private var sessionStartTime = 0L
+
+    data class WorkoutSummary(
+        val avgKneeAngle: Float,
+        val avgHipAngle: Float,
+        val minKneeAngle: Float,
+        val minHipAngle: Float,
+        val durationSeconds: Long,
+        val totalReps: Int
+    )
+
+    fun endWorkoutSummary(): WorkoutSummary? {
+        if (sessionFrameCount == 0 || sessionStartTime == 0L) return null
+
+        val durationSeconds = (System.currentTimeMillis() - sessionStartTime) / 1000L
+        val avgKneeAngle = sessionSumKneeAngle / sessionFrameCount
+        val avgHipAngle = sessionSumHipAngle / sessionFrameCount
+
+        val summary = WorkoutSummary(
+            avgKneeAngle = avgKneeAngle,
+            avgHipAngle = avgHipAngle,
+            minKneeAngle = sessionMinKneeAngle,
+            minHipAngle = sessionMinHipAngle,
+            durationSeconds = durationSeconds,
+            totalReps = repCount
+        )
+
+        android.util.Log.i(
+            "WORKOUT_SUMMARY",
+            "Workout ended. Summary:\n" +
+            "Duration: ${summary.durationSeconds}s\n" +
+            "Total Reps: ${summary.totalReps}\n" +
+            "Avg Knee Angle: ${summary.avgKneeAngle}\n" +
+            "Avg Hip Angle: ${summary.avgHipAngle}\n" +
+            "Min Knee Angle: ${summary.minKneeAngle}\n" +
+            "Min Hip Angle: ${summary.minHipAngle}"
+        )
+        return summary
+    }
+
     // ---------------- MAIN ----------------
     fun analyze(frame: PoseFramePayload): SquatFeedback? {
         // Zero-fill and populate lookup array
@@ -104,6 +150,10 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         } else 180f
 
         val rawAngle = minOf(leftKneeAngle, rightKneeAngle)
+        android.util.Log.d(
+        "KNEE_DEBUG",
+        "Raw Knee Angle: $rawAngle | Left: $leftKneeAngle | Right: $rightKneeAngle"
+    )
         val hipAngle = calculateAngle(shoulder, hip, knee, w, h)
 
         // Rolling-sum smoothing — zero allocation
@@ -127,6 +177,16 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         val faults = detectFaults(kneeAngle, hipAngle, landmarkArray, isFrontView, w, h)
         val allFaults = if (tooLowFault != null) faults + tooLowFault else faults
         triggerAudioFeedback(allFaults)
+
+        // Update session summary statistics
+        if (sessionStartTime == 0L) {
+            sessionStartTime = System.currentTimeMillis()
+        }
+        sessionFrameCount++
+        sessionSumKneeAngle += kneeAngle
+        sessionSumHipAngle += hipAngle
+        if (kneeAngle < sessionMinKneeAngle) sessionMinKneeAngle = kneeAngle
+        if (hipAngle < sessionMinHipAngle) sessionMinHipAngle = hipAngle
 
         return SquatFeedback(
             phase = currentPhase,
@@ -317,6 +377,14 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         kneeAngleBuffer.fill(0f)
         faultsAnnouncedThisRep.clear()
         faultCooldowns.fill(0L)
+
+        // Reset summary statistics
+        sessionFrameCount = 0
+        sessionSumKneeAngle = 0f
+        sessionSumHipAngle = 0f
+        sessionMinKneeAngle = 180f
+        sessionMinHipAngle = 180f
+        sessionStartTime = 0L
     }
 
     private fun calculateAngle(
