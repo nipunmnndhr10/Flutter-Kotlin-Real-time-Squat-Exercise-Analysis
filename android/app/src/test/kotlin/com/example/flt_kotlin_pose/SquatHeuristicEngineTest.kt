@@ -62,8 +62,8 @@ class SquatHeuristicEngineTest {
     private fun descending() = frame(
         LM.LEFT_SHOULDER  to Triple(0.30f, 0.20f, 0.95f),
         LM.RIGHT_SHOULDER to Triple(0.70f, 0.20f, 0.95f),
-        LM.LEFT_HIP       to Triple(0.30f, 0.65f, 0.95f),
-        LM.RIGHT_HIP      to Triple(0.70f, 0.65f, 0.95f),
+        LM.LEFT_HIP       to Triple(0.15f, 0.50f, 0.95f),
+        LM.RIGHT_HIP      to Triple(0.85f, 0.50f, 0.95f),
         LM.LEFT_KNEE      to Triple(0.35f, 0.70f, 0.95f),
         LM.RIGHT_KNEE     to Triple(0.65f, 0.70f, 0.95f),
         LM.LEFT_ANKLE     to Triple(0.35f, 0.90f, 0.95f),
@@ -255,7 +255,7 @@ class SquatHeuristicEngineTest {
     }
 
     @Test
-    fun `rep NOT counted when too-low violation occurred`() {
+    fun `rep counted and faulted when too-low violation occurred`() {
         prime(standing())
         prime(descending())
 
@@ -270,7 +270,7 @@ class SquatHeuristicEngineTest {
 
         prime(standing())
         val result = engine.analyze(standing())!!
-        assertEquals(0, result.repCount)
+        assertEquals(1, result.repCount)
     }
 
     // ---------- FAULTS ----------

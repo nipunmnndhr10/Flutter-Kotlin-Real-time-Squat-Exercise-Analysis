@@ -87,6 +87,7 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "resetSquatSession" -> {
                     squatEngine.reset()
+                    SquatFeedbackEventBus.reset()
                     result.success(null)
                 }
                 "endWorkoutSession" -> {
