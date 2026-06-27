@@ -182,10 +182,51 @@ class _PoseScreenState extends State<PoseScreen> {
   }
 
   Future<void> _endWorkoutSession() async {
+    Map<Object?, Object?>? summaryMap;
     if (widget.enableNativePreview &&
         defaultTargetPlatform == TargetPlatform.android) {
+      summaryMap = await _actionChannel.invokeMapMethod<String, dynamic>('endWorkoutSession');
       await _actionChannel.invokeMethod<void>('resetSquatSession');
     }
+    if (!mounted) return;
+
+    final summary = summaryMap;
+    if (summary != null) {
+      debugPrint('====== WORKOUT SUMMARY ======');
+      debugPrint('Duration: ${summary['durationSeconds']}s');
+      debugPrint('Total Reps: ${summary['totalReps']}');
+      debugPrint('Avg Knee Angle: ${(summary['avgKneeAngle'] as num?)?.toStringAsFixed(1)}°');
+      debugPrint('Avg Hip Angle: ${(summary['avgHipAngle'] as num?)?.toStringAsFixed(1)}°');
+      debugPrint('Min Knee Angle: ${(summary['minKneeAngle'] as num?)?.toStringAsFixed(1)}°');
+      debugPrint('Min Hip Angle: ${(summary['minHipAngle'] as num?)?.toStringAsFixed(1)}°');
+      debugPrint('=============================');
+
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Workout Summary'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Duration: ${summary['durationSeconds']}s'),
+              Text('Total Reps: ${summary['totalReps']}'),
+              Text('Avg Knee Angle: ${(summary['avgKneeAngle'] as num?)?.toStringAsFixed(1)}°'),
+              Text('Avg Hip Angle: ${(summary['avgHipAngle'] as num?)?.toStringAsFixed(1)}°'),
+              Text('Min Knee Angle: ${(summary['minKneeAngle'] as num?)?.toStringAsFixed(1)}°'),
+              Text('Min Hip Angle: ${(summary['minHipAngle'] as num?)?.toStringAsFixed(1)}°'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    }
+
     if (!mounted) return;
     Navigator.of(context).pop();
   }
