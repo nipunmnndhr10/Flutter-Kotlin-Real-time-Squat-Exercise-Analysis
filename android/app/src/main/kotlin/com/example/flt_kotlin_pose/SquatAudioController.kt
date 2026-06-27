@@ -19,6 +19,8 @@ class SquatAudioController(private val context: Context) {
 
     // ---------------- FASTER COOLDOWNS (REDUCED PAUSE TIME) ----------------
     private val lastPlayedTime = HashMap<String, Long>()
+    private var lastPlayedAnyTime = 0L
+    private val globalCooldownMs = 1000L
 
     private val cooldownMs = mapOf(
         "go_deeper" to 700L,
@@ -26,6 +28,8 @@ class SquatAudioController(private val context: Context) {
         "knees_out" to 900L,
         "too_low" to 1200L
     )
+
+    private var activeStreamId = 0
 
     init {
         val audioAttributes = AudioAttributes.Builder()
@@ -70,6 +74,10 @@ class SquatAudioController(private val context: Context) {
         val soundId = soundMap[cueName] ?: return
 
         val now = System.currentTimeMillis()
+
+        // Prevent overlap by enforcing a global cooldown between any two cue starts
+        if (now - lastPlayedAnyTime < globalCooldownMs) return
+
         val last = lastPlayedTime[cueName] ?: 0L
         val cooldown = cooldownMs[cueName] ?: 800L
 
@@ -77,10 +85,16 @@ class SquatAudioController(private val context: Context) {
         if (now - last < cooldown) return
 
         lastPlayedTime[cueName] = now
+        lastPlayedAnyTime = now
 
-        soundPool?.play(soundId, 1f, 1f, 1, 0, 1f)
+        // Stop the currently active stream to ensure no overlapping audio
+        if (activeStreamId != 0) {
+            soundPool?.stop(activeStreamId)
+        }
 
-        Log.d(TAG, "Cue: $cueName")
+        activeStreamId = soundPool?.play(soundId, 1f, 1f, 1, 0, 1f) ?: 0
+
+        Log.d(TAG, "Cue: $cueName, StreamId: $activeStreamId")
     }
 
     fun release() {
@@ -88,6 +102,8 @@ class SquatAudioController(private val context: Context) {
         soundPool = null
         soundMap.clear()
         lastPlayedTime.clear()
+        lastPlayedAnyTime = 0L
+        activeStreamId = 0
         loadedCount.set(0)
     }
 }
