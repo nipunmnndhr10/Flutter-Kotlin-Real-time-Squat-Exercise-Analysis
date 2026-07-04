@@ -13,6 +13,58 @@ class ApiService {
   final http.Client _client = http.Client();
   final AuthService _authService = AuthService();
 
+  // lib/services/api_service.dart
+
+// Add this method to your existing ApiService
+
+Future<Map<String, dynamic>> saveWorkout({
+  required int userId,
+  required String squatType,
+  required int totalReps,
+  double? formScore,
+}) async {
+  print('🔵 SAVING WORKOUT');
+  print('🔵 URL: $baseUrl/workout/save');
+  
+  try {
+    final response = await _client
+        .post(
+          Uri.parse('$baseUrl/workout/save'),
+          headers: await _getHeaders(withAuth: true),
+          body: jsonEncode({
+            'user_id': userId,
+            'squat_type': squatType,
+            'total_reps': totalReps,
+            'form_score': formScore,
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
+
+    print('🔵 RESPONSE STATUS: ${response.statusCode}');
+    print('🔵 RAW RESPONSE: ${response.body}');
+
+    if (response.body.isEmpty) {
+      return {'success': false, 'error': 'Server returned empty response'};
+    }
+
+    final data = jsonDecode(response.body);
+    
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return {'success': true, 'data': data};
+    } else {
+      final error = data['detail']?['error'] ?? data['error'] ?? 'Failed to save workout';
+      return {'success': false, 'error': error};
+    }
+
+  } on TimeoutException catch (e) {
+    return {'success': false, 'error': 'Request timed out'};
+  } on SocketException catch (e) {
+    return {'success': false, 'error': 'Cannot connect to server'};
+  } catch (e) {
+    return {'success': false, 'error': 'Network error: ${e.toString()}'};
+  }
+}
+
   Future<Map<String, String>> _getHeaders({bool withAuth = false}) async {
     final headers = {
       'Content-Type': 'application/json',
