@@ -10,19 +10,21 @@ class AuthService {
   static const String _userEmailKey = 'user_email';
 
   Future<void> saveUserData({
-  required String token,
-  required int userId,
-  required String name,      // ✅ Name is saved
-  required String email,
-}) async {
-  await _secureStorage.write(key: _tokenKey, value: token);
-  await _secureStorage.write(key: _userIdKey, value: userId.toString());
-  await _secureStorage.write(key: _userNameKey, value: name);  // ✅ Name stored
-  await _secureStorage.write(key: _userEmailKey, value: email);
-  
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool('is_logged_in', true);
-}
+    required String token,
+    required int userId,
+    required String name,
+    required String email,
+  }) async {
+    print('🔵 AuthService.saveUserData() called');
+    await _secureStorage.write(key: _tokenKey, value: token);
+    await _secureStorage.write(key: _userIdKey, value: userId.toString());
+    await _secureStorage.write(key: _userNameKey, value: name);
+    await _secureStorage.write(key: _userEmailKey, value: email);
+    
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_logged_in', true);
+    print('✅ User data saved');
+  }
 
   Future<String?> getToken() async {
     return await _secureStorage.read(key: _tokenKey);
@@ -48,6 +50,7 @@ class AuthService {
   }
 
   Future<void> clearUserData() async {
+    print('🔵 AuthService.clearUserData() called');
     await _secureStorage.delete(key: _tokenKey);
     await _secureStorage.delete(key: _userIdKey);
     await _secureStorage.delete(key: _userNameKey);
@@ -55,5 +58,6 @@ class AuthService {
     
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('is_logged_in');
+    print('✅ User data cleared');
   }
 }
