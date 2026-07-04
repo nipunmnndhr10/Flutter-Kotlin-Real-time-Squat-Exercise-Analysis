@@ -24,14 +24,11 @@ enum class SquatDepthPreset(
     companion object {
         val DEFAULT = FULL_SQUAT
 
-        // Safely resolve a threshold value back to its preset (used when receiving from Flutter)
         fun fromAngle(angle: Float): SquatDepthPreset =
             entries.firstOrNull { it.angleThreshold == angle } ?: DEFAULT
     }
 }
 
-
-// MediaPipe landmark indices 
 object LM {
     const val LEFT_SHOULDER  = 11
     const val RIGHT_SHOULDER = 12
@@ -47,11 +44,27 @@ enum class SquatPhase {
     STANDING, DESCENDING, BOTTOM, ASCENDING
 }
 
+// ✅ FIXED - Added all required values
 enum class SquatFault(val cueName: String) {
-    GO_DEEPER("go_deeper"),
     LEAN_FORWARD("chest_up"),
-    LEFT_KNEE_CAVE("knees_out"),
-    RIGHT_KNEE_CAVE("knees_out")
+    KNEE_CAVE("knees_out"),          // ✅ ADDED
+    KNEES_TOO_FAR_OUT("knees_out"),  // ✅ ADDED
+    TOO_LOW("too_low"),              // ✅ ADDED
+    NOT_DEEP_ENOUGH("go_deeper"),    // ✅ ADDED
+    GO_DEEPER("go_deeper");          // ✅ ADDED - NO SEMICOLON ISSUE
+
+    // ✅ Converts from your existing SQUAT_FAULT to this new enum
+    companion object {
+        fun fromOldFault(oldFault: String): SquatFault {
+            return when (oldFault) {
+                "go_deeper" -> NOT_DEEP_ENOUGH
+                "chest_up" -> LEAN_FORWARD
+                "knees_out" -> KNEES_TOO_FAR_OUT
+                "too_low" -> TOO_LOW
+                else -> LEAN_FORWARD
+            }
+        }
+    }
 }
 
 data class SquatFeedback(
