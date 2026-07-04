@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';        // ✅ Package import (from pubspec.yaml)
-import '../app_constants.dart';                 // ✅ Relative path
-import '../validators.dart';                    // ✅ Relative path
-import '../login_components.dart';              // ✅ Relative path
-import 'signup_screen.dart';                    // ✅ Relative path                
-import '../providers/auth_provider.dart';       // ✅ Relative path (FIXED!)
+import 'package:provider/provider.dart';
+import '../app_constants.dart';
+import '../validators.dart';
+import '../login_components.dart';
+import 'signup_screen.dart';
+import '../providers/auth_provider.dart';
 import 'dashboard_screen.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -30,7 +31,6 @@ class _LoginScreenState extends State<LoginScreen>
 
   double _heroHeight = 280.0;
 
-  // Brand colors
   static const Color primaryGreen = Color(0xFF2ECC71);
   static const Color textDark = Color(0xFF1A2332);
   static const Color textGray = Color(0xFF8A95A3);
@@ -90,7 +90,6 @@ class _LoginScreenState extends State<LoginScreen>
     });
   }
 
-  // 🔐 ========== MODIFIED: REAL AUTHENTICATION ==========
   Future<void> _handleLogin() async {
     final emailErr = validateEmail(_emailController.text);
     final passErr = validatePassword(_passwordController.text);
@@ -104,10 +103,7 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _isLoading = true);
 
     try {
-      // Get auth provider
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      
-      // Call real login API
       final success = await authProvider.login(
         _emailController.text.trim(),
         _passwordController.text.trim(),
@@ -115,16 +111,17 @@ class _LoginScreenState extends State<LoginScreen>
 
       if (!mounted) return;
 
-      // In login_screen.dart _handleLogin method
-if (success) {
-  Navigator.of(context).pushReplacement(
-    MaterialPageRoute(
-      builder: (_) => const DashboardScreen(),
-    ),
-  );
-}
+      if (success) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        );
+      } else {
+        setState(() {
+          _isLoading = false;
+          _passwordError = 'Invalid email or password';
+        });
+      }
     } catch (e) {
-      // ❌ Error occurred
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -133,96 +130,82 @@ if (success) {
       }
     }
   }
-  // ========== END OF MODIFIED CODE ==========
 
   @override
   Widget build(BuildContext context) {
-    final availableHeight = MediaQuery.of(context).size.height -
-        MediaQuery.of(context).padding.top -
-        MediaQuery.of(context).padding.bottom -
-        kToolbarHeight;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.opaque,
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: availableHeight),
-              child: Column(
-                children: [
-                  SizedBox(
-                    height: _heroHeight,
-                    width: double.infinity,
-                    child: const RepaintBoundary(
-                      child: HeroSection(),
-                    ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight,
                   ),
-                  SizedBox(
-                    height: availableHeight - _heroHeight,
-                    child: FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: SlideTransition(
-                        position: _slideAnimation,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.max,
-                            children: [
-                              const SizedBox(height: kSpacingSm),
-                              // Title
-                              Flexible(
-                                flex: 0,
-                                child: RichText(
-                                  text: const TextSpan(
-                                    children: [
-                                      TextSpan(
-                                        text: 'Squat',
-                                        style: TextStyle(
-                                          fontSize: 30,
-                                          fontWeight: FontWeight.w800,
-                                          color: textDark,
-                                          letterSpacing: -0.5,
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: 'Mate',
-                                        style: TextStyle(
-                                          fontSize: 30,
-                                          fontWeight: FontWeight.w800,
-                                          color: primaryGreen,
-                                          letterSpacing: -0.5,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: kSpacingXs),
-                              const Flexible(
-                                flex: 0,
-                                child: Text(
-                                  'Your AI squat coaching companion',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: textGray,
-                                    fontWeight: FontWeight.w400,
-                                    letterSpacing: 0.1,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: kSpacingXl),
-                              // Form fields
-                              Flexible(
-                                flex: 0,
+                  child: IntrinsicHeight(
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          height: _heroHeight,
+                          width: double.infinity,
+                          child: const RepaintBoundary(
+                            child: HeroSection(),
+                          ),
+                        ),
+                        Expanded(
+                          child: FadeTransition(
+                            opacity: _fadeAnimation,
+                            child: SlideTransition(
+                              position: _slideAnimation,
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.start,
                                   children: [
+                                    const SizedBox(height: kSpacingSm),
+                                    RichText(
+                                      text: const TextSpan(
+                                        children: [
+                                          TextSpan(
+                                            text: 'Squat',
+                                            style: TextStyle(
+                                              fontSize: 30,
+                                              fontWeight: FontWeight.w800,
+                                              color: textDark,
+                                              letterSpacing: -0.5,
+                                            ),
+                                          ),
+                                          TextSpan(
+                                            text: 'Mate',
+                                            style: TextStyle(
+                                              fontSize: 30,
+                                              fontWeight: FontWeight.w800,
+                                              color: primaryGreen,
+                                              letterSpacing: -0.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: kSpacingXs),
+                                    const Text(
+                                      'Your AI squat coaching companion',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: textGray,
+                                        fontWeight: FontWeight.w400,
+                                        letterSpacing: 0.1,
+                                      ),
+                                    ),
+                                    const SizedBox(height: kSpacingXl),
                                     InputField(
                                       controller: _emailController,
                                       hint: 'Email',
@@ -344,52 +327,50 @@ if (success) {
                                         ),
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Flexible(
-                                flex: 0,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Text(
-                                      'New here? ',
-                                      style: TextStyle(
-                                        color: textGray,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    GestureDetector(
-                                      onTap: () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                const SignupScreen(),
+                                    const SizedBox(height: kSpacingMd),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Text(
+                                          'New here? ',
+                                          style: TextStyle(
+                                            color: textGray,
+                                            fontSize: 13,
                                           ),
-                                        );
-                                      },
-                                      child: const Text(
-                                        'Join SquatMate',
-                                        style: TextStyle(
-                                          color: primaryGreen,
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w700,
                                         ),
-                                      ),
+                                        GestureDetector(
+                                          onTap: () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const SignupScreen(),
+                                              ),
+                                            );
+                                          },
+                                          child: const Text(
+                                            'Join SquatMate',
+                                            style: TextStyle(
+                                              color: primaryGreen,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
+                                    const SizedBox(height: kSpacingSm),
                                   ],
                                 ),
                               ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
         ),
       ),
