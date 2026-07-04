@@ -28,4 +28,18 @@ class User {
       'token': token,
     };
   }
+
+  User copyWith({
+    int? userId,
+    String? name,
+    String? email,
+    String? token,
+  }) {
+    return User(
+      userId: userId ?? this.userId,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      token: token ?? this.token,
+    );
+  }
 }
