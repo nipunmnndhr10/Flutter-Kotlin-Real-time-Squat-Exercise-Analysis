@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 
 class WorkoutSessionCreate(BaseModel):
+    user_id: int
     workout_type: str = "squat"
     started_at: datetime
     ended_at: datetime
@@ -19,6 +20,7 @@ class WorkoutSessionCreate(BaseModel):
 
 class WorkoutSessionResponse(BaseModel):
     id: int
+    user_id: int
     workout_type: str
     started_at: datetime
     ended_at: datetime

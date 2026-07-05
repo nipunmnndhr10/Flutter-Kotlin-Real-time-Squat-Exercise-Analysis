@@ -160,7 +160,8 @@ class _LoginScreenState extends State<LoginScreen>
         SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
       );
     } catch (e) {
-      if (!mounted) return; //If this screen is no longer active, stop executing
+      if (!mounted)
+        return; //If this screen is no longer active, stop executing. to make sure user is there
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Something went wrong")));

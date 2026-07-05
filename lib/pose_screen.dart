@@ -54,6 +54,7 @@ class _PoseScreenState extends State<PoseScreen> {
   // Workout summary payload assembled during the session.
   final Map<String, int> _faultSummaryCounts = <String, int>{};
   bool _isWorkoutPaused = false;
+  late final DateTime _workoutStartedAt;
 
   // ── Depth preset ────────────────────────────────────────────────────────
   static const _presets = [
@@ -82,6 +83,7 @@ class _PoseScreenState extends State<PoseScreen> {
   @override
   void initState() {
     super.initState();
+    _workoutStartedAt = DateTime.now().toUtc();
     _setupPoseChannel();
     _setupSquatChannel();
     _setupPermission();
@@ -286,12 +288,15 @@ class _PoseScreenState extends State<PoseScreen> {
   }
 
   Map<String, dynamic> _buildWorkoutSummary(Map<Object?, Object?>? summaryMap) {
+    final workoutEndedAt = DateTime.now().toUtc();
     return <String, dynamic>{
       if (summaryMap != null)
         ...summaryMap.map((key, value) => MapEntry(key.toString(), value)),
       'id': null,
       'userId': _backendUserId,
       'workoutType': _workoutType,
+      'startedAt': _workoutStartedAt.toIso8601String(),
+      'endedAt': workoutEndedAt.toIso8601String(),
       'targetAngleThreshold': _squatFeedback.angleThreshold,
       'camera': _isFrontCamera ? 'front' : 'back',
       'faultSummaryJson': Map<String, int>.from(_faultSummaryCounts),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'dashboard_screen.dart';
 import 'pose_screen.dart';
 
@@ -18,6 +19,12 @@ class WorkoutScreen extends StatefulWidget {
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
   int _currentIndex = 1;
+  final Dio _dio = Dio(
+    BaseOptions(
+      baseUrl: 'http://192.168.1.3:8000',
+      headers: {'Content-Type': 'application/json'},
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -264,6 +271,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 value: summary['workoutType']?.toString() ?? '-',
               ),
               _SummaryRow(
+                label: 'Started At',
+                value: summary['startedAt']?.toString() ?? '-',
+              ),
+              _SummaryRow(
+                label: 'Ended At',
+                value: summary['endedAt']?.toString() ?? '-',
+              ),
+              _SummaryRow(
                 label: 'Target Angle Threshold',
                 value:
                     '${(summary['targetAngleThreshold'] as num?)?.toStringAsFixed(1) ?? '-'}°',
@@ -309,8 +324,29 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () {}, child: const Text('Save Workout')),
-          TextButton(onPressed: () {}, child: const Text("Don't Save")),
+          TextButton(
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              try {
+                await _saveWorkoutSummary(summary);
+                if (!dialogContext.mounted) return;
+                Navigator.of(dialogContext).pop();
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('Workout saved successfully')),
+                );
+              } catch (error) {
+                if (!dialogContext.mounted) return;
+                messenger.showSnackBar(
+                  SnackBar(content: Text('Failed to save workout: $error')),
+                );
+              }
+            },
+            child: const Text('Save Workout'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text("Don't Save"),
+          ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Close'),
@@ -318,6 +354,26 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _saveWorkoutSummary(Map<String, dynamic> summary) async {
+    final payload = <String, dynamic>{
+      'user_id': summary['userId'],
+      'workout_type': summary['workoutType'],
+      'started_at': summary['startedAt'],
+      'ended_at': summary['endedAt'],
+      'duration_seconds': summary['durationSeconds'],
+      'target_angle_threshold': summary['targetAngleThreshold'],
+      'camera': summary['camera'],
+      'min_knee_angle': summary['minKneeAngle'],
+      'avg_knee_angle': summary['avgKneeAngle'],
+      'min_hip_angle': summary['minHipAngle'],
+      'avg_hip_angle': summary['avgHipAngle'],
+      'total_reps': summary['totalReps'],
+      'fault_summary_json': summary['faultSummaryJson'],
+    };
+
+    await _dio.post('/workouts/', data: payload);
   }
 
   String _formatFaultSummary(dynamic faultSummary) {

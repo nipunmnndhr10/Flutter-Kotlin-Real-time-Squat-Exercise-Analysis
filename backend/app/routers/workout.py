@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
+from app.models.user import User
 from app.models.workout import WorkoutSession
 from app.schemas.workout import WorkoutSessionCreate, WorkoutSessionResponse
 
@@ -9,8 +10,12 @@ router = APIRouter(prefix="/workouts", tags=["Workouts"])
 
 @router.post("/", response_model=WorkoutSessionResponse)
 def save_session_summary(session: WorkoutSessionCreate, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == session.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     
     new_session = WorkoutSession(
+        user_id=session.user_id,
         workout_type=session.workout_type,
         started_at=session.started_at,
         ended_at=session.ended_at,
@@ -23,7 +28,6 @@ def save_session_summary(session: WorkoutSessionCreate, db: Session = Depends(ge
         avg_hip_angle=session.avg_hip_angle,
         total_reps=session.total_reps,
         fault_summary_json=session.fault_summary_json,
-        user_id=1   # TODO: Connect with real logged-in user later
     )
 
     db.add(new_session)
