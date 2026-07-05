@@ -111,6 +111,18 @@ class MainActivity : FlutterActivity() {
                     PoseCameraRegistry.toggleCamera(this, useFront)
                     result.success(null)
                 }
+                "pauseSquatSession" -> {
+                    squatEngine.pauseAnalysis()
+                    squatEngine.pauseWorkoutTimer()
+                    PoseCameraRegistry.pauseAnalysis()
+                    result.success(null)
+                }
+                "resumeSquatSession" -> {
+                    squatEngine.resumeAnalysis()
+                    squatEngine.resumeWorkoutTimer()
+                    PoseCameraRegistry.resumeAnalysis()
+                    result.success(null)
+                }
                 "setDepthThreshold" -> {
                     val angle = (call.arguments as? Double)?.toFloat() ?: 90f
                     squatEngine.setDepthThreshold(angle)

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'app_constants.dart';
 import 'login_components.dart';
@@ -60,7 +61,8 @@ class _SignupScreenState extends State<SignupScreen> {
   // FIX #5: Single helper that recomputes _formValid from cached error fields.
   // Called at the end of every onChanged handler — O(1), no regex.
   void _updateFormValid() {
-    _formValid = _nameError == null &&
+    _formValid =
+        _nameError == null &&
         _emailError == null &&
         _passwordError == null &&
         _confirmError == null &&
@@ -81,7 +83,6 @@ class _SignupScreenState extends State<SignupScreen> {
     if (score == 3) return const Color(0xFF2ECC71);
     return const Color(0xFF17B26A);
   }
-
 
   void _onNameChanged(String v) {
     setState(() {
@@ -114,8 +115,9 @@ class _SignupScreenState extends State<SignupScreen> {
 
   void _onConfirmChanged(String v) {
     setState(() {
-      _confirmError =
-          _passwordController.text == v ? null : 'Passwords do not match';
+      _confirmError = _passwordController.text == v
+          ? null
+          : 'Passwords do not match';
       _updateFormValid();
     });
   }
@@ -135,20 +137,64 @@ class _SignupScreenState extends State<SignupScreen> {
     });
   }
 
-Future<void> _handleSignup() async {
-  _validateAll();
-  if (!_formValid) return;
-  setState(() => _isLoading = true);
-  await Future.delayed(const Duration(milliseconds: 1500));
-  if (!mounted) return;
-  setState(() => _isLoading = false);
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(
-      builder: (_) => DashboardScreen(userName: 'Prayan Shrestha'),
-    ),
-  );
-}
+  Future<void> _handleSignup() async {
+    _validateAll();
+    if (!_formValid) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await Dio().post(
+        'http://192.168.1.3:8000/auth/signup',
+        // 'http://YOUR_PC_IP:8000/auth/signup', // Real Device
+        data: {
+          "email": _emailController.text.trim(),
+          "password": _passwordController.text,
+          "full_name": _nameController.text.trim(),
+        },
+        options: Options(headers: {'Content-Type': 'application/json'}),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Account created successfully!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Go to Login or Dashboard
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const DashboardScreen(userName: 'User'),
+          ),
+        );
+      }
+    } on DioException catch (e) {
+      String errorMsg = "Signup failed";
+
+      if (e.response?.data is Map) {
+        errorMsg = e.response?.data['detail'] ?? errorMsg;
+      } else if (e.message != null) {
+        errorMsg = e.message!;
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Something went wrong")));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -164,7 +210,9 @@ Future<void> _handleSignup() async {
               // Back button
               Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: kSpacingXl, vertical: 10),
+                  horizontal: kSpacingXl,
+                  vertical: 10,
+                ),
                 child: GestureDetector(
                   onTap: () => Navigator.of(context).maybePop(),
                   child: Container(
@@ -174,16 +222,18 @@ Future<void> _handleSignup() async {
                       color: const Color(0xFFEDEEF0),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.arrow_back_ios_new_rounded,
-                        size: 16, color: Color(0xFF555D6A)),
+                    child: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 16,
+                      color: Color(0xFF555D6A),
+                    ),
                   ),
                 ),
               ),
 
               Expanded(
                 child: SingleChildScrollView(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: kSpacingXl),
+                  padding: const EdgeInsets.symmetric(horizontal: kSpacingXl),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -211,7 +261,6 @@ Future<void> _handleSignup() async {
                       ),
 
                       const SizedBox(height: kSpacingXxl),
-
 
                       _StyledInputField(
                         controller: _nameController,
@@ -245,7 +294,8 @@ Future<void> _handleSignup() async {
                         onChanged: _onPasswordChanged,
                         suffixIcon: GestureDetector(
                           onTap: () => setState(
-                              () => _obscurePassword = !_obscurePassword),
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
                           child: Icon(
                             _obscurePassword
                                 ? Icons.visibility_off_outlined
@@ -255,7 +305,6 @@ Future<void> _handleSignup() async {
                           ),
                         ),
                       ),
-
 
                       Padding(
                         padding: const EdgeInsets.only(top: 10, bottom: 4),
@@ -278,7 +327,8 @@ Future<void> _handleSignup() async {
                         onChanged: _onConfirmChanged,
                         suffixIcon: GestureDetector(
                           onTap: () => setState(
-                              () => _obscureConfirm = !_obscureConfirm),
+                            () => _obscureConfirm = !_obscureConfirm,
+                          ),
                           child: Icon(
                             _obscureConfirm
                                 ? Icons.visibility_off_outlined
@@ -313,8 +363,11 @@ Future<void> _handleSignup() async {
                                 ),
                               ),
                               child: _agree
-                                  ? const Icon(Icons.check_rounded,
-                                      size: 14, color: Colors.white)
+                                  ? const Icon(
+                                      Icons.check_rounded,
+                                      size: 14,
+                                      color: Colors.white,
+                                    )
                                   : null,
                             ),
                           ),
@@ -329,22 +382,25 @@ Future<void> _handleSignup() async {
                                 text: TextSpan(
                                   text: 'I agree to the ',
                                   style: const TextStyle(
-                                      color: _kTextMuted,
-                                      fontSize: 12.5,
-                                      height: 1.5),
+                                    color: _kTextMuted,
+                                    fontSize: 12.5,
+                                    height: 1.5,
+                                  ),
                                   children: [
                                     TextSpan(
                                       text: 'Terms of Service',
                                       style: const TextStyle(
-                                          color: _kPrimary,
-                                          fontWeight: FontWeight.w700),
+                                        color: _kPrimary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                     const TextSpan(text: ' and '),
                                     TextSpan(
                                       text: 'Privacy Policy',
                                       style: const TextStyle(
-                                          color: _kPrimary,
-                                          fontWeight: FontWeight.w700),
+                                        color: _kPrimary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -372,19 +428,24 @@ Future<void> _handleSignup() async {
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30)),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
                           ),
                           child: _isLoading
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(
-                                      color: Colors.white, strokeWidth: 2.5))
+                                    color: Colors.white,
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
                               : const Text(
                                   'Join SquatMate',
                                   style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700),
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                         ),
                       ),
@@ -392,24 +453,34 @@ Future<void> _handleSignup() async {
                       const SizedBox(height: kSpacingXl),
 
                       // OR divider
-                      Row(children: [
-                        const Expanded(
-                            child:
-                                Divider(color: Color(0xFFEAEDF0), thickness: 1)),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Text('OR',
-                              style: TextStyle(
-                                  color:
-                                      const Color.fromRGBO(138, 149, 163, 1),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.6)),
-                        ),
-                        const Expanded(
+                      Row(
+                        children: [
+                          const Expanded(
                             child: Divider(
-                                color: Color(0xFFEAEDF0), thickness: 1)),
-                      ]),
+                              color: Color(0xFFEAEDF0),
+                              thickness: 1,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              'OR',
+                              style: TextStyle(
+                                color: const Color.fromRGBO(138, 149, 163, 1),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ),
+                          const Expanded(
+                            child: Divider(
+                              color: Color(0xFFEAEDF0),
+                              thickness: 1,
+                            ),
+                          ),
+                        ],
+                      ),
 
                       const SizedBox(height: kSpacingLg),
 
@@ -421,10 +492,10 @@ Future<void> _handleSignup() async {
                           onPressed: () {},
                           style: OutlinedButton.styleFrom(
                             backgroundColor: _kCard,
-                            side: const BorderSide(
-                                color: _kBorder, width: 1.5),
+                            side: const BorderSide(color: _kBorder, width: 1.5),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30)),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -434,9 +505,10 @@ Future<void> _handleSignup() async {
                               const Text(
                                 'Continue with Google',
                                 style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: _kDark),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: _kDark,
+                                ),
                               ),
                             ],
                           ),
@@ -453,13 +525,16 @@ Future<void> _handleSignup() async {
                             text: const TextSpan(
                               text: 'Already a member? ',
                               style: TextStyle(
-                                  color: _kTextMuted, fontSize: 13),
+                                color: _kTextMuted,
+                                fontSize: 13,
+                              ),
                               children: [
                                 TextSpan(
                                   text: 'Log in',
                                   style: TextStyle(
-                                      color: _kPrimary,
-                                      fontWeight: FontWeight.w700),
+                                    color: _kPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ],
                             ),
@@ -519,8 +594,7 @@ class _StyledInputField extends StatelessWidget {
               width: 1.5,
             ),
           ),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           child: Row(
             children: [
               Icon(icon, size: 18, color: _kIconColor),
@@ -532,15 +606,17 @@ class _StyledInputField extends StatelessWidget {
                   keyboardType: keyboardType,
                   onChanged: onChanged,
                   style: const TextStyle(
-                      fontSize: 14,
-                      color: _kDark,
-                      fontWeight: FontWeight.w500),
+                    fontSize: 14,
+                    color: _kDark,
+                    fontWeight: FontWeight.w500,
+                  ),
                   decoration: InputDecoration(
                     hintText: hint,
                     hintStyle: const TextStyle(
-                        color: Color(0xFFBEC5CF),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400),
+                      color: Color(0xFFBEC5CF),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                     border: InputBorder.none,
@@ -561,9 +637,10 @@ class _StyledInputField extends StatelessWidget {
             child: Text(
               errorText!,
               style: const TextStyle(
-                  fontSize: 11.5,
-                  color: Color(0xFFE5534B),
-                  fontWeight: FontWeight.w500),
+                fontSize: 11.5,
+                color: Color(0xFFE5534B),
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],

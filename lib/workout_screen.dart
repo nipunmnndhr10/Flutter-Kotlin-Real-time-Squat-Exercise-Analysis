@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
 import 'pose_screen.dart';
 
-const kPrimary     = Color(0xFF4CAF50);
-const kSecondary   = Color(0xFF81C784);
-const kBackground  = Color(0xFFF9F9F9);
-const kSurface     = Color(0xFFE8F5E9);
+const kPrimary = Color(0xFF4CAF50);
+const kSecondary = Color(0xFF81C784);
+const kBackground = Color(0xFFF9F9F9);
+const kSurface = Color(0xFFE8F5E9);
 const kTextPrimary = Color(0xFF1A1A1A);
-const kTextMuted   = Color(0xFF757575);
+const kTextMuted = Color(0xFF757575);
 
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({super.key});
@@ -32,22 +32,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (_) => const DashboardScreen(
-                  userName: 'Prayan Shrestha',
-                ),
+                builder: (_) =>
+                    const DashboardScreen(userName: 'Prayan Shrestha'),
               ),
             );
           },
         ),
         title: const Text(
           "Workouts",
-          style: TextStyle(
-            color: kTextPrimary,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: kTextPrimary, fontWeight: FontWeight.bold),
         ),
       ),
-      body: SingleChildScrollView(   // ✅ scroll enabled
+      body: SingleChildScrollView(
+        // ✅ scroll enabled
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -77,8 +74,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               ),
               child: Column(
                 children: [
-                  const Icon(Icons.fitness_center,
-                      size: 70, color: kPrimary),
+                  const Icon(Icons.fitness_center, size: 70, color: kPrimary),
                   const SizedBox(height: 16),
                   const Text(
                     "Squat Analysis",
@@ -99,13 +95,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const PoseScreen(),
-                          ),
-                        );
+                      onPressed: () async {
+                        final result =
+                            await Navigator.push<Map<String, dynamic>>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const PoseScreen(),
+                              ),
+                            );
+                        if (!mounted || result == null) return;
+                        await _showWorkoutSummaryDialog(result);
                       },
                       icon: const Icon(Icons.play_arrow),
                       label: const Text(
@@ -197,9 +196,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (_) => const DashboardScreen(
-                  userName: 'Prayan Shrestha',
-                ),
+                builder: (_) =>
+                    const DashboardScreen(userName: 'Prayan Shrestha'),
               ),
             );
           }
@@ -241,6 +239,103 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       ),
     );
   }
+
+  Future<void> _showWorkoutSummaryDialog(Map<String, dynamic> summary) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Workout Summary'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SummaryRow(
+                label: 'Record ID',
+                value: summary['id']?.toString() ?? 'Pending save',
+              ),
+              _SummaryRow(
+                label: 'User ID',
+                value: summary['userId']?.toString() ?? '-',
+              ),
+              _SummaryRow(
+                label: 'Workout Type',
+                value: summary['workoutType']?.toString() ?? '-',
+              ),
+              _SummaryRow(
+                label: 'Target Angle Threshold',
+                value:
+                    '${(summary['targetAngleThreshold'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+              ),
+              _SummaryRow(
+                label: 'Camera',
+                value: summary['camera']?.toString() ?? '-',
+              ),
+              _SummaryRow(
+                label: 'Fault Summary JSON',
+                value: _formatFaultSummary(summary['faultSummaryJson']),
+              ),
+              const SizedBox(height: 4),
+              _SummaryRow(
+                label: 'Duration',
+                value: '${summary['durationSeconds'] ?? '-'}s',
+              ),
+              _SummaryRow(
+                label: 'Total Reps',
+                value: summary['totalReps']?.toString() ?? '-',
+              ),
+              _SummaryRow(
+                label: 'Avg Knee Angle',
+                value:
+                    '${(summary['avgKneeAngle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+              ),
+              _SummaryRow(
+                label: 'Avg Hip Angle',
+                value:
+                    '${(summary['avgHipAngle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+              ),
+              _SummaryRow(
+                label: 'Min Knee Angle',
+                value:
+                    '${(summary['minKneeAngle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+              ),
+              _SummaryRow(
+                label: 'Min Hip Angle',
+                value:
+                    '${(summary['minHipAngle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () {}, child: const Text('Save Workout')),
+          TextButton(onPressed: () {}, child: const Text("Don't Save")),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatFaultSummary(dynamic faultSummary) {
+    if (faultSummary is! Map || faultSummary.isEmpty) {
+      return '{}';
+    }
+
+    final entries = faultSummary.entries.toList()
+      ..sort((a, b) => a.key.toString().compareTo(b.key.toString()));
+    final buffer = StringBuffer('{');
+    for (var i = 0; i < entries.length; i++) {
+      final entry = entries[i];
+      buffer.write('"${entry.key}": ${entry.value}');
+      if (i < entries.length - 1) buffer.write(', ');
+    }
+    buffer.write('}');
+    return buffer.toString();
+  }
 }
 
 // Mistake Row Widget
@@ -257,11 +352,53 @@ class _MistakeRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text("• $mistake",
-              style: const TextStyle(color: kTextMuted, fontSize: 14)),
-          Text("x$count",
-              style: const TextStyle(
-                  color: kPrimary, fontWeight: FontWeight.w600)),
+          Text(
+            "• $mistake",
+            style: const TextStyle(color: kTextMuted, fontSize: 14),
+          ),
+          Text(
+            "x$count",
+            style: const TextStyle(
+              color: kPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  const _SummaryRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: kTextMuted,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: kTextPrimary,
+            ),
+          ),
         ],
       ),
     );

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'workout_screen.dart';
 
-const kPrimary     = Color(0xFF4CAF50);
-const kSecondary   = Color(0xFF81C784);
-const kBackground  = Color(0xFFF9F9F9);
-const kSurface     = Color(0xFFE8F5E9);
+const kPrimary = Color(0xFF4CAF50);
+const kSecondary = Color(0xFF81C784);
+const kBackground = Color(0xFFF9F9F9);
+const kSurface = Color(0xFFE8F5E9);
 const kTextPrimary = Color(0xFF1A1A1A);
-const kTextMuted   = Color(0xFF757575);
+const kTextMuted = Color(0xFF757575);
 
 class DashboardScreen extends StatefulWidget {
   final String userName;
@@ -49,31 +49,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
       bottomNavigationBar: _BottomNav(
         currentIndex: _currentIndex,
         onTap: (i) {
-  if (i == 1) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const WorkoutScreen(),
-      ),
-    );
-    return;
-  }
+          if (i == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const WorkoutScreen()),
+            );
+            return;
+          }
 
-  setState(() => _currentIndex = i);
-},
+          setState(() => _currentIndex = i);
+        },
       ),
     );
   }
 
   void _openCamera() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Opening camera…'), backgroundColor: kPrimary, duration: Duration(seconds: 1)),
+      const SnackBar(
+        content: Text('Opening camera…'),
+        backgroundColor: kPrimary,
+        duration: Duration(seconds: 1),
+      ),
     );
   }
 
   void _startWorkout() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Starting workout…'), backgroundColor: kSecondary, duration: Duration(seconds: 1)),
+      const SnackBar(
+        content: Text('Starting workout…'),
+        backgroundColor: kSecondary,
+        duration: Duration(seconds: 1),
+      ),
     );
   }
 }
@@ -87,8 +93,12 @@ class _Header extends StatelessWidget {
     return Row(
       children: [
         Container(
-          width: 44, height: 44,
-          decoration: const BoxDecoration(color: kSurface, shape: BoxShape.circle),
+          width: 44,
+          height: 44,
+          decoration: const BoxDecoration(
+            color: kSurface,
+            shape: BoxShape.circle,
+          ),
           child: const Icon(Icons.person_outline, color: kPrimary, size: 24),
         ),
         const SizedBox(width: 12),
@@ -96,15 +106,33 @@ class _Header extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Welcome back,', style: TextStyle(fontSize: 12, color: kTextMuted)),
-              Text(userName, style: const TextStyle(fontSize: 16, color: kTextPrimary, fontWeight: FontWeight.w600)),
+              const Text(
+                'Welcome back,',
+                style: TextStyle(fontSize: 12, color: kTextMuted),
+              ),
+              Text(
+                userName,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: kTextPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ),
         Container(
-          width: 40, height: 40,
-          decoration: BoxDecoration(color: kSurface, borderRadius: BorderRadius.circular(12)),
-          child: const Icon(Icons.notifications_outlined, color: kTextPrimary, size: 20),
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: kSurface,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(
+            Icons.notifications_outlined,
+            color: kTextPrimary,
+            size: 20,
+          ),
         ),
       ],
     );
@@ -120,14 +148,25 @@ class _CameraButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: double.infinity, height: 56,
-        decoration: BoxDecoration(color: kPrimary, borderRadius: BorderRadius.circular(16)),
+        width: double.infinity,
+        height: 56,
+        decoration: BoxDecoration(
+          color: kPrimary,
+          borderRadius: BorderRadius.circular(16),
+        ),
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.play_circle_outline, color: Colors.white, size: 24),
             SizedBox(width: 10),
-            Text('Camera Setup', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+            Text(
+              'Camera Setup',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
@@ -152,9 +191,17 @@ class _StatRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _StatCard(label: 'Total Squats', value: _fmt(totalSquats))),
+        Expanded(
+          child: _StatCard(label: 'Total Squats', value: _fmt(totalSquats)),
+        ),
         const SizedBox(width: 14),
-        Expanded(child: _StatCard(label: 'Top Form', value: '$topForm%', valueColor: kPrimary)),
+        Expanded(
+          child: _StatCard(
+            label: 'Top Form',
+            value: '$topForm%',
+            valueColor: kPrimary,
+          ),
+        ),
       ],
     );
   }
@@ -164,19 +211,33 @@ class _StatCard extends StatelessWidget {
   final String label;
   final String value;
   final Color valueColor;
-  const _StatCard({required this.label, required this.value, this.valueColor = kTextPrimary});
+  const _StatCard({
+    required this.label,
+    required this.value,
+    this.valueColor = kTextPrimary,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(color: kSurface, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: kSurface,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: const TextStyle(fontSize: 12, color: kTextMuted)),
           const SizedBox(height: 6),
-          Text(value, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: valueColor)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
+              color: valueColor,
+            ),
+          ),
         ],
       ),
     );
@@ -194,12 +255,21 @@ class _WeeklyChart extends StatelessWidget {
     final today = DateTime.now().weekday % 7;
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: kSurface, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: kSurface,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Squats in last 7 Days',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kTextPrimary)),
+          const Text(
+            'Squats in last 7 Days',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: kTextPrimary,
+            ),
+          ),
           const SizedBox(height: 16),
           SizedBox(
             height: 120,
@@ -214,7 +284,13 @@ class _WeeklyChart extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Text(data[i] > 0 ? '${data[i]}' : '', style: const TextStyle(fontSize: 10, color: kTextMuted)),
+                        Text(
+                          data[i] > 0 ? '${data[i]}' : '',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: kTextMuted,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 600),
@@ -226,11 +302,16 @@ class _WeeklyChart extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        Text(_days[i], style: TextStyle(
-                          fontSize: 10,
-                          color: isToday ? kPrimary : kTextMuted,
-                          fontWeight: isToday ? FontWeight.w600 : FontWeight.w400,
-                        )),
+                        Text(
+                          _days[i],
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isToday ? kPrimary : kTextMuted,
+                            fontWeight: isToday
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -253,10 +334,20 @@ class _RecommendedWorkoutSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Recommended Workout',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: kTextPrimary)),
+        const Text(
+          'Recommended Workout',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: kTextPrimary,
+          ),
+        ),
         const SizedBox(height: 12),
-        _WorkoutCard(title: 'Killer Leg Workout (Squats)', subtitle: '45 Min  •  Advanced', onPlay: onPlay),
+        _WorkoutCard(
+          title: 'Killer Leg Workout (Squats)',
+          subtitle: '45 Min  •  Advanced',
+          onPlay: onPlay,
+        ),
       ],
     );
   }
@@ -266,31 +357,56 @@ class _WorkoutCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onPlay;
-  const _WorkoutCard({required this.title, required this.subtitle, required this.onPlay});
+  const _WorkoutCard({
+    required this.title,
+    required this.subtitle,
+    required this.onPlay,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(color: kSurface, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: kSurface,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Row(
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kTextPrimary)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: kTextPrimary,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(subtitle, style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                Text(
+                  subtitle,
+                  style: const TextStyle(fontSize: 12, color: kTextMuted),
+                ),
               ],
             ),
           ),
           GestureDetector(
             onTap: onPlay,
             child: Container(
-              width: 40, height: 40,
-              decoration: const BoxDecoration(color: Color(0x1F4CAF50), shape: BoxShape.circle),
-              child: const Icon(Icons.play_arrow_rounded, color: kPrimary, size: 22),
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: Color(0x1F4CAF50),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.play_arrow_rounded,
+                color: kPrimary,
+                size: 22,
+              ),
             ),
           ),
         ],
@@ -318,14 +434,33 @@ class _BottomNav extends StatelessWidget {
         elevation: 0,
         selectedItemColor: kPrimary,
         unselectedItemColor: kTextMuted,
-        selectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        selectedLabelStyle: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
         unselectedLabelStyle: const TextStyle(fontSize: 11),
         type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home_rounded), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.fitness_center_outlined), activeIcon: Icon(Icons.fitness_center), label: 'Workouts'),
-          BottomNavigationBarItem(icon: Icon(Icons.show_chart_outlined), activeIcon: Icon(Icons.show_chart), label: 'Progress'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home_rounded),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.fitness_center_outlined),
+            activeIcon: Icon(Icons.fitness_center),
+            label: 'Workouts',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.show_chart_outlined),
+            activeIcon: Icon(Icons.show_chart),
+            label: 'Progress',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Profile',
+          ),
         ],
       ),
     );

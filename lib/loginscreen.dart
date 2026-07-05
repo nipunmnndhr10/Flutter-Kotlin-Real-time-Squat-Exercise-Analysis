@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+import 'package:flt_kotlin_pose/dashboard_screen.dart';
 import 'package:flutter/material.dart';
 import 'app_constants.dart';
 import 'validators.dart';
@@ -91,18 +93,80 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _handleLogin() async {
-    // Hardcoded auth bypassed for the temporary flow.
+    // Clear previous errors - resetting UI state
     setState(() {
       _emailError = null;
       _passwordError = null;
       _isLoading = true;
     });
-    await Future.delayed(const Duration(milliseconds: 150));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const TemporaryLandingPage()),
-    );
+
+    // Basic input validation
+    if (_emailController.text.trim().isEmpty) {
+      setState(() => _emailError = "Email is required");
+      setState(() => _isLoading = false);
+      return;
+    }
+    if (_passwordController.text.isEmpty) {
+      setState(() => _passwordError = "Password is required");
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    // sending api req to backend
+    try {
+      final response = await Dio().post(
+        'http://192.168.1.3:8000/auth/login',
+        // 'http://YOUR_PC_IP:8000/auth/login', // Real Device
+        data: {
+          "email": _emailController.text.trim(),
+          "password": _passwordController.text,
+        },
+      );
+
+      // handling success response
+      if (response.statusCode == 200) {
+        final data = response.data;
+
+        // Success
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Login successful!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // TODO: Later save token if using JWT
+        // Example: await storage.write(key: 'token', value: data['access_token']);
+
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => const DashboardScreen(userName: "User"),
+          ),
+        );
+      }
+      // handling errors
+    } on DioException catch (e) {
+      String errorMsg = "Login failed";
+
+      if (e.response?.data is Map) {
+        errorMsg = e.response?.data['detail'] ?? errorMsg;
+      } else if (e.message != null) {
+        errorMsg = e.message!;
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
+      );
+    } catch (e) {
+      if (!mounted) return; //If this screen is no longer active, stop executing
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Something went wrong")));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
