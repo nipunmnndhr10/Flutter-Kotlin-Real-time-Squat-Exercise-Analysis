@@ -5,6 +5,8 @@ from app.models.user import User
 from app.schemas.user import UserCreate, UserLogin, UserResponse
 from passlib.context import CryptContext
 
+from app.core.security import create_access_token
+
 # for grouping all auth routes under /auth prefix and tagging them as "Auth" for documentation purposes
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -49,12 +51,25 @@ def signup(user_data: UserCreate, db: Session = Depends(get_db)):
 @router.post("/login")
 def login(user_data: UserLogin, db: Session = Depends(get_db)):
     
+    # look up user by email
     user = db.query(User).filter(User.email == user_data.email).first()
 
+    # verify if user exists and password is correct: compare plain pw with hashed pw using bcrypt
     if not user or not verify_password(user_data.password, user.hashed_password):
          raise HTTPException(status_code=400, detail="Invalid email or password")
     
+
+    # creating JWT token for the authenticated user. The token will contain the user's email and ID as payload, and it will be signed using the SECRET_KEY and ALGORITHM defined in the security module.
+    access_token = create_access_token(
+        data={
+            "sub": user.email,
+            "user_id": user.id
+        }
+    )
+    
     return {
+        "access_token": access_token,
+        "token_type": "bearer",
         "message": "Login successful",
         "user": {
             "id": user.id,

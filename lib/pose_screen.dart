@@ -22,7 +22,6 @@ class _PoseScreenState extends State<PoseScreen> {
   );
   static const MethodChannel _actionChannel = MethodChannel('pose_settings');
   static const String _workoutType = 'squat';
-  static const int _backendUserId = 1;
 
   final ValueNotifier<PoseFrameData> _frameData = ValueNotifier<PoseFrameData>(
     PoseFrameData.empty(),
@@ -293,7 +292,6 @@ class _PoseScreenState extends State<PoseScreen> {
       if (summaryMap != null)
         ...summaryMap.map((key, value) => MapEntry(key.toString(), value)),
       'id': null,
-      'userId': _backendUserId,
       'workoutType': _workoutType,
       'startedAt': _workoutStartedAt.toIso8601String(),
       'endedAt': workoutEndedAt.toIso8601String(),

@@ -9,7 +9,7 @@ alias deactivate 'test $?_OLD_VIRTUAL_PATH != 0 && setenv PATH "$_OLD_VIRTUAL_PA
 # Unset irrelevant variables.
 deactivate nondestructive
 
-setenv VIRTUAL_ENV '/Users/nipunmnndhr/Documents/IIMS/Capstone II/code/flt_kotlin_pose/backend/backend-capstone'
+setenv VIRTUAL_ENV '/Users/nipunmnndhr/Documents/IIMS/SEM 9/Capstone II/code/flt_kotlin_pose/backend/backend-capstone'
 
 set _OLD_VIRTUAL_PATH="$PATH"
 setenv PATH "$VIRTUAL_ENV/"bin":$PATH"

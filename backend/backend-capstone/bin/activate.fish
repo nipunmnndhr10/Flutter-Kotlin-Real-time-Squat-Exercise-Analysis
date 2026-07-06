@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV '/Users/nipunmnndhr/Documents/IIMS/Capstone II/code/flt_kotlin_pose/backend/backend-capstone'
+set -gx VIRTUAL_ENV '/Users/nipunmnndhr/Documents/IIMS/SEM 9/Capstone II/code/flt_kotlin_pose/backend/backend-capstone'
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/"bin $PATH

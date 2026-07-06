@@ -145,7 +145,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
     try {
       final response = await Dio().post(
-        'http://192.168.1.3:8000/auth/signup',
+        'http://192.168.1.13:8000/auth/signup',
         // 'http://YOUR_PC_IP:8000/auth/signup', // Real Device
         data: {
           "email": _emailController.text.trim(),

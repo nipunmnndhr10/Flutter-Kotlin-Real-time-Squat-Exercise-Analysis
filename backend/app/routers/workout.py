@@ -1,21 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.models.user import User
 from app.models.workout import WorkoutSession
 from app.schemas.workout import WorkoutSessionCreate, WorkoutSessionResponse
+from app.core.security import get_current_user
+from app.models.user import User
 
 router = APIRouter(prefix="/workouts", tags=["Workouts"])
 
 
 @router.post("/", response_model=WorkoutSessionResponse)
-def save_session_summary(session: WorkoutSessionCreate, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == session.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
+def save_session_summary(
+    session: WorkoutSessionCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     new_session = WorkoutSession(
-        user_id=session.user_id,
+        user_id=current_user.id,
         workout_type=session.workout_type,
         started_at=session.started_at,
         ended_at=session.ended_at,

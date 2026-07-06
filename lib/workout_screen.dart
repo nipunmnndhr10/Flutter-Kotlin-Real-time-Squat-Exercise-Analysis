@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dashboard_screen.dart';
 import 'pose_screen.dart';
 
@@ -19,12 +20,6 @@ class WorkoutScreen extends StatefulWidget {
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
   int _currentIndex = 1;
-  final Dio _dio = Dio(
-    BaseOptions(
-      baseUrl: 'http://192.168.1.3:8000',
-      headers: {'Content-Type': 'application/json'},
-    ),
-  );
 
   @override
   Widget build(BuildContext context) {
@@ -263,8 +258,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 value: summary['id']?.toString() ?? 'Pending save',
               ),
               _SummaryRow(
-                label: 'User ID',
-                value: summary['userId']?.toString() ?? '-',
+                label: 'User',
+                value: summary['userId']?.toString() ?? 'Authenticated user',
               ),
               _SummaryRow(
                 label: 'Workout Type',
@@ -357,8 +352,24 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Future<void> _saveWorkoutSummary(Map<String, dynamic> summary) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+
+    if (token == null || token.isEmpty) {
+      throw StateError('No access token found. Please log in again.');
+    }
+
+    final authedDio = Dio(
+      BaseOptions(
+        baseUrl: 'http://192.168.1.13:8000',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ),
+    );
+
     final payload = <String, dynamic>{
-      'user_id': summary['userId'],
       'workout_type': summary['workoutType'],
       'started_at': summary['startedAt'],
       'ended_at': summary['endedAt'],
@@ -373,7 +384,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       'fault_summary_json': summary['faultSummaryJson'],
     };
 
-    await _dio.post('/workouts/', data: payload);
+    await authedDio.post('/workouts/', data: payload);
   }
 
   String _formatFaultSummary(dynamic faultSummary) {
