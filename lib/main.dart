@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/dashboard_screen.dart';
-import 'screens/workout_screen.dart';
 import 'screens/workout_history_screen.dart';
 import 'providers/auth_provider.dart';
 
@@ -36,7 +35,6 @@ class MyApp extends StatelessWidget {
           '/login': (context) => const LoginScreen(),
           '/signup': (context) => const SignupScreen(),
           '/dashboard': (context) => const DashboardScreen(),
-          '/workout': (context) => const WorkoutScreen(),
           '/history': (context) => const WorkoutHistoryScreen(),
         },
       ),

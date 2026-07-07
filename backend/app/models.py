@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -22,6 +22,7 @@ class WorkoutSession(Base):
     squat_type = Column(String(50), nullable=False)
     total_reps = Column(Integer, nullable=False)
     form_score = Column(Float, nullable=True)
+    faults = Column(JSON, nullable=True, default={})  # NEW: Stores fault counts
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     user = relationship("User", back_populates="workouts")

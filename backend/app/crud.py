@@ -36,7 +36,8 @@ def create_workout(db: Session, workout: schemas.WorkoutCreate) -> models.Workou
         user_id=workout.user_id,
         squat_type=workout.squat_type,
         total_reps=workout.total_reps,
-        form_score=workout.form_score
+        form_score=workout.form_score,
+        faults=workout.faults  # NEW: Save faults
     )
     db.add(db_workout)
     db.commit()

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../pose_screen.dart';
 import '../providers/auth_provider.dart';
+import 'workout_history_screen.dart';  // ✅ ADD THIS IMPORT
 
 const kPrimary = Color(0xFF4CAF50);
 const kSecondary = Color(0xFF81C784);
@@ -59,7 +60,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _startWorkout() {
-    _openCamera(); // Opens PoseScreen since that's your main feature
+    _openCamera();
+  }
+
+  // ✅ NEW: Navigate to History
+  void _navigateToHistory() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const WorkoutHistoryScreen(),
+      ),
+    );
   }
 
   @override
@@ -75,6 +86,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _Header(
                 userName: _userName,
                 onLogout: _logout,
+                onHistory: _navigateToHistory, // ✅ Pass history callback
               ),
               const SizedBox(height: 24),
               _CameraButton(onTap: _openCamera),
@@ -93,9 +105,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         currentIndex: _currentIndex,
         onTap: (i) {
           setState(() => _currentIndex = i);
-          // For now, only Home (0) and Camera button are active
           if (i == 1) {
-            _openCamera(); // Open PoseScreen when Workouts tab is tapped
+            _openCamera(); // Workouts tab → Open PoseScreen
+          }
+          // ✅ NEW: When Progress tab (index 2) is tapped, navigate to History
+          if (i == 2) {
+            _navigateToHistory();
           }
         },
       ),
@@ -103,12 +118,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-// ==================== UI Components (unchanged) ====================
+// ==================== UPDATED HEADER ====================
 
 class _Header extends StatelessWidget {
   final String userName;
   final VoidCallback onLogout;
-  const _Header({required this.userName, required this.onLogout});
+  final VoidCallback onHistory;  // ✅ NEW
+  const _Header({
+    required this.userName,
+    required this.onLogout,
+    required this.onHistory,    // ✅ NEW
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -129,6 +149,16 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
+        // ✅ NEW: History Button (replaces notifications or adds alongside)
+        GestureDetector(
+          onTap: onHistory,
+          child: Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(color: kSurface, borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.history, color: kPrimary, size: 20),
+          ),
+        ),
+        const SizedBox(width: 8),
         Container(
           width: 40, height: 40,
           decoration: BoxDecoration(color: kSurface, borderRadius: BorderRadius.circular(12)),
@@ -173,8 +203,6 @@ class _CameraButton extends StatelessWidget {
     );
   }
 }
-
-// Keep the rest of the components (_StatRow, _StatCard, _WeeklyChart, _RecommendedWorkoutSection, _WorkoutCard, _BottomNav) as they were in the previous version.
 
 class _StatRow extends StatelessWidget {
   final int totalSquats;
@@ -338,6 +366,8 @@ class _WorkoutCard extends StatelessWidget {
   }
 }
 
+// ✅ UPDATED BOTTOM NAV - Progress replaced with History
+
 class _BottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -361,10 +391,27 @@ class _BottomNav extends StatelessWidget {
         unselectedLabelStyle: const TextStyle(fontSize: 11),
         type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home_rounded), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.fitness_center_outlined), activeIcon: Icon(Icons.fitness_center), label: 'Workouts'),
-          BottomNavigationBarItem(icon: Icon(Icons.show_chart_outlined), activeIcon: Icon(Icons.show_chart), label: 'Progress'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home_rounded),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.fitness_center_outlined),
+            activeIcon: Icon(Icons.fitness_center),
+            label: 'Workouts',
+          ),
+          // ✅ REPLACED "Progress" with "History"
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history_outlined),
+            activeIcon: Icon(Icons.history),
+            label: 'History',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Profile',
+          ),
         ],
       ),
     );

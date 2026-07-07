@@ -30,38 +30,30 @@ Future<Map<String, dynamic>?> stopSquatDetection() async {
   print('🔵 stopSquatDetection called');
   try {
     final result = await _channel.invokeMethod('stopSquatDetection');
-    print('🔵 Raw result type: ${result.runtimeType}');
-    print('🔵 Raw result: $result');
-
-    if (result == null) {
-      print('⚠️ Result is null');
-      return null;
+    if (result != null && result is Map) {
+      // ✅ Properly convert the entire map
+      final Map<String, dynamic> converted = {};
+      result.forEach((key, value) {
+        final String keyStr = key.toString();
+        if (value is Map) {
+          final Map<String, dynamic> nestedMap = {};
+          value.forEach((k, v) {
+            nestedMap[k.toString()] = v;
+          });
+          converted[keyStr] = nestedMap;
+        } else {
+          converted[keyStr] = value;
+        }
+      });
+      print('🔵 Converted data: $converted');
+      return converted;
     }
-
-    if (result is! Map) {
-      print('⚠️ Result is not a Map');
-      return null;
-    }
-
-    // More robust conversion
-    final Map<String, dynamic> safeMap = {};
-    
-    (result as Map).forEach((key, value) {
-      if (key != null) {
-        safeMap[key.toString()] = value;
-      }
-    });
-
-    print('🔵 Successfully converted to Map<String, dynamic>');
-    print('🔵 Final data: $safeMap');
-    return safeMap;
-
-  } on PlatformException catch (e) {
-    print('❌ PlatformException: ${e.message}');
     return null;
-  } catch (e, stack) {
-    print('❌ Unexpected error: $e');
-    print(stack);
+  } on PlatformException catch (e) {
+    print('❌ Failed to stop: ${e.message}');
+    return null;
+  } catch (e) {
+    print('❌ Error: $e');
     return null;
   }
 }
@@ -130,37 +122,49 @@ Future<Map<String, dynamic>?> stopSquatDetection() async {
   }
 
   // ==================== SAVE WORKOUT TO BACKEND ====================
-  Future<Map<String, dynamic>> saveWorkoutToBackend(
-    BuildContext context,
-    Map<String, dynamic> workoutData,
-  ) async {
-    print('🔵 saveWorkoutToBackend called');
-    try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final user = authProvider.user;
-      
-      if (user == null) {
-        print('❌ User not logged in');
-        return {'success': false, 'error': 'User not logged in'};
-      }
-      
-      final result = await _apiService.saveWorkout(
-        userId: user.userId,
-        squatType: workoutData['squatType'] ?? 'STANDARD',
-        totalReps: workoutData['totalReps'] ?? 0,
-        formScore: workoutData['formScore']?.toDouble(),
-      );
-      
-      print('🔵 Save result: $result');
-      return result;
-      
-    } catch (e) {
-      print('❌ Error saving workout: $e');
-      return {'success': false, 'error': e.toString()};
+Future<Map<String, dynamic>> saveWorkoutToBackend(
+  BuildContext context,
+  Map<String, dynamic> workoutData,
+) async {
+  try {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final user = authProvider.user;
+    
+    if (user == null) {
+      return {'success': false, 'error': 'User not logged in'};
     }
+    
+    // ✅ SAFE: Convert faults to Map<String, dynamic> properly
+    Map<String, dynamic>? faults;
+    if (workoutData['faults'] != null) {
+      final rawFaults = workoutData['faults'];
+      if (rawFaults is Map) {
+        faults = {};
+        rawFaults.forEach((key, value) {
+          faults![key.toString()] = value;
+        });
+      }
+    }
+    
+    print('🔵 faults being sent: $faults');
+    
+    final result = await _apiService.saveWorkout(
+      userId: user.userId,
+      squatType: workoutData['squatType'] ?? 'STANDARD',
+      totalReps: workoutData['totalReps'] ?? 0,
+      formScore: workoutData['formScore']?.toDouble(),
+      faults: faults,  // ✅ Now properly converted
+    );
+    
+    return result;
+    
+  } catch (e) {
+    print('❌ Error saving workout: $e');
+    return {'success': false, 'error': e.toString()};
   }
+}
 
-  void dispose() {
+ void dispose() {
     _apiService.dispose();
   }
 }
