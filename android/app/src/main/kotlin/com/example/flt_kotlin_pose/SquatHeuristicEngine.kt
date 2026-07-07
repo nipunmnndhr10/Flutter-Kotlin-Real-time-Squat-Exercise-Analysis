@@ -34,8 +34,13 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     fun setDepthThreshold(angle: Float) {
         activePreset = SquatDepthPreset.fromAngle(angle)
         depthProfile = when (activePreset) {
+<<<<<<< Updated upstream
             SquatDepthPreset.QUARTER_SQUAT -> DepthProfile(135f, 170f, 173f, 0.04f)
             SquatDepthPreset.HALF_SQUAT -> DepthProfile(120f, 158f, 167f, 0.07f)
+=======
+            SquatDepthPreset.QUARTER_SQUAT -> DepthProfile(135f, 168f, 170f, 0.045f)
+            SquatDepthPreset.HALF_SQUAT -> DepthProfile(110f, 158f, 166f, 0.085f)
+>>>>>>> Stashed changes
             SquatDepthPreset.FULL_SQUAT -> DepthProfile(90f, 155f, 165f, 0.11f)
         }
     }
@@ -319,6 +324,21 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         h: Int,
     ): List<SquatFault> {
         val bottom = depthProfile.targetBottom
+        val formCheckGate = when (activePreset) {
+            SquatDepthPreset.QUARTER_SQUAT -> 122f
+            SquatDepthPreset.HALF_SQUAT -> 126f
+            SquatDepthPreset.FULL_SQUAT -> 130f
+        }
+        val kneeCaveAngleGate = when (activePreset) {
+            SquatDepthPreset.QUARTER_SQUAT -> 138f
+            SquatDepthPreset.HALF_SQUAT -> 142f
+            SquatDepthPreset.FULL_SQUAT -> 145f
+        }
+        val kneeCaveOffsetGate = when (activePreset) {
+            SquatDepthPreset.QUARTER_SQUAT -> 0.05f
+            SquatDepthPreset.HALF_SQUAT -> 0.045f
+            SquatDepthPreset.FULL_SQUAT -> 0.045f
+        }
         val faults = mutableListOf<SquatFault>()
         val now = System.currentTimeMillis()
 
@@ -342,7 +362,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         }
 
         // 2) LEAN_FORWARD — front view via torso ratio, side view via hip angle
-        if (kneeAngle < 130f) {
+        if (kneeAngle < formCheckGate) {
             if (isFrontView) {
                 val lS = lm[LM.LEFT_SHOULDER]
                 val rS = lm[LM.RIGHT_SHOULDER]
@@ -355,7 +375,11 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
                 val torsoHeight =
                     (abs((lS.y * h) - (lH.y * h)) + abs((rS.y * h) - (rH.y * h))) / 2f
 
+<<<<<<< Updated upstream
                 if (torsoHeight < shoulderWidth * 0.70f) {
+=======
+                if (torsoHeight < shoulderWidth * 0.68f) {
+>>>>>>> Stashed changes
                     addFault(SquatFault.LEAN_FORWARD)
                 }
             } else {
@@ -379,16 +403,27 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
                 calculateAngle(rH, rK, rA, w, h) else 180f
 
             val minKneeAngle = minOf(leftKneeAngle, rightKneeAngle)
+<<<<<<< Updated upstream
             if (minKneeAngle < 145f) {
                 if (lK != null && lA != null) {
                     // Left knee caves inward → x increases toward the center
                     if (lK.x > lA.x + 0.05f) {
+=======
+            if (minKneeAngle < kneeCaveAngleGate) {
+                if (lK != null && lA != null) {
+                    // Left knee caves inward → x increases toward the center
+                    if (lK.x > lA.x + kneeCaveOffsetGate) {
+>>>>>>> Stashed changes
                         addFault(SquatFault.LEFT_KNEE_CAVE)
                     }
                 }
                 if (rK != null && rA != null) {
                     // Right knee caves inward → x decreases toward the center
+<<<<<<< Updated upstream
                     if (rK.x < rA.x - 0.05f) {
+=======
+                    if (rK.x < rA.x - kneeCaveOffsetGate) {
+>>>>>>> Stashed changes
                         addFault(SquatFault.RIGHT_KNEE_CAVE)
                     }
                 }
@@ -399,12 +434,9 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     }
 
     private fun triggerAudioFeedback(faults: List<SquatFault>) {
-        for (f in faults) {
-            if (!faultsAnnouncedThisRep.contains(f)) {
-                faultsAnnouncedThisRep.add(f)
-                audioController.playCue(f.cueName)
-            }
-        }
+        val nextFault = faults.firstOrNull { it !in faultsAnnouncedThisRep } ?: return
+        faultsAnnouncedThisRep.add(nextFault)
+        audioController.playCue(nextFault.cueName)
     }
 
     fun reset() {
