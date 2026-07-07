@@ -15,6 +15,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     private var standingHipYBaseline: Float? = null
     private var maxHipDropThisRep = 0f
     private var hasLeftStandingThisRep = false
+    private var tooLowFrameStreak = 0
 
     // For correct descending/ascending phase detection
     private var prevKneeAngle = 180f
@@ -28,14 +29,14 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     )
 
     private var activePreset = SquatDepthPreset.DEFAULT
-    private var depthProfile = DepthProfile(70f, 155f, 165f, 0.13f)
+    private var depthProfile = DepthProfile(90f, 155f, 165f, 0.11f)
 
     fun setDepthThreshold(angle: Float) {
         activePreset = SquatDepthPreset.fromAngle(angle)
         depthProfile = when (activePreset) {
-            SquatDepthPreset.QUARTER_SQUAT -> DepthProfile(130f, 170f, 172f, 0.05f)
-            SquatDepthPreset.HALF_SQUAT -> DepthProfile(105f, 155f, 165f, 0.09f)
-            SquatDepthPreset.FULL_SQUAT -> DepthProfile(70f, 155f, 165f, 0.13f)
+            SquatDepthPreset.QUARTER_SQUAT -> DepthProfile(135f, 170f, 173f, 0.04f)
+            SquatDepthPreset.HALF_SQUAT -> DepthProfile(120f, 158f, 167f, 0.07f)
+            SquatDepthPreset.FULL_SQUAT -> DepthProfile(90f, 155f, 165f, 0.11f)
         }
     }
 
@@ -139,8 +140,17 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         val w = frame.frameWidth
         val h = frame.frameHeight
 
-        // Compute BOTH knee angles so we track the most-bent side.
-        // This ensures a caved knee is detected even if useLeft picked the straight side.
+        // Auto-detect front vs side view from shoulder spread
+        val isFrontView = run {
+            val lS = landmarkArray[LM.LEFT_SHOULDER]
+            val rS = landmarkArray[LM.RIGHT_SHOULDER]
+            if (lS == null || rS == null) return@run false
+            val shoulderWidthNorm = abs(lS.x - rS.x)
+            shoulderWidthNorm > 0.08f  // at least 8% of normalized frame width
+        }
+
+        // Compute both knee angles. Use bilateral averaging only in front view;
+        // in side view we rely on the single most reliable visible side.
         val leftKneeAngle = if (leftValid) {
             val lH = landmarkArray[LM.LEFT_HIP]!!
             val lK = landmarkArray[LM.LEFT_KNEE]!!
@@ -155,7 +165,12 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             calculateAngle(rH, rK, rA, w, h)
         } else 180f
 
-        val rawAngle = minOf(leftKneeAngle, rightKneeAngle)
+        val rawAngle = when {
+            isFrontView && leftValid && rightValid -> (leftKneeAngle + rightKneeAngle) / 2f
+            leftValid -> leftKneeAngle
+            rightValid -> rightKneeAngle
+            else -> 180f
+        }
         val hipAngle = calculateAngle(shoulder, hip, knee, w, h)
         val hipY = if (leftValid && rightValid) {
             ((landmarkArray[LM.LEFT_HIP]?.y ?: hip.y) + (landmarkArray[LM.RIGHT_HIP]?.y ?: hip.y)) / 2f
@@ -170,15 +185,6 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         bufferIndex++
         if (bufferCount < kneeAngleBuffer.size) bufferCount++
         val kneeAngle = rollingSum / bufferCount
-
-        // Auto-detect front vs side view from shoulder spread
-        val isFrontView = run {
-            val lS = landmarkArray[LM.LEFT_SHOULDER]
-            val rS = landmarkArray[LM.RIGHT_SHOULDER]
-            if (lS == null || rS == null) return@run false
-            val shoulderWidthNorm = abs(lS.x - rS.x)
-            shoulderWidthNorm > 0.08f  // at least 8% of normalized frame width
-        }
 
         val tooLowFault = updatePhaseAndReps(kneeAngle, hipY)
         val faults = detectFaults(kneeAngle, hipAngle, landmarkArray, isFrontView, w, h)
@@ -241,12 +247,19 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
         // Too-low detection (unified as a SquatFault)
         val tooLowThreshold = bottom - when {
-            bottom >= 125f -> 8f   // shallow squat
-            bottom >= 100f -> 10f  // mid squat
-            else -> 12f            // deep squat
+            bottom >= 125f -> 12f  // shallow squat
+            bottom >= 100f -> 14f  // mid squat
+            else -> 16f            // deep squat
         }
 
-        if (kneeAngle < tooLowThreshold) {
+        if (isInsideRep && kneeAngle < tooLowThreshold) {
+            tooLowFrameStreak++
+        } else {
+            tooLowFrameStreak = 0
+        }
+
+        // Require a short sustained violation to avoid one-frame jitter false positives.
+        if (tooLowFrameStreak >= 3) {
             violatedDepth = true
             tooLowFault = SquatFault.TOO_LOW
         }
@@ -269,6 +282,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             maxDepthReachedThisRep = 180f
             maxHipDropThisRep = 0f
             hasLeftStandingThisRep = false
+            tooLowFrameStreak = 0
             prevKneeAngle = 180f
             faultsAnnouncedThisRep.clear()
         }
@@ -318,9 +332,10 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
         if (currentPhase == SquatPhase.STANDING) return faults
 
-        // 1) GO_DEEPER — descending but not deep enough yet
-        if (currentPhase == SquatPhase.DESCENDING &&
-            kneeAngle > depthProfile.targetBottom + 15f &&
+        // 1) GO_DEEPER — only when the user starts ascending without reaching target depth.
+        // This avoids repeatedly cueing "go deeper" while the user is still descending.
+        if (currentPhase == SquatPhase.ASCENDING &&
+            maxDepthReachedThisRep > depthProfile.targetBottom + 12f &&
             kneeAngle < depthProfile.repStart
         ) {
             addFault(SquatFault.GO_DEEPER)
@@ -340,11 +355,11 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
                 val torsoHeight =
                     (abs((lS.y * h) - (lH.y * h)) + abs((rS.y * h) - (rH.y * h))) / 2f
 
-                if (torsoHeight < shoulderWidth * 0.78f) {
+                if (torsoHeight < shoulderWidth * 0.70f) {
                     addFault(SquatFault.LEAN_FORWARD)
                 }
             } else {
-                if (hipAngle < 55f) addFault(SquatFault.LEAN_FORWARD)
+                if (hipAngle < 50f) addFault(SquatFault.LEAN_FORWARD)
             }
         }
 
@@ -364,16 +379,16 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
                 calculateAngle(rH, rK, rA, w, h) else 180f
 
             val minKneeAngle = minOf(leftKneeAngle, rightKneeAngle)
-            if (minKneeAngle < 150f) {
+            if (minKneeAngle < 145f) {
                 if (lK != null && lA != null) {
                     // Left knee caves inward → x increases toward the center
-                    if (lK.x > lA.x + 0.03f) {
+                    if (lK.x > lA.x + 0.05f) {
                         addFault(SquatFault.LEFT_KNEE_CAVE)
                     }
                 }
                 if (rK != null && rA != null) {
                     // Right knee caves inward → x decreases toward the center
-                    if (rK.x < rA.x - 0.03f) {
+                    if (rK.x < rA.x - 0.05f) {
                         addFault(SquatFault.RIGHT_KNEE_CAVE)
                     }
                 }
@@ -401,6 +416,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         standingHipYBaseline = null
         maxHipDropThisRep = 0f
         hasLeftStandingThisRep = false
+        tooLowFrameStreak = 0
         prevKneeAngle = 180f
         bufferIndex = 0
         bufferCount = 0
