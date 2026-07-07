@@ -68,6 +68,9 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     private var sessionMinKneeAngle = 180f
     private var sessionMinHipAngle = 180f
     private var sessionStartTime = 0L
+    private var sessionPausedAt = 0L
+    private var sessionPausedMillis = 0L
+    @Volatile private var isPaused = false
 
     data class WorkoutSummary(
         val avgKneeAngle: Float,
@@ -81,7 +84,9 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     fun endWorkoutSummary(): WorkoutSummary? {
         if (sessionFrameCount == 0 || sessionStartTime == 0L) return null
 
-        val durationSeconds = (System.currentTimeMillis() - sessionStartTime) / 1000L
+        val now = System.currentTimeMillis()
+        val pausedMillis = sessionPausedMillis + if (sessionPausedAt != 0L) now - sessionPausedAt else 0L
+        val durationSeconds = ((now - sessionStartTime - pausedMillis).coerceAtLeast(0L)) / 1000L
         val avgKneeAngle = sessionSumKneeAngle / sessionFrameCount
         val avgHipAngle = sessionSumHipAngle / sessionFrameCount
 
@@ -107,8 +112,31 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         return summary
     }
 
+    fun pauseWorkoutTimer() {
+        if (sessionPausedAt == 0L) {
+            sessionPausedAt = System.currentTimeMillis()
+        }
+    }
+
+    fun resumeWorkoutTimer() {
+        if (sessionPausedAt != 0L) {
+            sessionPausedMillis += System.currentTimeMillis() - sessionPausedAt
+            sessionPausedAt = 0L
+        }
+    }
+
+    fun pauseAnalysis() {
+        isPaused = true
+    }
+
+    fun resumeAnalysis() {
+        isPaused = false
+    }
+
     // ---------------- MAIN ----------------
     fun analyze(frame: PoseFramePayload): SquatFeedback? {
+        if (isPaused) return null
+
         // Zero-fill and populate lookup array
         landmarkArray.fill(null)
         for (lm in frame.landmarks) {
@@ -194,9 +222,14 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         val tooLowFault = updatePhaseAndReps(kneeAngle, hipY)
         val faults = detectFaults(kneeAngle, hipAngle, landmarkArray, isFrontView, w, h)
         val allFaults = if (tooLowFault != null) faults + tooLowFault else faults
+
+        if (isPaused) return null
+
         triggerAudioFeedback(allFaults)
 
         // Update session summary statistics
+        if (isPaused) return null
+
         if (sessionStartTime == 0L) {
             sessionStartTime = System.currentTimeMillis()
         }
@@ -464,6 +497,9 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         sessionMinKneeAngle = 180f
         sessionMinHipAngle = 180f
         sessionStartTime = 0L
+        sessionPausedAt = 0L
+        sessionPausedMillis = 0L
+        isPaused = false
     }
 
     private fun calculateAngle(
