@@ -58,6 +58,7 @@ class PoseLandmarkerProcessor(
 ) {
     private val lock = Any()
     private val isProcessingFrame = AtomicBoolean(false)
+    @Volatile var isPaused: Boolean = false
     private var poseLandmarker: PoseLandmarker = createPoseLandmarker(context)
 
     // Reusable bitmaps — zero per-frame allocation.
@@ -68,6 +69,11 @@ class PoseLandmarkerProcessor(
     private var rotationCanvas: Canvas? = null
 
     fun detectLiveStream(imageProxy: ImageProxy) {
+        if (isPaused) {
+            imageProxy.close()
+            return
+        }
+
         if (!isProcessingFrame.compareAndSet(false, true)) {
             imageProxy.close()
             return
@@ -141,6 +147,11 @@ class PoseLandmarkerProcessor(
     }
 
     private fun onResult(result: PoseLandmarkerResult, input: MPImage) {
+        if (isPaused) {
+            isProcessingFrame.set(false)
+            return
+        }
+
         val allLandmarks = result.landmarks().firstOrNull().orEmpty()
         val filteredLandmarks = allLandmarks.mapIndexedNotNull { index, landmark ->
             if (index !in TRACKED_LANDMARK_INDICES) null
@@ -166,6 +177,11 @@ class PoseLandmarkerProcessor(
     }
 
     private fun onError(error: RuntimeException) {
+        if (isPaused) {
+            isProcessingFrame.set(false)
+            return
+        }
+
         PoseLandmarkEventBus.error(error.message ?: "Pose landmarker error")
         isProcessingFrame.set(false)
         Log.e(TAG, error.message ?: "Pose landmarker error")

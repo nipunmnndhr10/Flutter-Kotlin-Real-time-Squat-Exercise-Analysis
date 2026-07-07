@@ -21,6 +21,7 @@ class _PoseScreenState extends State<PoseScreen> {
     'pose_permissions',
   );
   static const MethodChannel _actionChannel = MethodChannel('pose_settings');
+  static const String _workoutType = 'squat';
 
   final ValueNotifier<PoseFrameData> _frameData = ValueNotifier<PoseFrameData>(
     PoseFrameData.empty(),
@@ -49,6 +50,11 @@ class _PoseScreenState extends State<PoseScreen> {
   String _lastKnownPhase = 'STANDING';
   bool _showIdleBanner = false;
 
+  // Workout summary payload assembled during the session.
+  final Map<String, int> _faultSummaryCounts = <String, int>{};
+  bool _isWorkoutPaused = false;
+  late final DateTime _workoutStartedAt;
+
   // ── Depth preset ────────────────────────────────────────────────────────
   static const _presets = [
     _SquatPreset(
@@ -76,16 +82,27 @@ class _PoseScreenState extends State<PoseScreen> {
   @override
   void initState() {
     super.initState();
+    _workoutStartedAt = DateTime.now().toUtc();
     _setupPoseChannel();
     _setupSquatChannel();
     _setupPermission();
+    _resetNativeSessionState();
     _startIdleCheck();
+  }
+
+  Future<void> _resetNativeSessionState() async {
+    if (!widget.enableNativePreview ||
+        defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+    await _actionChannel.invokeMethod<void>('resetSquatSession');
   }
 
   // ── Channel setup ────────────────────────────────────────────────────────
 
   void _setupPoseChannel() {
     _subscription = _poseChannel.receiveBroadcastStream().listen((event) {
+      if (_isWorkoutPaused) return;
       final parsed = _parseFrameData(event);
       if (parsed == null) return;
 
@@ -112,8 +129,11 @@ class _PoseScreenState extends State<PoseScreen> {
 
   void _setupSquatChannel() {
     _squatSubscription = _squatChannel.receiveBroadcastStream().listen((event) {
+      if (_isWorkoutPaused) return;
       if (event is! Map) return;
       final newFeedback = SquatFeedbackData.fromMap(event);
+
+      _recordFaultSummary(newFeedback.activeFaults);
 
       if (newFeedback.repCount != _lastKnownRepCount ||
           newFeedback.phase != _lastKnownPhase) {
@@ -132,6 +152,37 @@ class _PoseScreenState extends State<PoseScreen> {
 
       setState(() => _squatFeedback = newFeedback);
     }, onError: (Object error) => debugPrint('Squat feedback error: $error'));
+  }
+
+  void _recordFaultSummary(List<String> faults) {
+    for (final fault in faults) {
+      _faultSummaryCounts[fault] = (_faultSummaryCounts[fault] ?? 0) + 1;
+    }
+  }
+
+  void _pauseWorkoutSessionTracking() {
+    if (_isWorkoutPaused) return;
+    _isWorkoutPaused = true;
+    _poseLostTimer?.cancel();
+    _idleCheckTimer?.cancel();
+    _subscription?.pause();
+    _squatSubscription?.pause();
+    if (widget.enableNativePreview &&
+        defaultTargetPlatform == TargetPlatform.android) {
+      _actionChannel.invokeMethod<void>('pauseSquatSession');
+    }
+  }
+
+  void _resumeWorkoutSessionTracking() {
+    if (!_isWorkoutPaused) return;
+    _isWorkoutPaused = false;
+    _startIdleCheck();
+    _subscription?.resume();
+    _squatSubscription?.resume();
+    if (widget.enableNativePreview &&
+        defaultTargetPlatform == TargetPlatform.android) {
+      _actionChannel.invokeMethod<void>('resumeSquatSession');
+    }
   }
 
   void _startIdleCheck() {
@@ -189,7 +240,37 @@ class _PoseScreenState extends State<PoseScreen> {
     });
   }
 
-  Future<void> _endWorkoutSession() async {
+  Future<void> _promptEndWorkoutSession() async {
+    _pauseWorkoutSessionTracking();
+
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Exit workout?'),
+        content: const Text(
+          'Are you sure you want to end this workout session?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Yes, exit'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (shouldExit != true) {
+      _resumeWorkoutSessionTracking();
+      return;
+    }
+
     Map<Object?, Object?>? summaryMap;
     if (widget.enableNativePreview &&
         defaultTargetPlatform == TargetPlatform.android) {
@@ -200,61 +281,24 @@ class _PoseScreenState extends State<PoseScreen> {
     }
     if (!mounted) return;
 
-    final summary = summaryMap;
-    if (summary != null) {
-      debugPrint('====== WORKOUT SUMMARY ======');
-      debugPrint('Duration: ${summary['durationSeconds']}s');
-      debugPrint('Total Reps: ${summary['totalReps']}');
-      debugPrint(
-        'Avg Knee Angle: ${(summary['avgKneeAngle'] as num?)?.toStringAsFixed(1)}°',
-      );
-      debugPrint(
-        'Avg Hip Angle: ${(summary['avgHipAngle'] as num?)?.toStringAsFixed(1)}°',
-      );
-      debugPrint(
-        'Min Knee Angle: ${(summary['minKneeAngle'] as num?)?.toStringAsFixed(1)}°',
-      );
-      debugPrint(
-        'Min Hip Angle: ${(summary['minHipAngle'] as num?)?.toStringAsFixed(1)}°',
-      );
-      debugPrint('=============================');
+    final mergedSummary = _buildWorkoutSummary(summaryMap);
 
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Workout Summary'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Duration: ${summary['durationSeconds']}s'),
-              Text('Total Reps: ${summary['totalReps']}'),
-              Text(
-                'Avg Knee Angle: ${(summary['avgKneeAngle'] as num?)?.toStringAsFixed(1)}°',
-              ),
-              Text(
-                'Avg Hip Angle: ${(summary['avgHipAngle'] as num?)?.toStringAsFixed(1)}°',
-              ),
-              Text(
-                'Min Knee Angle: ${(summary['minKneeAngle'] as num?)?.toStringAsFixed(1)}°',
-              ),
-              Text(
-                'Min Hip Angle: ${(summary['minHipAngle'] as num?)?.toStringAsFixed(1)}°',
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
-      );
-    }
+    Navigator.of(context).pop(mergedSummary);
+  }
 
-    if (!mounted) return;
-    Navigator.of(context).pop();
+  Map<String, dynamic> _buildWorkoutSummary(Map<Object?, Object?>? summaryMap) {
+    final workoutEndedAt = DateTime.now().toUtc();
+    return <String, dynamic>{
+      if (summaryMap != null)
+        ...summaryMap.map((key, value) => MapEntry(key.toString(), value)),
+      'id': null,
+      'workoutType': _workoutType,
+      'startedAt': _workoutStartedAt.toIso8601String(),
+      'endedAt': workoutEndedAt.toIso8601String(),
+      'targetAngleThreshold': _squatFeedback.angleThreshold,
+      'camera': _isFrontCamera ? 'front' : 'back',
+      'faultSummaryJson': Map<String, int>.from(_faultSummaryCounts),
+    };
   }
 
   Future<void> _toggleCamera() async {
@@ -484,7 +528,7 @@ class _PoseScreenState extends State<PoseScreen> {
                     icon: const Icon(Icons.refresh_rounded),
                   ),
                   IconButton.filledTonal(
-                    onPressed: _endWorkoutSession,
+                    onPressed: _promptEndWorkoutSession,
                     tooltip: 'End workout',
                     icon: const Icon(Icons.logout_rounded),
                   ),

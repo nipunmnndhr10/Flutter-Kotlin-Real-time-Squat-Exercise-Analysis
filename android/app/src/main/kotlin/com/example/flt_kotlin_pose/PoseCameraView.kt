@@ -30,6 +30,14 @@ internal object PoseCameraRegistry {
         activeView?.switchCamera(useFront)
     }
 
+    fun pauseAnalysis() {
+        processor?.isPaused = true
+    }
+
+    fun resumeAnalysis() {
+        processor?.isPaused = false
+    }
+
     fun clear(processor: PoseLandmarkerProcessor) {
         if (this.processor === processor) this.processor = null
     }
