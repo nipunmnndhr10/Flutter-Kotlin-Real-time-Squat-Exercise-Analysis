@@ -91,6 +91,7 @@ class _LoginScreenState extends State<LoginScreen>
     });
   }
 
+  // Save session data to SharedPreferences
   Future<void> _saveSession(Map<String, dynamic> data) async {
     final prefs = await SharedPreferences.getInstance();
     final user = (data['user'] as Map?)?.cast<String, dynamic>() ?? {};

@@ -5,7 +5,7 @@ from app.models.user import User
 from app.schemas.user import UserCreate, UserLogin, UserResponse
 from passlib.context import CryptContext
 
-from app.core.security import create_access_token
+from app.core.security import create_access_token, get_current_user
 
 # for grouping all auth routes under /auth prefix and tagging them as "Auth" for documentation purposes
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -78,3 +78,10 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
         }
     }
     
+@router.get("/me")
+def get_me(current_user: User = Depends(get_current_user)):
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "full_name": current_user.full_name
+    }

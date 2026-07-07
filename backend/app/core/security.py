@@ -11,13 +11,21 @@ from app.models.user import User
 
 
 SECRET_KEY = os.getenv(
-    "SECRET_KEY",
-    "9f3c7b2e6d1a4c8f91b0e6d3a7c5f8d2a9c1e4b7d6f0a3c8e5b2d9f1a6c7e4b8",
+    "SECRET_KEY"
 )
-ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY environment variable is required")
 
-oauth2_scheme = HTTPBearer(auto_error=False)
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1"))
+
+# dependency for extracting the token from the Authorization header
+oauth2_scheme = HTTPBearer(auto_error=False)   # this returns/creates an instance of HTTPAuthorizationCredentials with the token in the credentials attribute
+# object like:
+# HTTPAuthorizationCredentials(
+#     scheme="Bearer",
+#     credentials="abc123"
+# )
 
 
 def create_access_token(data: dict):
@@ -28,9 +36,11 @@ def create_access_token(data: dict):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
+\
+# parameters: before calling this function, execute the dependency oauth2_scheme to extract the token from the Authorization header
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials = Depends(oauth2_scheme), 
     db: Session = Depends(get_db),
 ):
     credentials_error = HTTPException(
