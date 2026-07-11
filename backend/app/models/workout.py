@@ -9,7 +9,7 @@ class WorkoutSession(Base):
    id = Column(Integer, primary_key=True, index=True)
    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
    
-   workout_type = Column(String, default='sqaut')
+   workout_type = Column(String, default='squat')
    started_at = Column(DateTime(timezone=True), nullable=False)
    ended_at = Column(DateTime(timezone=True), nullable=False)
    duration_seconds = Column(Integer, default=0)

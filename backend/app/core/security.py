@@ -10,37 +10,28 @@ from app.core.database import get_db
 from app.models.user import User
 
 
-SECRET_KEY = os.getenv(
-    "SECRET_KEY"
-)
+SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
     raise RuntimeError("SECRET_KEY environment variable is required")
 
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
-# dependency for extracting the token from the Authorization header
-oauth2_scheme = HTTPBearer(auto_error=False)   # this returns/creates an instance of HTTPAuthorizationCredentials with the token in the credentials attribute
-# object like:
-# HTTPAuthorizationCredentials(
-#     scheme="Bearer",
-#     credentials="abc123"
-# )
+# Dependency for extracting the token from the Authorization header.
+# Returns an HTTPAuthorizationCredentials object with the token in the credentials attribute:
+# HTTPAuthorizationCredentials(scheme="Bearer", credentials="abc123")
+oauth2_scheme = HTTPBearer(auto_error=False)
 
 
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(
-        minutes=ACCESS_TOKEN_EXPIRE_MINUTES
-    )
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-\
-# parameters: before calling this function, execute the dependency oauth2_scheme to extract the token from the Authorization header
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(oauth2_scheme), 
+    credentials: HTTPAuthorizationCredentials = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ):
     credentials_error = HTTPException(
