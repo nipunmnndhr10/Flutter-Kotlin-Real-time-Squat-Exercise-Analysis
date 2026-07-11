@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.SoundPool
 import android.util.Log
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 private const val TAG = "SquatAudioController"
@@ -12,10 +13,10 @@ class SquatAudioController(private val context: Context) {
 
     private var soundPool: SoundPool? = null
     private val soundMap = HashMap<String, Int>()
+    private val loadedSoundIds = ConcurrentHashMap.newKeySet<Int>()
 
     private val totalSounds = 4
     private val loadedCount = AtomicInteger(0)
-    private val isReady get() = loadedCount.get() >= totalSounds
 
     // ---------------- FASTER COOLDOWNS (REDUCED PAUSE TIME) ----------------
     private val lastPlayedTime = HashMap<String, Long>()
@@ -42,12 +43,15 @@ class SquatAudioController(private val context: Context) {
             .setAudioAttributes(audioAttributes)
             .build()
 
-        soundPool?.setOnLoadCompleteListener { _, _, status ->
+        soundPool?.setOnLoadCompleteListener { _, sampleId, status ->
             if (status == 0) {
+                loadedSoundIds.add(sampleId)
                 val count = loadedCount.incrementAndGet()
                 if (count >= totalSounds) {
-                    Log.d(TAG, "Audio ready for real-time coaching")
+                    Log.d(TAG, "All audio ready for real-time coaching")
                 }
+            } else {
+                Log.e(TAG, "Failed to load sample: $sampleId, status: $status")
             }
         }
 
@@ -69,9 +73,8 @@ class SquatAudioController(private val context: Context) {
     }
 
     fun playCue(cueName: String) {
-        if (!isReady) return
-
         val soundId = soundMap[cueName] ?: return
+        if (!loadedSoundIds.contains(soundId)) return
 
         val now = System.currentTimeMillis()
 
@@ -101,6 +104,7 @@ class SquatAudioController(private val context: Context) {
         soundPool?.release()
         soundPool = null
         soundMap.clear()
+        loadedSoundIds.clear()
         lastPlayedTime.clear()
         lastPlayedAnyTime = 0L
         activeStreamId = 0

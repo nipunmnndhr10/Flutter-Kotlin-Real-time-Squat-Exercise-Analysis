@@ -48,150 +48,150 @@ class SquatHeuristicEngineTest {
 
     // Standing: straight vertical legs, exterior knee angle = 180°
     private fun standing() = frame(
-        LM.LEFT_SHOULDER  to Triple(0.30f, 0.20f, 0.95f),
-        LM.RIGHT_SHOULDER to Triple(0.70f, 0.20f, 0.95f),
-        LM.LEFT_HIP       to Triple(0.35f, 0.45f, 0.95f),
-        LM.RIGHT_HIP      to Triple(0.65f, 0.45f, 0.95f),
-        LM.LEFT_KNEE      to Triple(0.35f, 0.65f, 0.95f),
-        LM.RIGHT_KNEE     to Triple(0.65f, 0.65f, 0.95f),
-        LM.LEFT_ANKLE     to Triple(0.35f, 0.90f, 0.95f),
-        LM.RIGHT_ANKLE    to Triple(0.65f, 0.90f, 0.95f),
+        LM.LEFT_SHOULDER  to Triple(0.70f, 0.20f, 0.95f),
+        LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+        LM.LEFT_HIP       to Triple(0.65f, 0.45f, 0.95f),
+        LM.RIGHT_HIP      to Triple(0.35f, 0.45f, 0.95f),
+        LM.LEFT_KNEE      to Triple(0.65f, 0.65f, 0.95f),
+        LM.RIGHT_KNEE     to Triple(0.35f, 0.65f, 0.95f),
+        LM.LEFT_ANKLE     to Triple(0.65f, 0.90f, 0.95f),
+        LM.RIGHT_ANKLE    to Triple(0.35f, 0.90f, 0.95f),
     )
 
     // Descending: exterior knee angle ~150°
     private fun descending() = frame(
-        LM.LEFT_SHOULDER  to Triple(0.30f, 0.20f, 0.95f),
-        LM.RIGHT_SHOULDER to Triple(0.70f, 0.20f, 0.95f),
-        LM.LEFT_HIP       to Triple(0.15f, 0.50f, 0.95f),
-        LM.RIGHT_HIP      to Triple(0.85f, 0.50f, 0.95f),
-        LM.LEFT_KNEE      to Triple(0.35f, 0.70f, 0.95f),
-        LM.RIGHT_KNEE     to Triple(0.65f, 0.70f, 0.95f),
-        LM.LEFT_ANKLE     to Triple(0.35f, 0.90f, 0.95f),
-        LM.RIGHT_ANKLE    to Triple(0.65f, 0.90f, 0.95f),
+        LM.LEFT_SHOULDER  to Triple(0.70f, 0.20f, 0.95f),
+        LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+        LM.LEFT_HIP       to Triple(0.85f, 0.50f, 0.95f),
+        LM.RIGHT_HIP      to Triple(0.15f, 0.50f, 0.95f),
+        LM.LEFT_KNEE      to Triple(0.65f, 0.70f, 0.95f),
+        LM.RIGHT_KNEE     to Triple(0.35f, 0.70f, 0.95f),
+        LM.LEFT_ANKLE     to Triple(0.65f, 0.90f, 0.95f),
+        LM.RIGHT_ANKLE    to Triple(0.35f, 0.90f, 0.95f),
     )
 
     // Deep / BOTTOM: exterior knee angle ~65° (BOTTOM but NOT too-low for full squat preset)
     private fun deep() = frame(
-        LM.LEFT_SHOULDER  to Triple(0.30f, 0.20f, 0.95f),
-        LM.RIGHT_SHOULDER to Triple(0.70f, 0.20f, 0.95f),
-        LM.LEFT_HIP       to Triple(0.20f, 0.74f, 0.95f),
-        LM.RIGHT_HIP      to Triple(0.80f, 0.74f, 0.95f),
-        LM.LEFT_KNEE      to Triple(0.35f, 0.70f, 0.95f),
-        LM.RIGHT_KNEE     to Triple(0.65f, 0.70f, 0.95f),
-        LM.LEFT_ANKLE     to Triple(0.35f, 0.90f, 0.95f),
-        LM.RIGHT_ANKLE    to Triple(0.65f, 0.90f, 0.95f),
+        LM.LEFT_SHOULDER  to Triple(0.70f, 0.20f, 0.95f),
+        LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+        LM.LEFT_HIP       to Triple(0.80f, 0.74f, 0.95f),
+        LM.RIGHT_HIP      to Triple(0.20f, 0.74f, 0.95f),
+        LM.LEFT_KNEE      to Triple(0.65f, 0.70f, 0.95f),
+        LM.RIGHT_KNEE     to Triple(0.35f, 0.70f, 0.95f),
+        LM.LEFT_ANKLE     to Triple(0.65f, 0.90f, 0.95f),
+        LM.RIGHT_ANKLE    to Triple(0.35f, 0.90f, 0.95f),
     )
 
     // Too-low: knee angle ~47° (triggers TOO_LOW for full squat preset)
     private fun tooLow() = frame(
-        LM.LEFT_SHOULDER  to Triple(0.30f, 0.20f, 0.95f),
-        LM.RIGHT_SHOULDER to Triple(0.70f, 0.20f, 0.95f),
-        LM.LEFT_HIP       to Triple(0.20f, 0.78f, 0.95f),
-        LM.RIGHT_HIP      to Triple(0.80f, 0.78f, 0.95f),
-        LM.LEFT_KNEE      to Triple(0.35f, 0.70f, 0.95f),
-        LM.RIGHT_KNEE     to Triple(0.65f, 0.70f, 0.95f),
-        LM.LEFT_ANKLE     to Triple(0.35f, 0.90f, 0.95f),
-        LM.RIGHT_ANKLE    to Triple(0.65f, 0.90f, 0.95f),
+        LM.LEFT_SHOULDER  to Triple(0.70f, 0.20f, 0.95f),
+        LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+        LM.LEFT_HIP       to Triple(0.80f, 0.78f, 0.95f),
+        LM.RIGHT_HIP      to Triple(0.20f, 0.78f, 0.95f),
+        LM.LEFT_KNEE      to Triple(0.65f, 0.70f, 0.95f),
+        LM.RIGHT_KNEE     to Triple(0.35f, 0.70f, 0.95f),
+        LM.LEFT_ANKLE     to Triple(0.65f, 0.90f, 0.95f),
+        LM.RIGHT_ANKLE    to Triple(0.35f, 0.90f, 0.95f),
     )
 
     // Shallow: exterior knee angle ~139° (valid for quarter squat, not full)
     private fun shallow() = frame(
-        LM.LEFT_SHOULDER  to Triple(0.30f, 0.20f, 0.95f),
-        LM.RIGHT_SHOULDER to Triple(0.70f, 0.20f, 0.95f),
-        LM.LEFT_HIP       to Triple(0.25f, 0.55f, 0.95f),
-        LM.RIGHT_HIP      to Triple(0.75f, 0.55f, 0.95f),
-        LM.LEFT_KNEE      to Triple(0.40f, 0.65f, 0.95f),
-        LM.RIGHT_KNEE     to Triple(0.60f, 0.65f, 0.95f),
-        LM.LEFT_ANKLE     to Triple(0.40f, 0.90f, 0.95f),
-        LM.RIGHT_ANKLE    to Triple(0.60f, 0.90f, 0.95f),
+        LM.LEFT_SHOULDER  to Triple(0.70f, 0.20f, 0.95f),
+        LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+        LM.LEFT_HIP       to Triple(0.75f, 0.55f, 0.95f),
+        LM.RIGHT_HIP      to Triple(0.25f, 0.55f, 0.95f),
+        LM.LEFT_KNEE      to Triple(0.60f, 0.65f, 0.95f),
+        LM.RIGHT_KNEE     to Triple(0.40f, 0.65f, 0.95f),
+        LM.LEFT_ANKLE     to Triple(0.60f, 0.90f, 0.95f),
+        LM.RIGHT_ANKLE    to Triple(0.40f, 0.90f, 0.95f),
     )
 
     // Minor standing bend: not deep enough to start an actual repetition.
     private fun slightBend() = frame(
-        LM.LEFT_SHOULDER  to Triple(0.30f, 0.20f, 0.95f),
-        LM.RIGHT_SHOULDER to Triple(0.70f, 0.20f, 0.95f),
-        LM.LEFT_HIP       to Triple(0.34f, 0.47f, 0.95f),
-        LM.RIGHT_HIP      to Triple(0.66f, 0.47f, 0.95f),
-        LM.LEFT_KNEE      to Triple(0.35f, 0.65f, 0.95f),
-        LM.RIGHT_KNEE     to Triple(0.65f, 0.65f, 0.95f),
-        LM.LEFT_ANKLE     to Triple(0.35f, 0.90f, 0.95f),
-        LM.RIGHT_ANKLE    to Triple(0.65f, 0.90f, 0.95f),
+        LM.LEFT_SHOULDER  to Triple(0.70f, 0.20f, 0.95f),
+        LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+        LM.LEFT_HIP       to Triple(0.66f, 0.47f, 0.95f),
+        LM.RIGHT_HIP      to Triple(0.34f, 0.47f, 0.95f),
+        LM.LEFT_KNEE      to Triple(0.65f, 0.65f, 0.95f),
+        LM.RIGHT_KNEE     to Triple(0.35f, 0.65f, 0.95f),
+        LM.LEFT_ANKLE     to Triple(0.65f, 0.90f, 0.95f),
+        LM.RIGHT_ANKLE    to Triple(0.35f, 0.90f, 0.95f),
     )
 
     // Leaning forward (front view): torso compressed, knee angle ~124°
     private fun leaningFront() = frame(
-        LM.LEFT_SHOULDER  to Triple(0.30f, 0.55f, 0.95f),
-        LM.RIGHT_SHOULDER to Triple(0.70f, 0.55f, 0.95f),
-        LM.LEFT_HIP       to Triple(0.35f, 0.68f, 0.95f),
-        LM.RIGHT_HIP      to Triple(0.65f, 0.68f, 0.95f),
-        LM.LEFT_KNEE      to Triple(0.40f, 0.70f, 0.95f),
-        LM.RIGHT_KNEE     to Triple(0.60f, 0.70f, 0.95f),
-        LM.LEFT_ANKLE     to Triple(0.40f, 0.90f, 0.95f),
-        LM.RIGHT_ANKLE    to Triple(0.60f, 0.90f, 0.95f),
+        LM.LEFT_SHOULDER  to Triple(0.70f, 0.55f, 0.95f),
+        LM.RIGHT_SHOULDER to Triple(0.30f, 0.55f, 0.95f),
+        LM.LEFT_HIP       to Triple(0.65f, 0.68f, 0.95f),
+        LM.RIGHT_HIP      to Triple(0.35f, 0.68f, 0.95f),
+        LM.LEFT_KNEE      to Triple(0.60f, 0.70f, 0.95f),
+        LM.RIGHT_KNEE     to Triple(0.40f, 0.70f, 0.95f),
+        LM.LEFT_ANKLE     to Triple(0.60f, 0.90f, 0.95f),
+        LM.RIGHT_ANKLE    to Triple(0.40f, 0.90f, 0.95f),
     )
 
     // Leaning forward (side view): hip angle ~14°, knee angle ~120°
     private fun leaningSide() = frame(
-        LM.LEFT_SHOULDER  to Triple(0.70f, 0.50f, 0.95f),
-        LM.RIGHT_SHOULDER to Triple(0.72f, 0.50f, 0.95f),
+        LM.LEFT_SHOULDER  to Triple(0.30f, 0.50f, 0.95f),
+        LM.RIGHT_SHOULDER to Triple(0.28f, 0.50f, 0.95f),
         LM.LEFT_HIP       to Triple(0.50f, 0.50f, 0.95f),
-        LM.RIGHT_HIP      to Triple(0.52f, 0.50f, 0.95f),
-        LM.LEFT_KNEE      to Triple(0.70f, 0.55f, 0.95f),
-        LM.RIGHT_KNEE     to Triple(0.72f, 0.55f, 0.95f),
-        LM.LEFT_ANKLE     to Triple(0.80f, 0.90f, 0.95f),
-        LM.RIGHT_ANKLE    to Triple(0.82f, 0.90f, 0.95f),
+        LM.RIGHT_HIP      to Triple(0.48f, 0.50f, 0.95f),
+        LM.LEFT_KNEE      to Triple(0.30f, 0.55f, 0.95f),
+        LM.RIGHT_KNEE     to Triple(0.28f, 0.55f, 0.95f),
+        LM.LEFT_ANKLE     to Triple(0.20f, 0.90f, 0.95f),
+        LM.RIGHT_ANKLE    to Triple(0.18f, 0.90f, 0.95f),
     )
 
     // Left knee caves inward
     private fun leftKneeCave() = frame(
-        LM.LEFT_SHOULDER  to Triple(0.30f, 0.20f, 0.95f),
-        LM.RIGHT_SHOULDER to Triple(0.70f, 0.20f, 0.95f),
-        LM.LEFT_HIP       to Triple(0.35f, 0.60f, 0.95f),
-        LM.RIGHT_HIP      to Triple(0.65f, 0.60f, 0.95f),
-        LM.LEFT_KNEE      to Triple(0.42f, 0.65f, 0.95f),
-        LM.RIGHT_KNEE     to Triple(0.65f, 0.65f, 0.95f),
-        LM.LEFT_ANKLE     to Triple(0.35f, 0.90f, 0.95f),
-        LM.RIGHT_ANKLE    to Triple(0.65f, 0.90f, 0.95f),
+        LM.LEFT_SHOULDER  to Triple(0.70f, 0.20f, 0.95f),
+        LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+        LM.LEFT_HIP       to Triple(0.65f, 0.60f, 0.95f),
+        LM.RIGHT_HIP      to Triple(0.35f, 0.60f, 0.95f),
+        LM.LEFT_KNEE      to Triple(0.58f, 0.65f, 0.95f),
+        LM.RIGHT_KNEE     to Triple(0.35f, 0.65f, 0.95f),
+        LM.LEFT_ANKLE     to Triple(0.65f, 0.90f, 0.95f),
+        LM.RIGHT_ANKLE    to Triple(0.35f, 0.90f, 0.95f),
     )
 
     // Right knee caves inward (right knee angle ~113° so avg < 150)
     private fun rightKneeCave() = frame(
-        LM.LEFT_SHOULDER  to Triple(0.30f, 0.20f, 0.95f),
-        LM.RIGHT_SHOULDER to Triple(0.70f, 0.20f, 0.95f),
-        LM.LEFT_HIP       to Triple(0.35f, 0.60f, 0.95f),
-        LM.RIGHT_HIP      to Triple(0.65f, 0.60f, 0.95f),
-        LM.LEFT_KNEE      to Triple(0.35f, 0.65f, 0.95f),
-        LM.RIGHT_KNEE     to Triple(0.55f, 0.75f, 0.95f),
-        LM.LEFT_ANKLE     to Triple(0.35f, 0.90f, 0.95f),
-        LM.RIGHT_ANKLE    to Triple(0.65f, 0.90f, 0.95f),
+        LM.LEFT_SHOULDER  to Triple(0.70f, 0.20f, 0.95f),
+        LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+        LM.LEFT_HIP       to Triple(0.65f, 0.60f, 0.95f),
+        LM.RIGHT_HIP      to Triple(0.35f, 0.60f, 0.95f),
+        LM.LEFT_KNEE      to Triple(0.65f, 0.65f, 0.95f),
+        LM.RIGHT_KNEE     to Triple(0.45f, 0.75f, 0.95f),
+        LM.LEFT_ANKLE     to Triple(0.65f, 0.90f, 0.95f),
+        LM.RIGHT_ANKLE    to Triple(0.35f, 0.90f, 0.95f),
     )
 
     // Side view (narrow shoulders)
     private fun sideView() = frame(
-        LM.LEFT_SHOULDER  to Triple(0.50f, 0.20f, 0.95f),
-        LM.RIGHT_SHOULDER to Triple(0.52f, 0.20f, 0.95f),
-        LM.LEFT_HIP       to Triple(0.50f, 0.45f, 0.95f),
-        LM.RIGHT_HIP      to Triple(0.52f, 0.45f, 0.95f),
-        LM.LEFT_KNEE      to Triple(0.50f, 0.65f, 0.95f),
-        LM.RIGHT_KNEE     to Triple(0.52f, 0.65f, 0.95f),
-        LM.LEFT_ANKLE     to Triple(0.50f, 0.90f, 0.95f),
-        LM.RIGHT_ANKLE    to Triple(0.52f, 0.90f, 0.95f),
+        LM.LEFT_SHOULDER  to Triple(0.52f, 0.20f, 0.95f),
+        LM.RIGHT_SHOULDER to Triple(0.50f, 0.20f, 0.95f),
+        LM.LEFT_HIP       to Triple(0.52f, 0.45f, 0.95f),
+        LM.RIGHT_HIP      to Triple(0.50f, 0.45f, 0.95f),
+        LM.LEFT_KNEE      to Triple(0.52f, 0.65f, 0.95f),
+        LM.RIGHT_KNEE     to Triple(0.50f, 0.65f, 0.95f),
+        LM.LEFT_ANKLE     to Triple(0.52f, 0.90f, 0.95f),
+        LM.RIGHT_ANKLE    to Triple(0.50f, 0.90f, 0.95f),
     )
 
     // Only left side visible
     private fun partialLeft() = frame(
-        LM.LEFT_SHOULDER  to Triple(0.30f, 0.20f, 0.95f),
-        LM.LEFT_HIP       to Triple(0.35f, 0.45f, 0.95f),
-        LM.LEFT_KNEE      to Triple(0.35f, 0.65f, 0.95f),
-        LM.LEFT_ANKLE     to Triple(0.35f, 0.90f, 0.95f),
+        LM.LEFT_SHOULDER  to Triple(0.70f, 0.20f, 0.95f),
+        LM.LEFT_HIP       to Triple(0.65f, 0.45f, 0.95f),
+        LM.LEFT_KNEE      to Triple(0.65f, 0.65f, 0.95f),
+        LM.LEFT_ANKLE     to Triple(0.65f, 0.90f, 0.95f),
     )
 
     // All landmarks invisible
     private fun invisible() = frame(
-        LM.LEFT_SHOULDER  to Triple(0.30f, 0.20f, 0.10f),
-        LM.RIGHT_SHOULDER to Triple(0.70f, 0.20f, 0.10f),
-        LM.LEFT_HIP       to Triple(0.35f, 0.45f, 0.10f),
-        LM.RIGHT_HIP      to Triple(0.65f, 0.45f, 0.10f),
+        LM.LEFT_SHOULDER  to Triple(0.70f, 0.20f, 0.10f),
+        LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.10f),
+        LM.LEFT_HIP       to Triple(0.65f, 0.45f, 0.10f),
+        LM.RIGHT_HIP      to Triple(0.35f, 0.45f, 0.10f),
     )
 
     // ---------- PHASE & REPS ----------

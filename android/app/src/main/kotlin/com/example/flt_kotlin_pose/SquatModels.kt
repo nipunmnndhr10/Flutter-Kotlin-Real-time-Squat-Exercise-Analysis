@@ -1,5 +1,7 @@
 package com.example.flt_kotlin_pose
 
+import kotlin.math.abs
+
 enum class SquatDepthPreset(
     val label: String,
     val angleThreshold: Float,
@@ -26,7 +28,7 @@ enum class SquatDepthPreset(
 
         // Safely resolve a threshold value back to its preset (used when receiving from Flutter)
         fun fromAngle(angle: Float): SquatDepthPreset =
-            entries.firstOrNull { it.angleThreshold == angle } ?: DEFAULT
+            entries.firstOrNull { abs(it.angleThreshold - angle) < 0.01f } ?: DEFAULT
     }
 }
 

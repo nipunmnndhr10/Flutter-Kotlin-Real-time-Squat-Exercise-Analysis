@@ -62,6 +62,7 @@ class _StartupGate extends StatelessWidget {
   }
 
   Future<Map<String, dynamic>?> checkCurrentUser(String token) async {
+    // ignore: avoid_print
     print("TOKEN SENT: \n $token");
 
     try {
