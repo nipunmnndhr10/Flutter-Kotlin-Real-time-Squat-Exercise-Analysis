@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'app_constants.dart';
 import 'dashboard_screen.dart';
+import 'loginscreen.dart';
 import 'pose_screen.dart';
 
 const kPrimary = Color(0xFF4CAF50);
@@ -329,6 +331,34 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 messenger.showSnackBar(
                   const SnackBar(content: Text('Workout saved successfully')),
                 );
+              } on DioException catch (e) {
+                if (!dialogContext.mounted) return;
+                if (e.response?.statusCode == 401) {
+                  // Token expired — clear and redirect to login
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.remove('access_token');
+                  Navigator.of(dialogContext).pop();
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (_) => const LoginScreen(),
+                    ),
+                    (route) => false,
+                  );
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('Session expired. Please log in again.'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                } else {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Failed to save workout: ${e.response?.data?['detail'] ?? e.message}',
+                      ),
+                    ),
+                  );
+                }
               } catch (error) {
                 if (!dialogContext.mounted) return;
                 messenger.showSnackBar(
@@ -361,7 +391,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
     final authedDio = Dio(
       BaseOptions(
-        baseUrl: 'http://192.168.1.13:8000',
+        baseUrl: kApiBaseUrl,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',

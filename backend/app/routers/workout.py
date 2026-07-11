@@ -9,6 +9,20 @@ from app.models.user import User
 router = APIRouter(prefix="/workouts", tags=["Workouts"])
 
 
+@router.get("/", response_model=list[WorkoutSessionResponse])
+def get_user_workouts(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Fetch all workout sessions for the authenticated user."""
+    return (
+        db.query(WorkoutSession)
+        .filter(WorkoutSession.user_id == current_user.id)
+        .order_by(WorkoutSession.created_at.desc())
+        .all()
+    )
+
+
 @router.post("/", response_model=WorkoutSessionResponse)
 def save_session_summary(
     session: WorkoutSessionCreate,

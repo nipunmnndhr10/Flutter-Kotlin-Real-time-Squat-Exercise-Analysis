@@ -1,4 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'app_constants.dart';
+import 'loginscreen.dart';
 import 'workout_screen.dart';
 
 const kPrimary = Color(0xFF4CAF50);
@@ -18,49 +22,90 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
-  final int totalSquats = 1250;
-  final int topForm = 98;
-  final List<int> weeklySquats = [4, 8, 6, 12, 10, 7, 9];
+  int totalSquats = 0;
+  int topForm = 0;
+  List<int> weeklySquats = List.filled(7, 0);
+  bool _isLoading = true;
+  String? _error;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBackground,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _Header(userName: widget.userName),
-              const SizedBox(height: 24),
-              _CameraButton(onTap: _openCamera),
-              const SizedBox(height: 20),
-              _StatRow(totalSquats: totalSquats, topForm: topForm),
-              const SizedBox(height: 24),
-              _WeeklyChart(data: weeklySquats),
-              const SizedBox(height: 24),
-              _RecommendedWorkoutSection(onPlay: _startWorkout),
-              const SizedBox(height: 16),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: _BottomNav(
-        currentIndex: _currentIndex,
-        onTap: (i) {
-          if (i == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const WorkoutScreen()),
-            );
-            return;
-          }
+  void initState() {
+    super.initState();
+    _loadWorkouts();
+  }
 
-          setState(() => _currentIndex = i);
-        },
-      ),
+  Future<void> _loadWorkouts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+
+      if (token == null || token.isEmpty) {
+        _redirectToLogin();
+        return;
+      }
+
+      final dio = Dio(
+        BaseOptions(
+          baseUrl: kApiBaseUrl,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      final response = await dio.get('/workouts/');
+      final workouts = (response.data as List).cast<Map<String, dynamic>>();
+
+      int total = 0;
+      final List<int> weekData = List.filled(7, 0);
+
+      for (final w in workouts) {
+        final reps = (w['total_reps'] as num?)?.toInt() ?? 0;
+        total += reps;
+
+        // Aggregate by day of week for the chart
+        final startedAt = DateTime.tryParse(w['started_at']?.toString() ?? '');
+        if (startedAt != null) {
+          final dayIndex = startedAt.weekday % 7; // 0=Sun, 1=Mon, ... 6=Sat
+          weekData[dayIndex] += reps;
+        }
+      }
+
+      setState(() {
+        totalSquats = total;
+        weeklySquats = weekData;
+        _isLoading = false;
+      });
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        _redirectToLogin();
+      } else {
+        setState(() {
+          _error = 'Failed to load workouts';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = 'Something went wrong';
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _redirectToLogin() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
     );
+  }
+
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    if (!mounted) return;
+    _redirectToLogin();
   }
 
   void _openCamera() {
@@ -82,11 +127,76 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: kBackground,
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: kPrimary))
+            : _error != null
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_error!, style: const TextStyle(color: kTextMuted)),
+                        const SizedBox(height: 12),
+                        ElevatedButton(
+                          onPressed: _loadWorkouts,
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _Header(
+                          userName: widget.userName,
+                          onLogout: _logout,
+                        ),
+                        const SizedBox(height: 24),
+                        _CameraButton(onTap: _openCamera),
+                        const SizedBox(height: 20),
+                        _StatRow(
+                          totalSquats: totalSquats,
+                          topForm: topForm,
+                        ),
+                        const SizedBox(height: 24),
+                        _WeeklyChart(data: weeklySquats),
+                        const SizedBox(height: 24),
+                        _RecommendedWorkoutSection(onPlay: _startWorkout),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
+      ),
+      bottomNavigationBar: _BottomNav(
+        currentIndex: _currentIndex,
+        onTap: (i) {
+          if (i == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const WorkoutScreen()),
+            );
+            return;
+          }
+
+          setState(() => _currentIndex = i);
+        },
+      ),
+    );
+  }
 }
 
 class _Header extends StatelessWidget {
   final String userName;
-  const _Header({required this.userName});
+  final VoidCallback onLogout;
+
+  const _Header({required this.userName, required this.onLogout});
 
   @override
   Widget build(BuildContext context) {
@@ -132,6 +242,23 @@ class _Header extends StatelessWidget {
             Icons.notifications_outlined,
             color: kTextPrimary,
             size: 20,
+          ),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: onLogout,
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: kSurface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.logout_outlined,
+              color: Colors.red,
+              size: 20,
+            ),
           ),
         ),
       ],

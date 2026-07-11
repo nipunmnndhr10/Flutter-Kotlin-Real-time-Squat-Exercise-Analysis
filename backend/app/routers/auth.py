@@ -46,7 +46,24 @@ def signup(user_data: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    return new_user
+    # Auto-login: generate JWT token immediately after signup
+    access_token = create_access_token(
+        data={
+            "sub": new_user.email,
+            "user_id": new_user.id
+        }
+    )
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "message": "Signup successful",
+        "user": {
+            "id": new_user.id,
+            "email": new_user.email,
+            "full_name": new_user.full_name
+        }
+    }
 
 @router.post("/login")
 def login(user_data: UserLogin, db: Session = Depends(get_db)):

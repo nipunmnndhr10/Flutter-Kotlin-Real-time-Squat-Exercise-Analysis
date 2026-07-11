@@ -140,7 +140,7 @@ class _LoginScreenState extends State<LoginScreen>
     // sending api req to backend
     try {
       final response = await Dio().post(
-        'http://192.168.1.13:8000/auth/login',
+        '$kApiBaseUrl/auth/login',
         // 'http://YOUR_PC_IP:8000/auth/login', // Real Device
         data: {
           "email": _emailController.text.trim(),
