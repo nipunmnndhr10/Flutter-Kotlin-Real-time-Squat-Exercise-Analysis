@@ -256,11 +256,15 @@ class SquatHeuristicEngineTest {
 
     @Test
     fun `rep counted and faulted when too-low violation occurred`() {
+        // After prime(descending) the 5-frame rolling avg converges to ~150.6°.
+        // tooLow() raw angle is ~46.5°. The buffer needs 6 frames of tooLow()
+        // before the rolling avg drops below the tooLowThreshold (74°) for 3
+        // consecutive frames (the streak gate). Using 8 frames is safe.
         prime(standing())
         prime(descending())
 
         var tooLowResult: SquatFeedback? = null
-        repeat(5) {
+        repeat(8) {
             val r = engine.analyze(tooLow())!!
             if (r.activeFaults.contains(SquatFault.TOO_LOW)) {
                 tooLowResult = r
@@ -276,18 +280,30 @@ class SquatHeuristicEngineTest {
     // ---------- FAULTS ----------
 
     @Test
-    fun `GO_DEEPER fires during descent when not deep enough`() {
+    fun `GO_DEEPER fires on ascent when depth was not achieved`() {
+        // Full squat preset: repStart=155, targetBottom=90, standing=165.
+        // shallow() raw angle = 139.84° — clearly below repStart so the rep starts,
+        // but above targetBottom+12 (102°) so depth is NOT achieved.
+        // After 5x shallow the buffer fully converges to 139.84°. The first
+        // standing() frame pushes the rolling avg to 147.88° which is still
+        // below repStart (155°), so the engine sees:
+        //   phase=ASCENDING, maxDepth(139.84) > 102, kneeAngle(147.88) < 155
+        // — exactly the three conditions that fire GO_DEEPER.
+        // (Using descending() instead would give avg=150.64°; the first ascending
+        //  frame jumps straight to 156.5° > repStart, closing the window.)
+        engine.setDepthThreshold(90f)
         prime(standing())
+        repeat(5) { engine.analyze(shallow()) } // rep starts, depth NOT reached
 
         var goDeeperResult: SquatFeedback? = null
         repeat(5) {
-            val r = engine.analyze(descending())!!
+            val r = engine.analyze(standing())!! // ascending back toward standing
             if (r.activeFaults.contains(SquatFault.GO_DEEPER)) {
                 goDeeperResult = r
             }
         }
-        assertNotNull(goDeeperResult)
-        assertEquals(SquatPhase.DESCENDING, goDeeperResult!!.phase)
+        assertNotNull("GO_DEEPER should fire once the user ascends without reaching depth", goDeeperResult)
+        assertEquals(SquatPhase.ASCENDING, goDeeperResult!!.phase)
     }
 
     @Test

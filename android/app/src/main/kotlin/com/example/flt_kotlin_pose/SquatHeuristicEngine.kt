@@ -33,7 +33,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     fun setDepthThreshold(angle: Float) {
         activePreset = SquatDepthPreset.fromAngle(angle)
         depthProfile = when (activePreset) {
-            SquatDepthPreset.QUARTER_SQUAT -> DepthProfile(140f, 168f, 170f, 0.045f)
+            SquatDepthPreset.QUARTER_SQUAT -> DepthProfile(140f, 163f, 170f, 0.045f)
             SquatDepthPreset.HALF_SQUAT -> DepthProfile(120f, 158f, 166f, 0.085f)
             SquatDepthPreset.FULL_SQUAT -> DepthProfile(90f, 155f, 165f, 0.11f)
         }
@@ -84,7 +84,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         val avgKneeAngle = sessionSumKneeAngle / sessionFrameCount
         val avgHipAngle = sessionSumHipAngle / sessionFrameCount
 
-        val summary = WorkoutSummary(
+        return WorkoutSummary(
             avgKneeAngle = avgKneeAngle,
             avgHipAngle = avgHipAngle,
             minKneeAngle = sessionMinKneeAngle,
@@ -92,18 +92,6 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             durationSeconds = durationSeconds,
             totalReps = repCount
         )
-
-        android.util.Log.i(
-            "WORKOUT_SUMMARY",
-            "Workout ended. Summary:\n" +
-            "Duration: ${summary.durationSeconds}s\n" +
-            "Total Reps: ${summary.totalReps}\n" +
-            "Avg Knee Angle: ${summary.avgKneeAngle}\n" +
-            "Avg Hip Angle: ${summary.avgHipAngle}\n" +
-            "Min Knee Angle: ${summary.minKneeAngle}\n" +
-            "Min Hip Angle: ${summary.minHipAngle}"
-        )
-        return summary
     }
 
     fun pauseWorkoutTimer() {

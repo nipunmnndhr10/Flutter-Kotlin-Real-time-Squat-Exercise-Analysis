@@ -19,6 +19,7 @@ internal object SquatFeedbackEventBus {
     private var lastHipAngle: Float? = null
     private var lastEmitTime: Long = 0L
 
+    @Synchronized
     fun emit(feedback: SquatFeedback) {
         val now = System.currentTimeMillis()
         val timeSinceLastEmit = now - lastEmitTime
@@ -60,6 +61,7 @@ internal object SquatFeedbackEventBus {
         }
     }
 
+    @Synchronized
     fun reset() {
         lastPhase = null
         lastRepCount = -1

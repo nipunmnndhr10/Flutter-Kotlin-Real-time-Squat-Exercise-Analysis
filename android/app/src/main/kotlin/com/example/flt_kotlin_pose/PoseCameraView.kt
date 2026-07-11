@@ -69,6 +69,7 @@ internal class PoseCameraView(
     private val poseLandmarkerProcessor = PoseLandmarkerProcessor(context)
     private var cameraProvider: ProcessCameraProvider? = null
     private var useFrontCamera = false
+    @Volatile private var disposed = false
 
     // FIX: Build ImageAnalysis once and reuse it across camera rebinds.
     // Recreating it on every bindCamera() call leaks the old analyzer
@@ -128,7 +129,16 @@ internal class PoseCameraView(
 
     override fun getView() = this
 
+    // Safety net: fires when the View is removed from the window hierarchy
+    // (e.g. Activity restart / screen rotation) before Flutter calls dispose().
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        dispose()
+    }
+
     override fun dispose() {
+        if (disposed) return
+        disposed = true
         cameraProvider?.unbindAll()
         // Graceful shutdown: wait for the current frame to finish instead of
         // interrupting it mid-flight. Falls back to shutdownNow() on timeout.
