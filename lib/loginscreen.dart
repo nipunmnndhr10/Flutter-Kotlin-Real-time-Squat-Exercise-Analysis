@@ -137,18 +137,15 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
-    // sending api req to backend
     try {
       final response = await Dio().post(
         '$kApiBaseUrl/auth/login',
-        // 'http://YOUR_PC_IP:8000/auth/login', // Real Device
         data: {
           "email": _emailController.text.trim(),
           "password": _passwordController.text,
         },
       );
 
-      // handling success response
       if (response.statusCode == 200) {
         final data = response.data;
         await _saveSession(Map<String, dynamic>.from(data as Map));

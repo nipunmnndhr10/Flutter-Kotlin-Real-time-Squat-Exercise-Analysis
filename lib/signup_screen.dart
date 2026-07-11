@@ -173,7 +173,6 @@ class _SignupScreenState extends State<SignupScreen> {
     try {
       final response = await Dio().post(
         '$kApiBaseUrl/auth/signup',
-        // 'http://YOUR_PC_IP:8000/auth/signup', // Real Device
         data: {
           "email": _emailController.text.trim(),
           "password": _passwordController.text,
