@@ -58,7 +58,7 @@ class SquatHeuristicEngineTest {
         LM.RIGHT_ANKLE    to Triple(0.35f, 0.90f, 0.95f),
     )
 
-    // Descending: exterior knee angle ~150°
+    // Descending: exterior knee angle ~135°
     private fun descending() = frame(
         LM.LEFT_SHOULDER  to Triple(0.70f, 0.20f, 0.95f),
         LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
@@ -70,7 +70,7 @@ class SquatHeuristicEngineTest {
         LM.RIGHT_ANKLE    to Triple(0.35f, 0.90f, 0.95f),
     )
 
-    // Deep / BOTTOM: exterior knee angle ~65° (BOTTOM but NOT too-low for full squat preset)
+    // Deep / BOTTOM: exterior knee angle ~75° (BOTTOM but NOT too-low for full squat preset)
     private fun deep() = frame(
         LM.LEFT_SHOULDER  to Triple(0.70f, 0.20f, 0.95f),
         LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
@@ -82,7 +82,7 @@ class SquatHeuristicEngineTest {
         LM.RIGHT_ANKLE    to Triple(0.35f, 0.90f, 0.95f),
     )
 
-    // Too-low: knee angle ~47° (triggers TOO_LOW for full squat preset)
+    // Too-low: knee angle ~62° (triggers TOO_LOW for full squat preset)
     private fun tooLow() = frame(
         LM.LEFT_SHOULDER  to Triple(0.70f, 0.20f, 0.95f),
         LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
@@ -94,7 +94,7 @@ class SquatHeuristicEngineTest {
         LM.RIGHT_ANKLE    to Triple(0.35f, 0.90f, 0.95f),
     )
 
-    // Shallow: exterior knee angle ~139° (valid for quarter squat, not full)
+    // Shallow: exterior knee angle ~124° (valid for quarter squat, not full)
     private fun shallow() = frame(
         LM.LEFT_SHOULDER  to Triple(0.70f, 0.20f, 0.95f),
         LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
@@ -224,7 +224,7 @@ class SquatHeuristicEngineTest {
 
     @Test
     fun `rep counted when full depth achieved and no violation`() {
-        engine.setDepthThreshold(90f) // full squat: bottom=70, tooLow=58
+        engine.setDepthThreshold(90f) // full squat preset: targetBottom=90, repStart=155, standing=165
         prime(standing())
         prime(descending())
         prime(deep())
