@@ -467,7 +467,7 @@ class _PoseScreenState extends State<PoseScreen> {
           child: Center(
             child: ValueListenableBuilder<SquatFeedbackData>(
               valueListenable: _squatFeedback,
-              builder: (_, feedback, __) => _RepCounter(feedback: feedback),
+              builder: (_, feedback, _) => _RepCounter(feedback: feedback),
             ),
           ),
         ),
@@ -479,7 +479,7 @@ class _PoseScreenState extends State<PoseScreen> {
           bottom: 140,
           child: ValueListenableBuilder<SquatFeedbackData>(
             valueListenable: _squatFeedback,
-            builder: (_, feedback, __) {
+            builder: (_, feedback, _) {
               if (feedback.activeFaults.isEmpty) return const SizedBox.shrink();
               return _FaultBanner(faults: feedback.activeFaults);
             },
@@ -494,7 +494,7 @@ class _PoseScreenState extends State<PoseScreen> {
           child: Center(
             child: ValueListenableBuilder<bool>(
               valueListenable: _isPoseLost,
-              builder: (_, lost, __) {
+              builder: (_, lost, _) {
                 if (!lost) return const SizedBox.shrink();
                 return const _LandmarkLostBadge();
               },
