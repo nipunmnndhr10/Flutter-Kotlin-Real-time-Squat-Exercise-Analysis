@@ -28,14 +28,17 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     )
 
     private var activePreset = SquatDepthPreset.DEFAULT
-    private var depthProfile = DepthProfile(90f, 155f, 165f, 0.11f)
+    // Default to Full Squat but with a more forgiving target (100° instead of 90°)
+    private var depthProfile = DepthProfile(100f, 155f, 165f, 0.11f)
 
     fun setDepthThreshold(angle: Float) {
         activePreset = SquatDepthPreset.fromAngle(angle)
         depthProfile = when (activePreset) {
-            SquatDepthPreset.QUARTER_SQUAT -> DepthProfile(140f, 163f, 170f, 0.045f)
-            SquatDepthPreset.HALF_SQUAT -> DepthProfile(120f, 158f, 166f, 0.085f)
-            SquatDepthPreset.FULL_SQUAT -> DepthProfile(90f, 155f, 165f, 0.11f)
+            // Camera perspective often makes angles appear 5-10° wider than reality.
+            // We pad the target bottoms to make the app feel accurate to the user.
+            SquatDepthPreset.QUARTER_SQUAT -> DepthProfile(145f, 163f, 170f, 0.045f)
+            SquatDepthPreset.HALF_SQUAT -> DepthProfile(125f, 158f, 166f, 0.085f)
+            SquatDepthPreset.FULL_SQUAT -> DepthProfile(100f, 155f, 165f, 0.11f)
         }
     }
 
@@ -267,10 +270,11 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         }
 
         // Too-low detection (unified as a SquatFault)
+        // Made buffers wider so we don't accidentally fire "too low" for good full squats.
         val tooLowThreshold = bottom - when {
-            bottom >= 125f -> 12f  // shallow squat
-            bottom >= 100f -> 14f  // mid squat
-            else -> 16f            // deep squat
+            bottom >= 140f -> 15f  // quarter squat
+            bottom >= 120f -> 20f  // half squat
+            else -> 25f            // full squat (e.g., target 100, fires if < 75)
         }
 
         if (isInsideRep && kneeAngle < tooLowThreshold) {
@@ -348,10 +352,11 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             SquatDepthPreset.HALF_SQUAT -> 144f
             SquatDepthPreset.FULL_SQUAT -> 145f
         }
+        // Increased from ~0.045 to 0.06 to allow natural wobble without triggering a fault.
         val kneeCaveOffsetGate = when (activePreset) {
-            SquatDepthPreset.QUARTER_SQUAT -> 0.05f
-            SquatDepthPreset.HALF_SQUAT -> 0.045f
-            SquatDepthPreset.FULL_SQUAT -> 0.045f
+            SquatDepthPreset.QUARTER_SQUAT -> 0.065f
+            SquatDepthPreset.HALF_SQUAT -> 0.06f
+            SquatDepthPreset.FULL_SQUAT -> 0.06f
         }
         val faults = mutableListOf<SquatFault>()
         val now = System.currentTimeMillis()
@@ -388,12 +393,14 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
                     val torsoHeight =
                         (abs((lS.y * h) - (lH.y * h)) + abs((rS.y * h) - (rH.y * h))) / 2f
 
-                    if (torsoHeight < shoulderWidth * 0.68f) {
+                    // Relaxed from 0.68f to 0.62f to allow more natural lean for longer femurs.
+                    if (torsoHeight < shoulderWidth * 0.62f) {
                         addFault(SquatFault.LEAN_FORWARD)
                     }
                 }
             } else {
-                if (hipAngle < 50f) addFault(SquatFault.LEAN_FORWARD)
+                // Relaxed from 50f to 45f. A hip angle < 45 means very extreme forward lean.
+                if (hipAngle < 45f) addFault(SquatFault.LEAN_FORWARD)
             }
         }
 
