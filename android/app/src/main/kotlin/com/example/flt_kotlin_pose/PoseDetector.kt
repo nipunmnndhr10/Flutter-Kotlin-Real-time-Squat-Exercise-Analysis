@@ -182,7 +182,6 @@ class PoseLandmarkerProcessor(
         )
 
         isProcessingFrame.set(false)
-        Log.v(TAG, "Landmarks emitted: ${input.width}x${input.height}")
     }
 
     private fun onError(error: RuntimeException) {
