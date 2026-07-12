@@ -860,11 +860,11 @@ class PosePainter extends CustomPainter {
       if (!_isVisible(lm)) continue;
       final p = mapPoint(lm);
       final color = _jointColor(lm.index);
-      final double r = _majorJoints.contains(lm.index) ? 7.0 : 4.5;
+      final double r = _majorJoints.contains(lm.index) ? 5.0 : 3.0;
 
-      canvas.drawCircle(p, r + 3, _jointShadowPaint);
-      canvas.drawCircle(p, r + 5, _jointGlowPaint(color));
-      canvas.drawCircle(p, r + 1.5, _jointRingPaint(color));
+      canvas.drawCircle(p, r + 2, _jointShadowPaint);
+      canvas.drawCircle(p, r + 3, _jointGlowPaint(color));
+      canvas.drawCircle(p, r + 1, _jointRingPaint(color));
       canvas.drawCircle(p, r, _jointFillPaint(color));
       canvas.drawCircle(
         Offset(p.dx - r * 0.28, p.dy - r * 0.28),
