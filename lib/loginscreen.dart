@@ -28,7 +28,7 @@ class _LoginScreenState extends State<LoginScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
-  double _heroHeight = 280.0;
+  final double _heroHeight = 280.0;
 
   // Brand colors
   static const Color primaryGreen = Color(0xFF2ECC71);
@@ -55,18 +55,6 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         );
     _animationController.forward();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final media = MediaQuery.of(context);
-    final availableHeight =
-        media.size.height -
-        media.padding.top -
-        media.padding.bottom -
-        kToolbarHeight;
-    _heroHeight = (availableHeight * 0.36).clamp(180.0, 340.0);
   }
 
   @override
@@ -200,13 +188,6 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    // FIX #4: Read the cached _heroHeight; no LayoutBuilder or MediaQuery here.
-    final availableHeight =
-        MediaQuery.of(context).size.height -
-        MediaQuery.of(context).padding.top -
-        MediaQuery.of(context).padding.bottom -
-        kToolbarHeight;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       resizeToAvoidBottomInset: true,
@@ -214,36 +195,29 @@ class _LoginScreenState extends State<LoginScreen>
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.translucent,
         child: SafeArea(
-          child: SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: availableHeight),
-              child: Column(
-                children: [
-                  // FIX #6: RepaintBoundary isolates the hero image from form
-                  // repaints. The image layer won't re-rasterize on each keystroke.
-                  SizedBox(
-                    height: _heroHeight,
-                    width: double.infinity,
-                    child: const RepaintBoundary(child: HeroSection()),
-                  ),
-
-                  SizedBox(
-                    height: availableHeight - _heroHeight,
-                    child: FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: SlideTransition(
-                        position: _slideAnimation,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.max,
-                            children: [
-                              const SizedBox(height: kSpacingSm),
-
-                              // Title
-                              Flexible(
-                                flex: 0,
-                                child: RichText(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: _heroHeight,
+                        width: double.infinity,
+                        child: const RepaintBoundary(child: HeroSection()),
+                      ),
+                      FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: SlideTransition(
+                          position: _slideAnimation,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox(height: kSpacingSm),
+                                RichText(
                                   text: const TextSpan(
                                     children: [
                                       TextSpan(
@@ -267,13 +241,8 @@ class _LoginScreenState extends State<LoginScreen>
                                     ],
                                   ),
                                 ),
-                              ),
-
-                              const SizedBox(height: kSpacingXs),
-
-                              const Flexible(
-                                flex: 0,
-                                child: Text(
+                                const SizedBox(height: kSpacingXs),
+                                const Text(
                                   'Your AI squat coaching companion',
                                   style: TextStyle(
                                     fontSize: 13,
@@ -282,20 +251,11 @@ class _LoginScreenState extends State<LoginScreen>
                                     letterSpacing: 0.1,
                                   ),
                                 ),
-                              ),
-
-                              const SizedBox(height: kSpacingXl),
-
-                              // Form fields
-                              Flexible(
-                                flex: 0,
-                                child: Column(
+                                const SizedBox(height: kSpacingXl),
+                                Column(
                                   mainAxisSize: MainAxisSize.min,
                                   mainAxisAlignment: MainAxisAlignment.start,
                                   children: [
-                                    // FIX #1: onChanged now calls _onEmailChanged
-                                    // which updates both the error AND _formValid
-                                    // in a single setState.
                                     InputField(
                                       controller: _emailController,
                                       hint: 'Email',
@@ -304,9 +264,7 @@ class _LoginScreenState extends State<LoginScreen>
                                       errorText: _emailError,
                                       onChanged: _onEmailChanged,
                                     ),
-
                                     const SizedBox(height: kSpacingMd),
-
                                     InputField(
                                       controller: _passwordController,
                                       hint: 'Password',
@@ -328,9 +286,7 @@ class _LoginScreenState extends State<LoginScreen>
                                         ),
                                       ),
                                     ),
-
                                     const SizedBox(height: kSpacingSm),
-
                                     Align(
                                       alignment: Alignment.centerRight,
                                       child: TextButton(
@@ -354,9 +310,7 @@ class _LoginScreenState extends State<LoginScreen>
                                         ),
                                       ),
                                     ),
-
                                     const SizedBox(height: kSpacingMd),
-
                                     SizedBox(
                                       width: double.infinity,
                                       height: 52,
@@ -407,13 +361,9 @@ class _LoginScreenState extends State<LoginScreen>
                                               ),
                                       ),
                                     ),
-
                                     const SizedBox(height: kSpacingLg),
-
                                     const OrDivider(),
-
                                     const SizedBox(height: kSpacingMd),
-
                                     SizedBox(
                                       width: double.infinity,
                                       height: 50,
@@ -446,13 +396,8 @@ class _LoginScreenState extends State<LoginScreen>
                                     ),
                                   ],
                                 ),
-                              ),
-
-                              const SizedBox(height: 15),
-
-                              Flexible(
-                                flex: 0,
-                                child: Row(
+                                const SizedBox(height: 20),
+                                Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     const Text(
@@ -482,16 +427,16 @@ class _LoginScreenState extends State<LoginScreen>
                                     ),
                                   ],
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
         ),
       ),
