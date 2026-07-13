@@ -224,12 +224,36 @@ class SquatHeuristicEngineTest {
 
     @Test
     fun `rep counted when full depth achieved and no violation`() {
-        engine.setDepthThreshold(90f) // full squat preset: targetBottom=90, repStart=155, standing=165
+        // Full squat preset: targetBottom=100, repStart=160, standing=168.
+        // Rep starts after 2 frames of descending() (< 160°), ends after 2 frames of
+        // standing() above 168°. prime() supplies 5 frames for each — well within budget.
+        engine.setDepthThreshold(90f)
         prime(standing())
         prime(descending())
         prime(deep())
         prime(standing())
         val result = engine.analyze(standing())!!
+        assertEquals(1, result.repCount)
+    }
+
+    @Test
+    fun `no double-count when user pauses at top of rep`() {
+        // Regression: a user who momentarily hits the standing angle and immediately
+        // re-descends should NOT have two reps counted.
+        engine.setDepthThreshold(90f)
+        prime(standing())
+        prime(descending())
+        prime(deep())
+
+        // Ascend: one frame at standing level (streak = 1, rep does NOT close yet)
+        engine.analyze(standing())
+        // Immediately descend again (streak resets to 0)
+        repeat(3) { engine.analyze(descending()) }
+        // Come back up fully (streak reaches 2 → rep closes)
+        prime(standing())
+        val result = engine.analyze(standing())!!
+
+        // Only 1 valid rep should be counted, not 2.
         assertEquals(1, result.repCount)
     }
 
@@ -281,19 +305,18 @@ class SquatHeuristicEngineTest {
 
     @Test
     fun `GO_DEEPER fires on ascent when depth was not achieved`() {
-        // Full squat preset: repStart=155, targetBottom=90, standing=165.
-        // shallow() raw angle = 139.84° — clearly below repStart so the rep starts,
-        // but above targetBottom+12 (102°) so depth is NOT achieved.
-        // After 5x shallow the buffer fully converges to 139.84°. The first
-        // standing() frame pushes the rolling avg to 147.88° which is still
-        // below repStart (155°), so the engine sees:
-        //   phase=ASCENDING, maxDepth(139.84) > 102, kneeAngle(147.88) < 155
-        // — exactly the three conditions that fire GO_DEEPER.
-        // (Using descending() instead would give avg=150.64°; the first ascending
-        //  frame jumps straight to 156.5° > repStart, closing the window.)
+        // Full squat preset: repStart=160, targetBottom=100, standing=168.
+        // shallow() raw angle ≈ 139.84° — clearly below repStart (160°) so after
+        // 2 frames the rep starts, but 139.84° is above targetBottom+12 (112°)
+        // so depth is NOT achieved.
+        // After 5x shallow the buffer converges to 139.84°. The first standing()
+        // frame pushes the rolling avg to 147.88° which is still below repStart (160°),
+        // so the engine sees:
+        //   phase=ASCENDING, maxDepth(139.84) > 112, kneeAngle(147.88) < 160
+        // — exactly the three conditions required to fire GO_DEEPER.
         engine.setDepthThreshold(90f)
         prime(standing())
-        repeat(5) { engine.analyze(shallow()) } // rep starts, depth NOT reached
+        repeat(5) { engine.analyze(shallow()) } // rep starts (streak ≥ 2), depth NOT reached
 
         var goDeeperResult: SquatFeedback? = null
         repeat(5) {
@@ -396,6 +419,10 @@ class SquatHeuristicEngineTest {
 
     @Test
     fun `quarter squat preset has higher bottom threshold`() {
+        // Quarter squat: repStart=166, targetBottom=145, standing=173.
+        // shallow() ≈ 139.84° < repStart (166°) → rep starts after 2 frames.
+        // maxDepthReachedThisRep ≈ 139.84° ≤ (145+15)=160° → kneeDepthAchieved=true.
+        // standing() = 180° > 173° → rep ends after 2 consecutive frames.
         engine.setDepthThreshold(140f)
         prime(standing())
         prime(shallow())
@@ -406,6 +433,9 @@ class SquatHeuristicEngineTest {
 
     @Test
     fun `full squat preset requires deeper descent`() {
+        // Full squat: repStart=160, targetBottom=100, standing=168.
+        // shallow() ≈ 139.84° starts a rep, but maxDepth (139.84°) > (100+15)=115°
+        // so kneeDepthAchieved=false, and hipDrop < hipDropTarget → rep NOT counted.
         engine.setDepthThreshold(90f)
         prime(standing())
         prime(shallow())
