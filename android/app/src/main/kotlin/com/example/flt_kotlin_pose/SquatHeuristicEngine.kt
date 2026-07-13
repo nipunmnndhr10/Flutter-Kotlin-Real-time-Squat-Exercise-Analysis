@@ -366,13 +366,21 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         // that previously caused DESCENDING/ASCENDING to flicker at the transition point.
         val oldRaw     = rawAngleHistory[(rawHistIndex + 1) % rawAngleHistory.size]
         val currentRaw = rawAngleHistory[rawHistIndex]
-        val isDescending = currentRaw < oldRaw - 1.5f
+        val rawDelta     = currentRaw - oldRaw
+        val isDescending = rawDelta < -1.5f
+        val isAscending  = rawDelta >  2.0f   // wider gate: angle must be clearly rising
 
+        // When neither clearly descending nor ascending (stable plateau), hold the
+        // previous phase rather than defaulting to ASCENDING. This prevents a shallow
+        // plateau (e.g. mid-rep pause) from falsely triggering GO_DEEPER before the
+        // user is actually coming back up. If we just entered the rep from STANDING,
+        // default to DESCENDING (the user is beginning their descent).
         currentPhase = when {
             !isInsideRep        -> SquatPhase.STANDING
             kneeAngle <= bottom -> SquatPhase.BOTTOM
             isDescending        -> SquatPhase.DESCENDING
-            else                -> SquatPhase.ASCENDING
+            isAscending         -> SquatPhase.ASCENDING
+            else -> if (currentPhase == SquatPhase.STANDING) SquatPhase.DESCENDING else currentPhase
         }
 
         if (currentPhase == SquatPhase.STANDING) {
@@ -423,10 +431,14 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         if (currentPhase == SquatPhase.STANDING) return faults
 
         // 1) GO_DEEPER — only when the user starts ascending without reaching target depth.
-        //    This avoids repeatedly cueing "go deeper" while the user is still descending.
+        //    The extra guard (kneeAngle > maxDepthReachedThisRep + 5°) ensures the fault
+        //    only fires when the knee is measurably above the deepest point reached,
+        //    preventing false triggers when the user is stable at a shallow plateau
+        //    (where the phase may briefly appear ASCENDING due to a zero raw-angle delta).
         if (currentPhase == SquatPhase.ASCENDING &&
             maxDepthReachedThisRep > depthProfile.targetBottom + 12f &&
-            kneeAngle < depthProfile.repStart
+            kneeAngle < depthProfile.repStart &&
+            kneeAngle > maxDepthReachedThisRep + 5f
         ) {
             addFault(SquatFault.GO_DEEPER)
         }

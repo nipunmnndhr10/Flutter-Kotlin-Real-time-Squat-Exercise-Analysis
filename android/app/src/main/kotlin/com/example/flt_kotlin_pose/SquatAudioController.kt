@@ -18,28 +18,32 @@ class SquatAudioController(private val context: Context) {
     private val totalSounds = 4
     private val loadedCount = AtomicInteger(0)
 
-    // ---------------- FASTER COOLDOWNS (REDUCED PAUSE TIME) ----------------
+    // Per-cue cooldowns prevent the same cue from repeating too fast.
+    // The global 1-second block that was here previously was removed because it
+    // silently dropped the *second* cue whenever two different faults fired
+    // in rapid succession (e.g. GO_DEEPER followed immediately by LEAN_FORWARD).
     private val lastPlayedTime = HashMap<String, Long>()
-    private var lastPlayedAnyTime = 0L
-    private val globalCooldownMs = 1000L
 
     private val cooldownMs = mapOf(
-        "go_deeper" to 700L,
-        "chest_up" to 900L,
-        "knees_out" to 900L,
-        "too_low" to 1200L
+        "go_deeper" to 1500L,
+        "chest_up"  to 1200L,
+        "knees_out" to 1200L,
+        "too_low"   to 1500L
     )
 
     private var activeStreamId = 0
 
     init {
         val audioAttributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            // USAGE_MEDIA routes cues through the media audio stream (same as music/videos).
+            // USAGE_ASSISTANCE_SONIFICATION was wrong — it uses the notification/ring stream
+            // which is silenced by Do Not Disturb, Focus Mode, and vibrate-only profiles.
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
             .build()
 
         soundPool = SoundPool.Builder()
-            .setMaxStreams(4)
+            .setMaxStreams(2)
             .setAudioAttributes(audioAttributes)
             .build()
 
@@ -77,18 +81,11 @@ class SquatAudioController(private val context: Context) {
         if (!loadedSoundIds.contains(soundId)) return
 
         val now = System.currentTimeMillis()
-
-        // Prevent overlap by enforcing a global cooldown between any two cue starts
-        if (now - lastPlayedAnyTime < globalCooldownMs) return
-
         val last = lastPlayedTime[cueName] ?: 0L
-        val cooldown = cooldownMs[cueName] ?: 800L
-
-        // ---------------- LOWER LATENCY FEEDBACK ----------------
+        val cooldown = cooldownMs[cueName] ?: 1000L
         if (now - last < cooldown) return
 
         lastPlayedTime[cueName] = now
-        lastPlayedAnyTime = now
 
         // Stop the currently active stream to ensure no overlapping audio
         if (activeStreamId != 0) {
@@ -106,7 +103,6 @@ class SquatAudioController(private val context: Context) {
         soundMap.clear()
         loadedSoundIds.clear()
         lastPlayedTime.clear()
-        lastPlayedAnyTime = 0L
         activeStreamId = 0
         loadedCount.set(0)
     }
