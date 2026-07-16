@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.models.user import User
-from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse
+from datetime import datetime, timedelta, timezone
+from app.models.user import User, PasswordReset
+from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse, ForgotPasswordRequest, ResetPasswordRequest
+from app.core.utils import generate_otp, send_otp_email
 from passlib.context import CryptContext
 
 from app.core.security import create_access_token, get_current_user
@@ -100,3 +102,59 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+@router.post("/forgot-password")
+def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user:
+        # Always return a generic message to prevent email enumeration
+        return {"message": "If that email exists, an OTP has been sent."}
+
+    # Invalidate any old OTPs for this email
+    db.query(PasswordReset).filter(PasswordReset.email == request.email).delete()
+
+    otp = generate_otp()
+    expires = datetime.now(timezone.utc) + timedelta(minutes=10)
+
+    reset_entry = PasswordReset(
+        email=request.email,
+        otp=otp,
+        expires_at=expires
+    )
+    db.add(reset_entry)
+    db.commit()
+
+    send_otp_email(request.email, otp)
+    return {"message": "If that email exists, an OTP has been sent."}
+
+
+@router.post("/reset-password")
+def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+    reset_entry = db.query(PasswordReset).filter(
+        PasswordReset.email == request.email,
+        PasswordReset.otp == request.otp
+    ).first()
+
+    if not reset_entry:
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+
+    now_utc = datetime.now(timezone.utc)
+    # Handle timezone differences between Python and DB
+    db_expires_at = reset_entry.expires_at
+    if db_expires_at.tzinfo is None:
+        now_utc = now_utc.replace(tzinfo=None)
+
+    if now_utc > db_expires_at:
+        db.delete(reset_entry)
+        db.commit()
+        raise HTTPException(status_code=400, detail="OTP has expired")
+
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    user.hashed_password = hash_password(request.new_password)
+    db.delete(reset_entry)
+    db.commit()
+
+    return {"message": "Password has been successfully reset"}

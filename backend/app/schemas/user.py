@@ -26,3 +26,13 @@ class TokenResponse(BaseModel):
     token_type: str
     message: str
     user: UserResponse
+
+# For Forgot Password request
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+# For Reset Password request
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp: str
+    new_password: str
