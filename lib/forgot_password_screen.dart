@@ -17,7 +17,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   String? _emailError;
   bool _isLoading = false;
 
-  static const Color primaryGreen = Color(0xFF2ECC71);
   static const Color textDark = Color(0xFF1A2332);
   static const Color textGray = Color(0xFF8A95A3);
 
