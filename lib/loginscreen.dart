@@ -6,6 +6,7 @@ import 'app_constants.dart';
 import 'validators.dart';
 import 'login_components.dart';
 import 'signup_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -290,7 +291,13 @@ class _LoginScreenState extends State<LoginScreen>
                                     Align(
                                       alignment: Alignment.centerRight,
                                       child: TextButton(
-                                        onPressed: () {},
+                                        onPressed: () {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) => const ForgotPasswordScreen(),
+                                            ),
+                                          );
+                                        },
                                         style: TextButton.styleFrom(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 0,
