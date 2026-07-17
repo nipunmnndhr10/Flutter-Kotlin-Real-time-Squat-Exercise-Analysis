@@ -48,3 +48,11 @@ app.*.map.json
 
 # Python virtual environment
 backend/backend-capstone/
+
+# Auto-generated plugin and build files
+.flutter-plugins
+.flutter-plugins-dependencies
+**/ephemeral/
+**/.plugin_symlinks/
+**/Flutter/Generated.xcconfig
+**/Runner/GeneratedPluginRegistrant.*
