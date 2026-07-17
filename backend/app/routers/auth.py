@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.models.user import User
-from app.schemas.user import UserCreate, UserLogin, UserResponse
+from datetime import datetime, timedelta, timezone
+from app.models.user import User, PasswordReset
+from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse, ForgotPasswordRequest, ResetPasswordRequest
+from app.core.utils import generate_otp, send_otp_email
 from passlib.context import CryptContext
 
 from app.core.security import create_access_token, get_current_user
@@ -24,14 +26,14 @@ def verify_password(plain_password: str, hashed_password: str):
     return pwd_context.verify(plain_password, hashed_password)
 
 
-@router.post("/signup", response_model=UserResponse)
+@router.post("/signup", response_model=TokenResponse)
 def signup(user_data: UserCreate, db: Session = Depends(get_db)):
-    
+
     # check if user already exists
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
+
     # hash the password before storing it
     hashed_pw = hash_password(user_data.password)
 
@@ -46,18 +48,36 @@ def signup(user_data: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    return new_user
+    # Auto-login: generate JWT token immediately after signup
+    access_token = create_access_token(
+        data={
+            "sub": new_user.email,
+            "user_id": new_user.id
+        }
+    )
 
-@router.post("/login")
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "message": "Signup successful",
+        "user": {
+            "id": new_user.id,
+            "email": new_user.email,
+            "full_name": new_user.full_name
+        }
+    }
+
+
+@router.post("/login", response_model=TokenResponse)
 def login(user_data: UserLogin, db: Session = Depends(get_db)):
-    
+
     # look up user by email
     user = db.query(User).filter(User.email == user_data.email).first()
 
     # verify if user exists and password is correct: compare plain pw with hashed pw using bcrypt
     if not user or not verify_password(user_data.password, user.hashed_password):
          raise HTTPException(status_code=400, detail="Invalid email or password")
-    
+
 
     # creating JWT token for the authenticated user. The token will contain the user's email and ID as payload, and it will be signed using the SECRET_KEY and ALGORITHM defined in the security module.
     access_token = create_access_token(
@@ -66,7 +86,7 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
             "user_id": user.id
         }
     )
-    
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -77,11 +97,64 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
             "full_name": user.full_name
         }
     }
-    
-@router.get("/me")
+
+
+@router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
-    return {
-        "id": current_user.id,
-        "email": current_user.email,
-        "full_name": current_user.full_name
-    }
+    return current_user
+
+@router.post("/forgot-password")
+def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user:
+        # Always return a generic message to prevent email enumeration
+        return {"message": "If that email exists, an OTP has been sent."}
+
+    # Invalidate any old OTPs for this email
+    db.query(PasswordReset).filter(PasswordReset.email == request.email).delete()
+
+    otp = generate_otp()
+    expires = datetime.now(timezone.utc) + timedelta(minutes=10)
+
+    reset_entry = PasswordReset(
+        email=request.email,
+        otp=otp,
+        expires_at=expires
+    )
+    db.add(reset_entry)
+    db.commit()
+
+    send_otp_email(request.email, otp)
+    return {"message": "If that email exists, an OTP has been sent."}
+
+
+@router.post("/reset-password")
+def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+    reset_entry = db.query(PasswordReset).filter(
+        PasswordReset.email == request.email,
+        PasswordReset.otp == request.otp
+    ).first()
+
+    if not reset_entry:
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+
+    now_utc = datetime.now(timezone.utc)
+    # Handle timezone differences between Python and DB
+    db_expires_at = reset_entry.expires_at
+    if db_expires_at.tzinfo is None:
+        now_utc = now_utc.replace(tzinfo=None)
+
+    if now_utc > db_expires_at:
+        db.delete(reset_entry)
+        db.commit()
+        raise HTTPException(status_code=400, detail="OTP has expired")
+
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    user.hashed_password = hash_password(request.new_password)
+    db.delete(reset_entry)
+    db.commit()
+
+    return {"message": "Password has been successfully reset"}

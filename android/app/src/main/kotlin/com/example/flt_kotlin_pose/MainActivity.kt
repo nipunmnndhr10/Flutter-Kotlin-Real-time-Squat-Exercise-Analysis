@@ -20,6 +20,11 @@ class MainActivity : FlutterActivity() {
 
     private var pendingPermissionResult: MethodChannel.Result? = null
 
+    // Serializes access to squatEngine between the camera executor thread
+    // (which calls analyze() for every frame) and the Flutter platform thread
+    // (which calls reset / pause / setDepth / endWorkout via MethodChannel).
+    private val engineLock = Any()
+
     private lateinit var audioController: SquatAudioController
     private lateinit var squatEngine: SquatHeuristicEngine
 
@@ -35,7 +40,7 @@ class MainActivity : FlutterActivity() {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     PoseLandmarkEventBus.eventSink = events
                     PoseLandmarkEventBus.onFrame = { frame ->
-                        val feedback = squatEngine.analyze(frame)
+                        val feedback = synchronized(engineLock) { squatEngine.analyze(frame) }
                         if (feedback != null) {
                             SquatFeedbackEventBus.emit(feedback)
                         }
@@ -86,13 +91,18 @@ class MainActivity : FlutterActivity() {
         .setMethodCallHandler { call, result ->
             when (call.method) {
                 "resetSquatSession" -> {
-                    squatEngine.reset()
+                    synchronized(engineLock) { squatEngine.reset() }
                     SquatFeedbackEventBus.reset()
                     result.success(null)
                 }
                 "endWorkoutSession" -> {
-                    val summary = squatEngine.endWorkoutSummary()
+                    val summary = synchronized(engineLock) { squatEngine.endWorkoutSummary() }
                     if (summary != null) {
+                        android.util.Log.i(
+                            "WORKOUT_SUMMARY",
+                            "Duration: ${summary.durationSeconds}s | Reps: ${summary.totalReps} | " +
+                            "AvgKnee: ${summary.avgKneeAngle} | MinKnee: ${summary.minKneeAngle}"
+                        )
                         val summaryMap = mapOf(
                             "durationSeconds" to summary.durationSeconds,
                             "totalReps" to summary.totalReps,
@@ -112,20 +122,24 @@ class MainActivity : FlutterActivity() {
                     result.success(null)
                 }
                 "pauseSquatSession" -> {
-                    squatEngine.pauseAnalysis()
-                    squatEngine.pauseWorkoutTimer()
+                    synchronized(engineLock) {
+                        squatEngine.pauseAnalysis()
+                        squatEngine.pauseWorkoutTimer()
+                    }
                     PoseCameraRegistry.pauseAnalysis()
                     result.success(null)
                 }
                 "resumeSquatSession" -> {
-                    squatEngine.resumeAnalysis()
-                    squatEngine.resumeWorkoutTimer()
+                    synchronized(engineLock) {
+                        squatEngine.resumeAnalysis()
+                        squatEngine.resumeWorkoutTimer()
+                    }
                     PoseCameraRegistry.resumeAnalysis()
                     result.success(null)
                 }
                 "setDepthThreshold" -> {
                     val angle = (call.arguments as? Double)?.toFloat() ?: 90f
-                    squatEngine.setDepthThreshold(angle)
+                    synchronized(engineLock) { squatEngine.setDepthThreshold(angle) }
                     result.success(null)
                 }
                 else -> result.notImplemented()

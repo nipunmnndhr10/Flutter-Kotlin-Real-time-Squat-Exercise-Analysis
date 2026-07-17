@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'app_constants.dart';
 import 'loginscreen.dart';
 import 'dashboard_screen.dart';
 //import 'pose_screen.dart';
@@ -62,11 +63,12 @@ class _StartupGate extends StatelessWidget {
   }
 
   Future<Map<String, dynamic>?> checkCurrentUser(String token) async {
+    // ignore: avoid_print
     print("TOKEN SENT: \n $token");
 
     try {
       final response = await Dio().get(
-        'http://192.168.1.13:8000/auth/me',
+        '$kApiBaseUrl/auth/me',
         options: Options(headers: {"Authorization": "Bearer $token"}),
       );
 

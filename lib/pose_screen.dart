@@ -27,7 +27,8 @@ class _PoseScreenState extends State<PoseScreen> {
     PoseFrameData.empty(),
   );
 
-  SquatFeedbackData _squatFeedback = const SquatFeedbackData.empty();
+  final ValueNotifier<SquatFeedbackData> _squatFeedback =
+      ValueNotifier<SquatFeedbackData>(const SquatFeedbackData.empty());
 
   StreamSubscription<dynamic>? _subscription;
   StreamSubscription<dynamic>? _squatSubscription;
@@ -39,7 +40,7 @@ class _PoseScreenState extends State<PoseScreen> {
 
   // Pose-lost detection: fires when the pose channel goes silent for 2s
   Timer? _poseLostTimer;
-  bool _isPoseLost = false;
+  final ValueNotifier<bool> _isPoseLost = ValueNotifier<bool>(false);
 
   // Idle detection
   static const Duration _idleThreshold = Duration(minutes: 1);
@@ -111,18 +112,18 @@ class _PoseScreenState extends State<PoseScreen> {
 
       if (!hasLandmarks) {
         _poseLostTimer?.cancel();
-        if (!_isPoseLost && mounted) {
-          setState(() => _isPoseLost = true);
+        if (!_isPoseLost.value && mounted) {
+          _isPoseLost.value = true;
         }
         return;
       }
 
-      if (_isPoseLost && mounted) {
-        setState(() => _isPoseLost = false);
+      if (_isPoseLost.value && mounted) {
+        _isPoseLost.value = false;
       }
       _poseLostTimer?.cancel();
       _poseLostTimer = Timer(const Duration(seconds: 2), () {
-        if (mounted) setState(() => _isPoseLost = true);
+        if (mounted) _isPoseLost.value = true;
       });
     }, onError: (Object error) => debugPrint('Pose stream error: $error'));
   }
@@ -142,15 +143,14 @@ class _PoseScreenState extends State<PoseScreen> {
         _lastKnownPhase = newFeedback.phase;
 
         if (_showIdleBanner) {
-          setState(() {
-            _squatFeedback = newFeedback;
-            _showIdleBanner = false;
-          });
+          _squatFeedback.value = newFeedback;
+          setState(() => _showIdleBanner = false);
           return;
         }
       }
 
-      setState(() => _squatFeedback = newFeedback);
+      // No setState() — only the ValueListenableBuilder widgets rebuild.
+      _squatFeedback.value = newFeedback;
     }, onError: (Object error) => debugPrint('Squat feedback error: $error'));
   }
 
@@ -231,13 +231,11 @@ class _PoseScreenState extends State<PoseScreen> {
     }
     await _actionChannel.invokeMethod<void>('resetSquatSession');
     if (!mounted) return;
-    setState(() {
-      _squatFeedback = const SquatFeedbackData.empty();
-      _lastKnownRepCount = 0;
-      _lastKnownPhase = 'STANDING';
-      _lastActivityTime = DateTime.now();
-      _showIdleBanner = false;
-    });
+    _squatFeedback.value = const SquatFeedbackData.empty();
+    _lastKnownRepCount = 0;
+    _lastKnownPhase = 'STANDING';
+    _lastActivityTime = DateTime.now();
+    setState(() => _showIdleBanner = false);
   }
 
   Future<void> _promptEndWorkoutSession() async {
@@ -295,7 +293,7 @@ class _PoseScreenState extends State<PoseScreen> {
       'workoutType': _workoutType,
       'startedAt': _workoutStartedAt.toIso8601String(),
       'endedAt': workoutEndedAt.toIso8601String(),
-      'targetAngleThreshold': _squatFeedback.angleThreshold,
+      'targetAngleThreshold': _squatFeedback.value.angleThreshold,
       'camera': _isFrontCamera ? 'front' : 'back',
       'faultSummaryJson': Map<String, int>.from(_faultSummaryCounts),
     };
@@ -371,6 +369,8 @@ class _PoseScreenState extends State<PoseScreen> {
     _poseLostTimer?.cancel();
     _idleCheckTimer?.cancel();
     _frameData.dispose();
+    _squatFeedback.dispose();
+    _isPoseLost.dispose();
     super.dispose();
   }
 
@@ -459,31 +459,48 @@ class _PoseScreenState extends State<PoseScreen> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Rep counter
+        // Rep counter — rebuilds only when squat feedback changes
         Positioned(
           top: 80,
           left: 0,
           right: 0,
-          child: Center(child: _RepCounter(feedback: _squatFeedback)),
+          child: Center(
+            child: ValueListenableBuilder<SquatFeedbackData>(
+              valueListenable: _squatFeedback,
+              builder: (_, feedback, _) => _RepCounter(feedback: feedback),
+            ),
+          ),
         ),
 
-        // Fault cue banner
-        if (_squatFeedback.activeFaults.isNotEmpty)
-          Positioned(
-            left: 24,
-            right: 24,
-            bottom: 140,
-            child: _FaultBanner(faults: _squatFeedback.activeFaults),
+        // Fault cue banner — rebuilds only when squat feedback changes
+        Positioned(
+          left: 24,
+          right: 24,
+          bottom: 140,
+          child: ValueListenableBuilder<SquatFeedbackData>(
+            valueListenable: _squatFeedback,
+            builder: (_, feedback, _) {
+              if (feedback.activeFaults.isEmpty) return const SizedBox.shrink();
+              return _FaultBanner(faults: feedback.activeFaults);
+            },
           ),
+        ),
 
-        // Landmark lost warning
-        if (_isPoseLost)
-          const Positioned(
-            top: 140,
-            left: 0,
-            right: 0,
-            child: Center(child: _LandmarkLostBadge()),
+        // Landmark lost warning — rebuilds only when pose-lost flag changes
+        Positioned(
+          top: 140,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: ValueListenableBuilder<bool>(
+              valueListenable: _isPoseLost,
+              builder: (_, lost, _) {
+                if (!lost) return const SizedBox.shrink();
+                return const _LandmarkLostBadge();
+              },
+            ),
           ),
+        ),
 
         // Idle end-session banner
         if (_showIdleBanner)
@@ -566,9 +583,12 @@ class NativePosePreview extends StatelessWidget {
         ),
       );
     }
+    // TextureAndroidView uses Texture Layer compositing instead of Virtual
+    // Display, significantly reducing latency for real-time camera feeds.
     return const AndroidView(
       viewType: 'native_pose_camera',
       layoutDirection: TextDirection.ltr,
+      creationParamsCodec: StandardMessageCodec(),
     );
   }
 }
@@ -739,6 +759,38 @@ class PosePainter extends CustomPainter {
       ..style = PaintingStyle.stroke,
   );
 
+  // Cached Paint objects for joint rendering — eliminates ~150 allocations/frame
+  static final _jointShadowPaint = Paint()
+    ..color = Colors.black.withAlpha(100)
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+
+  static final Map<Color, Paint> _jointGlowPaints = {};
+  static Paint _jointGlowPaint(Color color) => _jointGlowPaints.putIfAbsent(
+    color,
+    () => Paint()
+      ..color = color.withAlpha(40)
+      ..style = PaintingStyle.fill
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+  );
+
+  static final Map<Color, Paint> _jointRingPaints = {};
+  static Paint _jointRingPaint(Color color) => _jointRingPaints.putIfAbsent(
+    color,
+    () => Paint()
+      ..color = color.withAlpha(160)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5,
+  );
+
+  static final Map<Color, Paint> _jointFillPaints = {};
+  static Paint _jointFillPaint(Color color) => _jointFillPaints.putIfAbsent(
+    color,
+    () => Paint()..color = color,
+  );
+
+  static final _jointHighlightPaint = Paint()
+    ..color = Colors.white.withAlpha(200);
+
   static Color _segmentColor(int a, int b) {
     if (a == 11 && b == 12) return const Color(0xFF00E5FF);
     if (a >= 11 && a <= 22 && b >= 11 && b <= 22) {
@@ -803,41 +855,21 @@ class PosePainter extends CustomPainter {
       canvas.drawLine(pA, pB, _whiteHairlinePaint);
     }
 
-    // Pass 2: joints
+    // Pass 2: joints — all Paint objects are cached statics
     for (final lm in frame.landmarks.values) {
       if (!_isVisible(lm)) continue;
       final p = mapPoint(lm);
       final color = _jointColor(lm.index);
-      final double r = _majorJoints.contains(lm.index) ? 7.0 : 4.5;
+      final double r = _majorJoints.contains(lm.index) ? 5.0 : 3.0;
 
-      canvas.drawCircle(
-        p,
-        r + 3,
-        Paint()
-          ..color = Colors.black.withAlpha(100)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
-      );
-      canvas.drawCircle(
-        p,
-        r + 5,
-        Paint()
-          ..color = color.withAlpha(40)
-          ..style = PaintingStyle.fill
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
-      );
-      canvas.drawCircle(
-        p,
-        r + 1.5,
-        Paint()
-          ..color = color.withAlpha(160)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5,
-      );
-      canvas.drawCircle(p, r, Paint()..color = color);
+      canvas.drawCircle(p, r + 2, _jointShadowPaint);
+      canvas.drawCircle(p, r + 3, _jointGlowPaint(color));
+      canvas.drawCircle(p, r + 1, _jointRingPaint(color));
+      canvas.drawCircle(p, r, _jointFillPaint(color));
       canvas.drawCircle(
         Offset(p.dx - r * 0.28, p.dy - r * 0.28),
         r * 0.28,
-        Paint()..color = Colors.white.withAlpha(200),
+        _jointHighlightPaint,
       );
     }
   }

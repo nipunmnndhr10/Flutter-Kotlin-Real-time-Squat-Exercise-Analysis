@@ -16,9 +16,20 @@ internal object PoseLandmarkEventBus {
     @Volatile
     var onFrame: ((PoseFramePayload) -> Unit)? = null
 
+    // Throttle Flutter-bound emissions to ~30fps (33ms).
+    // The heuristic engine callback (onFrame) still runs at full camera rate.
+    @Volatile
+    private var lastEmitTime = 0L
+    private const val EMIT_INTERVAL_MS = 33L
+
     fun emit(framePayload: PoseFramePayload) {
         // Notify heuristic engine first — stays on camera thread, no UI overhead
         onFrame?.invoke(framePayload)
+
+        // Throttle: skip Flutter emission if within the interval
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastEmitTime < EMIT_INTERVAL_MS) return
+        lastEmitTime = now
 
         // Then forward landmarks to Flutter on main thread
         mainHandler.post {

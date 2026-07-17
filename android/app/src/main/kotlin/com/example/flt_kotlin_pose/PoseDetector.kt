@@ -58,6 +58,7 @@ class PoseLandmarkerProcessor(
 ) {
     private val lock = Any()
     private val isProcessingFrame = AtomicBoolean(false)
+    @Volatile private var lastFrameProcessingTime = 0L
     @Volatile var isPaused: Boolean = false
     private var poseLandmarker: PoseLandmarker = createPoseLandmarker(context)
 
@@ -74,10 +75,18 @@ class PoseLandmarkerProcessor(
             return
         }
 
+        val now = SystemClock.uptimeMillis()
+        val processingTime = now - lastFrameProcessingTime
+        if (isProcessingFrame.get() && processingTime > 1000L) {
+            Log.w(TAG, "Watchdog triggered: PoseLandmarker took too long ($processingTime ms), resetting isProcessingFrame")
+            isProcessingFrame.set(false)
+        }
+
         if (!isProcessingFrame.compareAndSet(false, true)) {
             imageProxy.close()
             return
         }
+        lastFrameProcessingTime = SystemClock.uptimeMillis()
 
         try {
             val rotationDegrees = imageProxy.imageInfo.rotationDegrees
@@ -173,7 +182,6 @@ class PoseLandmarkerProcessor(
         )
 
         isProcessingFrame.set(false)
-        Log.v(TAG, "Landmarks emitted: ${input.width}x${input.height}")
     }
 
     private fun onError(error: RuntimeException) {
