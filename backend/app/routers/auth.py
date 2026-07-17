@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from datetime import datetime, timedelta, timezone
@@ -104,7 +104,7 @@ def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 @router.post("/forgot-password")
-def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
+def forgot_password(request: ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == request.email).first()
     if not user:
         # Always return a generic message to prevent email enumeration
@@ -124,7 +124,7 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
     db.add(reset_entry)
     db.commit()
 
-    send_otp_email(request.email, otp)
+    background_tasks.add_task(send_otp_email, request.email, otp)
     return {"message": "If that email exists, an OTP has been sent."}
 
 
