@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app_constants.dart';
-import 'dashboard_screen.dart';
 import 'loginscreen.dart';
 import 'pose_screen.dart';
 
@@ -77,13 +76,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   height: 55,
                   child: ElevatedButton.icon(
                     onPressed: () async {
-                      final result =
-                          await Navigator.push<Map<String, dynamic>>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const PoseScreen(),
-                            ),
-                          );
+                      final result = await Navigator.push<Map<String, dynamic>>(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PoseScreen()),
+                      );
                       if (!mounted || result == null) return;
                       await _showWorkoutSummaryDialog(result);
                     },
@@ -264,9 +260,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   await prefs.remove('access_token');
                   Navigator.of(dialogContext).pop();
                   Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(
-                      builder: (_) => const LoginScreen(),
-                    ),
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
                     (route) => false,
                   );
                   messenger.showSnackBar(
