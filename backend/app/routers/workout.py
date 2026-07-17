@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.workout import WorkoutSession
@@ -50,3 +50,23 @@ def save_session_summary(
     db.refresh(new_session)
     
     return new_session
+
+
+@router.delete("/{session_id}")
+def delete_workout_session(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete a specific workout session for the authenticated user."""
+    session = (
+        db.query(WorkoutSession)
+        .filter(WorkoutSession.id == session_id, WorkoutSession.user_id == current_user.id)
+        .first()
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Workout session not found")
+    
+    db.delete(session)
+    db.commit()
+    return {"detail": "Workout session deleted successfully"}
