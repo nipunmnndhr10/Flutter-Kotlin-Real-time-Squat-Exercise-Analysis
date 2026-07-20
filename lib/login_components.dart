@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+<<<<<<< HEAD
+=======
+// Reusable hero illustration
+>>>>>>> main
 class HeroSection extends StatelessWidget {
   const HeroSection({super.key});
 
@@ -11,14 +15,24 @@ class HeroSection extends StatelessWidget {
       decoration: const BoxDecoration(
         color: Colors.transparent,
         borderRadius: BorderRadius.only(
+<<<<<<< HEAD
           bottomLeft: Radius.circular(30),
           bottomRight: Radius.circular(30),
+=======
+          bottomLeft: Radius.circular(50),
+          bottomRight: Radius.circular(50),
+>>>>>>> main
         ),
       ),
       child: ClipRRect(
         borderRadius: const BorderRadius.only(
+<<<<<<< HEAD
           bottomLeft: Radius.circular(30),
           bottomRight: Radius.circular(30),
+=======
+          bottomLeft: Radius.circular(50),
+          bottomRight: Radius.circular(50),
+>>>>>>> main
         ),
         child: Align(
           alignment: Alignment.bottomCenter,
