@@ -3,7 +3,9 @@ import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dashboard_screen.dart';
 import 'pose_screen.dart';
-import 'app_config.dart'; 
+import 'app_config.dart';
+import 'progress_screen.dart';
+import 'profile_screen.dart';
 
 const kPrimary = Color(0xFF4CAF50);
 const kSecondary = Color(0xFF81C784);
@@ -21,6 +23,21 @@ class WorkoutScreen extends StatefulWidget {
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
   int _currentIndex = 1;
+  String _userName = 'User';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserName();
+  }
+
+  Future<void> _loadUserName() async {
+    final prefs = await SharedPreferences.getInstance();
+    final name = prefs.getString('user_name') ?? 'User';
+    setState(() {
+      _userName = name;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,8 +52,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (_) =>
-                    const DashboardScreen(userName: 'Prayan Shrestha'),
+                builder: (_) => DashboardScreen(userName: _userName),
               ),
             );
           },
@@ -195,20 +211,25 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (_) =>
-                    const DashboardScreen(userName: 'Prayan Shrestha'),
+                builder: (_) => DashboardScreen(userName: _userName),
               ),
             );
           }
           if (index == 1) return;
           if (index == 2) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Progress screen coming soon')),
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ProgressScreen(),
+              ),
             );
           }
           if (index == 3) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Profile screen coming soon')),
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ProfileScreen(userName: _userName),
+              ),
             );
           }
           setState(() => _currentIndex = index);
@@ -356,7 +377,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       throw StateError('No access token found. Please log in again.');
     }
 
-    // ✅ CHANGED: Using AppConfig.apiBaseUrl
     final authedDio = Dio(
       BaseOptions(
         baseUrl: AppConfig.apiBaseUrl,

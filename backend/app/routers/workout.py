@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from typing import List
 from app.core.database import get_db
 from app.models.workout import WorkoutSession
 from app.schemas.workout import WorkoutSessionCreate, WorkoutSessionResponse
@@ -36,3 +37,33 @@ def save_session_summary(
     db.refresh(new_session)
     
     return new_session
+
+
+@router.get("/", response_model=List[WorkoutSessionResponse])
+def get_user_workouts(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get all workout sessions for the current user, ordered by most recent first"""
+    workouts = db.query(WorkoutSession).filter(
+        WorkoutSession.user_id == current_user.id
+    ).order_by(WorkoutSession.started_at.desc()).all()
+    return workouts
+
+
+@router.get("/{workout_id}", response_model=WorkoutSessionResponse)
+def get_workout_by_id(
+    workout_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get a specific workout session by ID"""
+    workout = db.query(WorkoutSession).filter(
+        WorkoutSession.id == workout_id,
+        WorkoutSession.user_id == current_user.id
+    ).first()
+    
+    if not workout:
+        raise HTTPException(status_code=404, detail="Workout not found")
+    
+    return workout
