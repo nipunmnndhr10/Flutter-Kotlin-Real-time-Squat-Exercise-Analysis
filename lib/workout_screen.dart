@@ -3,7 +3,10 @@ import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dashboard_screen.dart';
 import 'pose_screen.dart';
+<<<<<<< HEAD
 import 'app_config.dart'; 
+=======
+>>>>>>> main
 
 const kPrimary = Color(0xFF4CAF50);
 const kSecondary = Color(0xFF81C784);
@@ -47,6 +50,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         ),
       ),
       body: SingleChildScrollView(
+<<<<<<< HEAD
+=======
+        // ✅ scroll enabled
+>>>>>>> main
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -66,6 +73,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             ),
             const SizedBox(height: 30),
 
+<<<<<<< HEAD
+=======
+            // Start Workout Card
+>>>>>>> main
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -130,6 +141,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
             const SizedBox(height: 24),
 
+<<<<<<< HEAD
+=======
+            // Mistakes Summary Card
+>>>>>>> main
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -157,6 +172,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
             const SizedBox(height: 24),
 
+<<<<<<< HEAD
+=======
+            // Workout Details Card
+>>>>>>> main
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -356,10 +375,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       throw StateError('No access token found. Please log in again.');
     }
 
+<<<<<<< HEAD
     // ✅ CHANGED: Using AppConfig.apiBaseUrl
     final authedDio = Dio(
       BaseOptions(
         baseUrl: AppConfig.apiBaseUrl,
+=======
+    final authedDio = Dio(
+      BaseOptions(
+        baseUrl: 'http://192.168.1.3:8000',
+>>>>>>> main
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -403,6 +428,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 }
 
+<<<<<<< HEAD
+=======
+// Mistake Row Widget
+>>>>>>> main
 class _MistakeRow extends StatelessWidget {
   final String mistake;
   final int count;
@@ -467,4 +496,8 @@ class _SummaryRow extends StatelessWidget {
       ),
     );
   }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> main
