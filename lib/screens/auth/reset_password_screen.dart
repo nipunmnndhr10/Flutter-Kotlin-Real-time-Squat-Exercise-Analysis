@@ -1,20 +1,25 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'app_constants.dart';
-import 'login_components.dart';
-import 'validators.dart';
-import 'reset_password_screen.dart';
+import 'package:flt_kotlin_pose/core/constants/app_constants.dart';
+import 'package:flt_kotlin_pose/screens/auth/components/login_components.dart';
+import 'package:flt_kotlin_pose/core/utils/validators.dart';
 
-class ForgotPasswordScreen extends StatefulWidget {
-  const ForgotPasswordScreen({super.key});
+class ResetPasswordScreen extends StatefulWidget {
+  final String email;
+
+  const ResetPasswordScreen({super.key, required this.email});
 
   @override
-  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
 }
 
-class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
-  final _emailController = TextEditingController();
-  String? _emailError;
+class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
+  final _otpController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  String? _otpError;
+  String? _passwordError;
+  bool _obscurePassword = true;
   bool _isLoading = false;
 
   static const Color textDark = Color(0xFF1A2332);
@@ -22,36 +27,53 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _otpController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  void _onEmailChanged(String v) {
-    final err = validateEmail(v);
+  void _onPasswordChanged(String v) {
+    final err = validatePassword(v);
     setState(() {
-      _emailError = err;
+      _passwordError = err;
     });
   }
 
-  Future<void> _handleForgotPassword() async {
+  Future<void> _handleResetPassword() async {
     setState(() {
-      _emailError = null;
+      _otpError = null;
+      _passwordError = null;
       _isLoading = true;
     });
 
-    if (_emailController.text.trim().isEmpty) {
+    if (_otpController.text.trim().isEmpty) {
       setState(() {
-        _emailError = "Email is required";
+        _otpError = "OTP is required";
         _isLoading = false;
       });
       return;
     }
 
+    if (_passwordController.text.isEmpty) {
+      setState(() {
+        _passwordError = "New password is required";
+        _isLoading = false;
+      });
+      return;
+    }
+
+    if (_passwordError != null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
     try {
       final response = await Dio().post(
-        '$kApiBaseUrl/auth/forgot-password',
+        '$kApiBaseUrl/auth/reset-password',
         data: {
-          "email": _emailController.text.trim(),
+          "email": widget.email,
+          "otp": _otpController.text.trim(),
+          "new_password": _passwordController.text,
         },
       );
 
@@ -59,18 +81,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("OTP sent to your email!"),
+            content: Text("Password reset successfully! You can now log in."),
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ResetPasswordScreen(email: _emailController.text.trim()),
-          ),
-        );
+        // Pop back to the first screen (LoginScreen)
+        Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } on DioException catch (e) {
-      String errorMsg = "Failed to send OTP";
+      String errorMsg = "Failed to reset password";
       if (e.response?.data is Map) {
         errorMsg = e.response?.data['detail'] ?? errorMsg;
       } else if (e.message != null) {
@@ -107,14 +126,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.translucent,
         child: SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 20),
                 const Text(
-                  'Forgot Password?',
+                  'Reset Password',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
@@ -123,30 +142,55 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   ),
                 ),
                 const SizedBox(height: kSpacingSm),
-                const Text(
-                  'Enter the email address associated with your account and we will send you a 6-digit code to reset your password.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: textGray,
-                    fontWeight: FontWeight.w400,
-                    height: 1.5,
+                RichText(
+                  text: TextSpan(
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: textGray,
+                      fontWeight: FontWeight.w400,
+                      height: 1.5,
+                    ),
+                    children: [
+                      const TextSpan(text: 'Please enter the 6-digit code sent to '),
+                      TextSpan(
+                        text: widget.email,
+                        style: const TextStyle(color: textDark, fontWeight: FontWeight.w600),
+                      ),
+                      const TextSpan(text: ' and your new password.'),
+                    ],
                   ),
                 ),
                 const SizedBox(height: kSpacingXxl),
                 InputField(
-                  controller: _emailController,
-                  hint: 'Email Address',
-                  icon: Icons.mail_outline_rounded,
-                  keyboardType: TextInputType.emailAddress,
-                  errorText: _emailError,
-                  onChanged: _onEmailChanged,
+                  controller: _otpController,
+                  hint: '6-digit OTP',
+                  icon: Icons.numbers_rounded,
+                  keyboardType: TextInputType.number,
+                  errorText: _otpError,
+                ),
+                const SizedBox(height: kSpacingMd),
+                InputField(
+                  controller: _passwordController,
+                  hint: 'New Password',
+                  icon: Icons.lock_outline_rounded,
+                  obscureText: _obscurePassword,
+                  errorText: _passwordError,
+                  onChanged: _onPasswordChanged,
+                  suffixIcon: GestureDetector(
+                    onTap: () => setState(() => _obscurePassword = !_obscurePassword),
+                    child: Icon(
+                      _obscurePassword ? Icons.visibility_off_outlined : Icons.remove_red_eye_outlined,
+                      color: textGray,
+                      size: 20,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: kSpacingXxl),
                 SizedBox(
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleForgotPassword,
+                    onPressed: _isLoading ? null : _handleResetPassword,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color.fromRGBO(17, 24, 32, 1),
                       foregroundColor: Colors.white,
@@ -166,7 +210,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             ),
                           )
                         : const Text(
-                            'Send Code',
+                            'Reset Password',
                             style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w800,

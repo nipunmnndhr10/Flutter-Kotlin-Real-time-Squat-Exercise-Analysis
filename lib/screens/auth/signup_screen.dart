@@ -1,11 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'app_constants.dart';
-import 'login_components.dart';
-import 'validators.dart';
-// import 'pose_screen.dart';
-import 'dashboard_screen.dart';
+import 'package:flt_kotlin_pose/core/constants/app_constants.dart';
+import 'package:flt_kotlin_pose/screens/auth/components/login_components.dart';
+import 'package:flt_kotlin_pose/core/utils/validators.dart';
+// import 'package:flt_kotlin_pose/screens/workout/pose_screen.dart';
+import 'package:flt_kotlin_pose/screens/dashboard/dashboard_screen.dart';
 
 // Design tokens
 const _kBg = Color(0xFFF7F8FA);

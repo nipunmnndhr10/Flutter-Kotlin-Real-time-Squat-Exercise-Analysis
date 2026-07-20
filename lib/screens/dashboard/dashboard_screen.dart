@@ -1,9 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'app_constants.dart';
-import 'loginscreen.dart';
-import 'workout_screen.dart';
+import 'package:flt_kotlin_pose/core/constants/app_constants.dart';
+import 'package:flt_kotlin_pose/screens/auth/loginscreen.dart';
+import 'package:flt_kotlin_pose/screens/workout/workout_screen.dart';
 
 const kPrimary = Color(0xFF4CAF50);
 const kSecondary = Color(0xFF81C784);
@@ -84,11 +84,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       );
 
+      // Fetch user profile from backend
+      try {
+        final profileResponse = await dio.get('/auth/me');
+        final profileData = profileResponse.data;
+        if (profileData != null && profileData['full_name'] != null) {
+          final fullName = profileData['full_name'].toString();
+          if (fullName.isNotEmpty) {
+            await prefs.setString('user_name', fullName);
+            _currentUserName = fullName;
+          }
+        }
+      } catch (_) {
+        // Fallback to local storage if profile fetch fails (e.g., network error).
+        // 401 Unauthorized is caught by the outer catch block.
+      }
+
       final response = await dio.get('/workouts/');
       final workouts = (response.data as List).cast<Map<String, dynamic>>();
 
       setState(() {
-        if (savedName != null && savedName.isNotEmpty) {
+        if (_currentUserName.isEmpty && savedName != null && savedName.isNotEmpty) {
           _currentUserName = savedName;
         }
         _hasLoggedInBefore = hasLoggedInBefore;
