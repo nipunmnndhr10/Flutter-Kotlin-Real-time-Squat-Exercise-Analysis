@@ -3,11 +3,7 @@ import 'package:flutter/material.dart';
 import 'app_constants.dart';
 import 'login_components.dart';
 import 'validators.dart';
-<<<<<<< HEAD
 import 'app_config.dart'; 
-=======
-// import 'pose_screen.dart';
->>>>>>> main
 import 'dashboard_screen.dart';
 
 // Design tokens
@@ -44,19 +40,10 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
 
-<<<<<<< HEAD
-=======
-  // FIX #3: Cache strength score and label as fields updated in onChanged.
-  // The getter was re-running passwordStrengthScore() on every build() call.
->>>>>>> main
   int _strengthScore = 0;
   String _strengthLabel = 'WEAK';
   Color _strengthColor = const Color(0xFFE5534B);
 
-<<<<<<< HEAD
-=======
-  // FIX #5: Cache form validity as a field — never recompute during build().
->>>>>>> main
   bool _formValid = false;
 
   @override
@@ -68,11 +55,6 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
-<<<<<<< HEAD
-=======
-  // FIX #5: Single helper that recomputes _formValid from cached error fields.
-  // Called at the end of every onChanged handler — O(1), no regex.
->>>>>>> main
   void _updateFormValid() {
     _formValid =
         _nameError == null &&
@@ -83,10 +65,6 @@ class _SignupScreenState extends State<SignupScreen> {
         _nameController.text.trim().isNotEmpty;
   }
 
-<<<<<<< HEAD
-=======
-  // FIX #3 helper: update strength fields from a password string.
->>>>>>> main
   void _updateStrength(String v) {
     _strengthScore = passwordStrengthScore(v);
     _strengthLabel = passwordStrengthLabel(v);
@@ -117,19 +95,11 @@ class _SignupScreenState extends State<SignupScreen> {
   void _onPasswordChanged(String v) {
     setState(() {
       _passwordError = validateSignupPassword(v);
-<<<<<<< HEAD
-=======
-      // Re-validate confirm if already touched
->>>>>>> main
       if (_confirmController.text.isNotEmpty) {
         _confirmError = _confirmController.text == v
             ? null
             : 'Passwords do not match';
       }
-<<<<<<< HEAD
-=======
-      // FIX #3: Update cached strength fields here, not in build().
->>>>>>> main
       _updateStrength(v);
       _updateFormValid();
     });
@@ -166,7 +136,6 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() => _isLoading = true);
 
     try {
-<<<<<<< HEAD
       
       // In _handleSignup():
       final response = await Dio().post(
@@ -177,18 +146,6 @@ class _SignupScreenState extends State<SignupScreen> {
     "full_name": _nameController.text.trim(),
   },
 );
-=======
-      final response = await Dio().post(
-        'http://192.168.1.3:8000/auth/signup',
-        // 'http://YOUR_PC_IP:8000/auth/signup', // Real Device
-        data: {
-          "email": _emailController.text.trim(),
-          "password": _passwordController.text,
-          "full_name": _nameController.text.trim(),
-        },
-        options: Options(headers: {'Content-Type': 'application/json'}),
-      );
->>>>>>> main
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         if (!mounted) return;
@@ -200,10 +157,6 @@ class _SignupScreenState extends State<SignupScreen> {
           ),
         );
 
-<<<<<<< HEAD
-=======
-        // Go to Login or Dashboard
->>>>>>> main
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -214,15 +167,11 @@ class _SignupScreenState extends State<SignupScreen> {
     } on DioException catch (e) {
       String errorMsg = "Signup failed";
 
-<<<<<<< HEAD
       if (e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.receiveTimeout ||
           e.type == DioExceptionType.connectionError) {
         errorMsg = "Cannot connect to server. Please check your connection.";
       } else if (e.response?.data is Map) {
-=======
-      if (e.response?.data is Map) {
->>>>>>> main
         errorMsg = e.response?.data['detail'] ?? errorMsg;
       } else if (e.message != null) {
         errorMsg = e.message!;
@@ -244,10 +193,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
     // ... rest of your build method (same as before)
-=======
->>>>>>> main
     return Scaffold(
       backgroundColor: _kBg,
       body: GestureDetector(
@@ -322,10 +268,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
                       const SizedBox(height: kSpacingMd),
 
-<<<<<<< HEAD
-=======
-                      // Email
->>>>>>> main
                       _StyledInputField(
                         controller: _emailController,
                         hint: 'Email Address',
@@ -337,10 +279,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
                       const SizedBox(height: kSpacingMd),
 
-<<<<<<< HEAD
-=======
-                      // Password
->>>>>>> main
                       _StyledInputField(
                         controller: _passwordController,
                         hint: 'Password',
@@ -373,10 +311,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
                       const SizedBox(height: kSpacingSm),
 
-<<<<<<< HEAD
-=======
-                      // Confirm Password
->>>>>>> main
                       _StyledInputField(
                         controller: _confirmController,
                         hint: 'Confirm Password',
@@ -471,19 +405,10 @@ class _SignupScreenState extends State<SignupScreen> {
 
                       const SizedBox(height: kSpacingXl),
 
-<<<<<<< HEAD
-=======
-                      // CTA Button
->>>>>>> main
                       SizedBox(
                         width: double.infinity,
                         height: 52,
                         child: ElevatedButton(
-<<<<<<< HEAD
-=======
-                          // FIX #5: Read cached _formValid — no getter/regex
-                          // runs during build() anymore.
->>>>>>> main
                           onPressed: (_isLoading || !_formValid)
                               ? null
                               : _handleSignup,
@@ -517,10 +442,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
                       const SizedBox(height: kSpacingXl),
 
-<<<<<<< HEAD
-=======
-                      // OR divider
->>>>>>> main
                       Row(
                         children: [
                           const Expanded(
@@ -552,10 +473,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
                       const SizedBox(height: kSpacingLg),
 
-<<<<<<< HEAD
-=======
-                      // Google button
->>>>>>> main
                       SizedBox(
                         width: double.infinity,
                         height: 50,
@@ -588,10 +505,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
                       const SizedBox(height: kSpacingXl),
 
-<<<<<<< HEAD
-=======
-                      // Log in link
->>>>>>> main
                       Center(
                         child: GestureDetector(
                           onTap: () => Navigator.of(context).maybePop(),
@@ -630,10 +543,6 @@ class _SignupScreenState extends State<SignupScreen> {
 }
 
 // Input field with icon, error message, and optional password toggle/suffix.
-<<<<<<< HEAD
-=======
-
->>>>>>> main
 class _StyledInputField extends StatelessWidget {
   const _StyledInputField({
     required this.controller,
@@ -726,11 +635,6 @@ class _StyledInputField extends StatelessWidget {
   }
 }
 
-<<<<<<< HEAD
-=======
-//Password strength indicator bar with label, based on a strength score from 0-4.
-
->>>>>>> main
 class _PasswordStrengthIndicator extends StatelessWidget {
   const _PasswordStrengthIndicator({
     required this.score,
@@ -781,8 +685,4 @@ class _PasswordStrengthIndicator extends StatelessWidget {
       ],
     );
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> main
