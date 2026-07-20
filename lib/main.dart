@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flt_kotlin_pose/core/constants/app_constants.dart';
 import 'package:flt_kotlin_pose/screens/auth/loginscreen.dart';
 import 'package:flt_kotlin_pose/screens/dashboard/dashboard_screen.dart';
-//import 'package:flt_kotlin_pose/screens/workout/pose_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,14 +28,6 @@ class MyApp extends StatelessWidget {
 
 class _StartupGate extends StatelessWidget {
   const _StartupGate();
-
-  // Future<Map<String, String?>> _loadSession() async {
-  //   final prefs = await SharedPreferences.getInstance();
-  //   return {
-  //     'token': prefs.getString('access_token'),
-  //     'userName': prefs.getString('user_name'),
-  //   };
-  // }
 
   Future<Widget> _checkSession() async {
     final prefs = await SharedPreferences.getInstance();
@@ -63,9 +54,6 @@ class _StartupGate extends StatelessWidget {
   }
 
   Future<Map<String, dynamic>?> checkCurrentUser(String token) async {
-    // ignore: avoid_print
-    print("TOKEN SENT: \n $token");
-
     try {
       final response = await Dio().get(
         '$kApiBaseUrl/auth/me',
@@ -77,11 +65,8 @@ class _StartupGate extends StatelessWidget {
       }
 
       return null;
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        return null;
-      }
-
+    } catch (e) {
+      // Return null on any error (network failure, 401 Unauthorized, etc.)
       return null;
     }
   }

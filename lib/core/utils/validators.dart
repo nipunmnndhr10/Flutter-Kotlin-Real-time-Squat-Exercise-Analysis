@@ -2,7 +2,10 @@ const String _requiredEmailMessage = 'Email is required';
 const String _requiredPasswordMessage = 'Password is required';
 const String _invalidEmailMessage = 'Enter a valid email address';
 
-final RegExp _emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+final RegExp _emailPattern = RegExp(
+  r'^[^\s@]+@gmail\.com$',
+  caseSensitive: false,
+);
 final RegExp _lowercasePattern = RegExp(r'[a-z]');
 final RegExp _uppercasePattern = RegExp(r'[A-Z]');
 final RegExp _digitPattern = RegExp(r'\d');
