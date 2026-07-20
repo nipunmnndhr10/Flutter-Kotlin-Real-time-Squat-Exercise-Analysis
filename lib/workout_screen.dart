@@ -361,7 +361,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
     final authedDio = Dio(
       BaseOptions(
-        baseUrl: 'http://192.168.1.13:8000',
+        baseUrl: 'http://192.168.1.3:8000',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',

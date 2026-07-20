@@ -66,7 +66,7 @@ class _StartupGate extends StatelessWidget {
 
     try {
       final response = await Dio().get(
-        'http://192.168.1.13:8000/auth/me',
+        'http://192.168.1.3:8000/auth/me',
         options: Options(headers: {"Authorization": "Bearer $token"}),
       );
 

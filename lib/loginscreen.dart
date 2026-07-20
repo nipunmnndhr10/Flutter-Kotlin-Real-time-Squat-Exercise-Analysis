@@ -140,7 +140,7 @@ class _LoginScreenState extends State<LoginScreen>
     // sending api req to backend
     try {
       final response = await Dio().post(
-        'http://192.168.1.13:8000/auth/login',
+        'http://192.168.1.3:8000/auth/login',
         // 'http://YOUR_PC_IP:8000/auth/login', // Real Device
         data: {
           "email": _emailController.text.trim(),
@@ -239,7 +239,7 @@ class _LoginScreenState extends State<LoginScreen>
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
                           child: Column(
-                            mainAxisSize: MainAxisSize.max,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               const SizedBox(height: kSpacingSm),
 
