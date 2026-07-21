@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flt_kotlin_pose/core/constants/app_constants.dart';
 import 'package:flt_kotlin_pose/screens/auth/components/login_components.dart';
 import 'package:flt_kotlin_pose/core/utils/validators.dart';
@@ -223,6 +224,86 @@ class _SignupScreenState extends State<SignupScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Something went wrong")));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    setState(() => _isLoading = true);
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn.instance;
+      await googleSignIn.initialize(
+        serverClientId: '984161335343-0l7irv2t1nkrft49bo186ahd46unania.apps.googleusercontent.com',
+      );
+
+      GoogleSignInAccount googleUser;
+      try {
+        googleUser = await googleSignIn.authenticate();
+      } on GoogleSignInException catch (e) {
+        if (e.code == GoogleSignInExceptionCode.canceled) {
+          // User canceled the sign-in
+          setState(() => _isLoading = false);
+          return;
+        }
+        rethrow;
+      }
+
+      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
+      final String? idToken = googleAuth.idToken;
+
+      if (idToken == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to get Google ID token"), backgroundColor: Colors.red),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final response = await Dio().post(
+        '$kApiBaseUrl/auth/google',
+        data: {
+          "id_token": idToken,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        await _saveSession(Map<String, dynamic>.from(data as Map));
+
+        final user = (data['user'] as Map?)?.cast<String, dynamic>() ?? {};
+        final displayName = user['full_name']?.toString() ?? 'User';
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Google Signup successful!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => DashboardScreen(userName: displayName),
+          ),
+        );
+      }
+    } on DioException catch (e) {
+      String errorMsg = "Google Signup failed";
+      if (e.response?.data is Map) {
+        errorMsg = e.response?.data['detail'] ?? errorMsg;
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Something went wrong during Google Sign In")),
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -521,7 +602,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         width: double.infinity,
                         height: 50,
                         child: OutlinedButton(
-                          onPressed: () {},
+                          onPressed: _isLoading ? null : _handleGoogleSignIn,
                           style: OutlinedButton.styleFrom(
                             backgroundColor: _kCard,
                             side: const BorderSide(color: _kBorder, width: 1.5),

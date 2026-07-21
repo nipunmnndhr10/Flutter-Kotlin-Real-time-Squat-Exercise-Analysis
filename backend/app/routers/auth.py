@@ -3,9 +3,12 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from datetime import datetime, timedelta, timezone
 from app.models.user import User, PasswordReset
-from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse, ForgotPasswordRequest, ResetPasswordRequest
+from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse, ForgotPasswordRequest, ResetPasswordRequest, GoogleTokenRequest
 from app.core.utils import generate_otp, send_otp_email
 from passlib.context import CryptContext
+import secrets
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
 
 from app.core.security import create_access_token, get_current_user
 
@@ -158,3 +161,60 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
     db.commit()
 
     return {"message": "Password has been successfully reset"}
+
+
+# Google Sign-In setup
+GOOGLE_CLIENT_ID = "984161335343-0l7irv2t1nkrft49bo186ahd46unania.apps.googleusercontent.com"
+
+@router.post("/google", response_model=TokenResponse)
+def google_auth(request: GoogleTokenRequest, db: Session = Depends(get_db)):
+    try:
+        # Verify the token
+        idinfo = google_id_token.verify_oauth2_token(
+            request.id_token, google_requests.Request(), GOOGLE_CLIENT_ID
+        )
+
+        email = idinfo.get("email")
+        full_name = idinfo.get("name")
+        
+        if not email:
+            raise HTTPException(status_code=400, detail="Google token missing email")
+
+        # Check if user exists
+        user = db.query(User).filter(User.email == email).first()
+
+        if not user:
+            # Create a new user with a random dummy password
+            dummy_pw = secrets.token_urlsafe(32)
+            hashed_pw = hash_password(dummy_pw)
+            
+            user = User(
+                email=email,
+                hashed_password=hashed_pw,
+                full_name=full_name
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+        # Generate JWT token
+        access_token = create_access_token(
+            data={
+                "sub": user.email,
+                "user_id": user.id
+            }
+        )
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "message": "Google Login successful",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "full_name": user.full_name
+            }
+        }
+    except ValueError:
+        # Invalid token
+        raise HTTPException(status_code=401, detail="Invalid Google token")
