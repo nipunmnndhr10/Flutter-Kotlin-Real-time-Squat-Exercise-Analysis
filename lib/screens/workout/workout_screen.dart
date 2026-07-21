@@ -3,9 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'app_constants.dart';
-import 'loginscreen.dart';
-import 'pose_screen.dart';
+import 'package:flt_kotlin_pose/core/constants/app_constants.dart';
+import 'package:flt_kotlin_pose/screens/auth/loginscreen.dart';
+import 'package:flt_kotlin_pose/screens/workout/pose_screen.dart';
 
 const kPrimary = Color(0xFF4CAF50);
 const kSecondary = Color(0xFF81C784);

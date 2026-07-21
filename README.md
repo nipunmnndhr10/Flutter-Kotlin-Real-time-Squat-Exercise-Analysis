@@ -29,6 +29,21 @@ SquatMate uses on-device pose detection to track your movements in real-time, pr
 
 ---
 
+## 📁 Project Architecture (Flutter)
+
+The `lib/` directory is organized feature-by-feature for scalability:
+```text
+lib/
+├── core/            # Global utilities, validators, and constants (app_constants.dart)
+├── screens/         # UI feature modules
+│   ├── auth/        # Login, Signup, Password reset flows & widgets
+│   ├── dashboard/   # Main user dashboard and workout history
+│   └── workout/     # Native camera feed and ML pose analysis screens
+└── main.dart        # Application entry point and auth-gate routing
+```
+
+---
+
 ## 🛠️ Getting Started
 
 To run this project locally, you will need to start both the backend API and the Flutter application.
@@ -47,7 +62,7 @@ The easiest way to run the backend is using Docker Compose, which sets up both t
 
 ### 2. Frontend Setup (Flutter)
 1. Ensure you have the [Flutter SDK](https://docs.flutter.dev/get-started/install) installed.
-2. In the `lib/app_constants.dart` file, update the `kApiBaseUrl` to match your computer's local IP address so the physical device/emulator can connect to the backend (e.g., `http://192.168.1.100:8000`).
+2. In the `lib/core/constants/app_constants.dart` file, update the `kApiBaseUrl` to match your computer's local IP address so the physical device/emulator can connect to the backend (e.g., `http://192.168.1.100:8000`).
 3. Install Flutter dependencies:
    ```bash
    flutter pub get

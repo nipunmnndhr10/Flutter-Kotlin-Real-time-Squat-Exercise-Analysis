@@ -1,12 +1,12 @@
 import 'package:dio/dio.dart';
-import 'package:flt_kotlin_pose/dashboard_screen.dart';
+import 'package:flt_kotlin_pose/screens/dashboard/dashboard_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'app_constants.dart';
-import 'validators.dart';
-import 'login_components.dart';
-import 'signup_screen.dart';
-import 'forgot_password_screen.dart';
+import 'package:flt_kotlin_pose/core/constants/app_constants.dart';
+import 'package:flt_kotlin_pose/core/utils/validators.dart';
+import 'package:flt_kotlin_pose/screens/auth/components/login_components.dart';
+import 'package:flt_kotlin_pose/screens/auth/signup_screen.dart';
+import 'package:flt_kotlin_pose/screens/auth/forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
