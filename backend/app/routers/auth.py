@@ -66,7 +66,8 @@ def signup(user_data: UserCreate, db: Session = Depends(get_db)):
         "user": {
             "id": new_user.id,
             "email": new_user.email,
-            "full_name": new_user.full_name
+            "full_name": new_user.full_name,
+            "created_at": new_user.created_at
         }
     }
 
@@ -97,7 +98,8 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
         "user": {
             "id": user.id,
             "email": user.email,
-            "full_name": user.full_name
+            "full_name": user.full_name,
+            "created_at": user.created_at
         }
     }
 
@@ -212,7 +214,8 @@ def google_auth(request: GoogleTokenRequest, db: Session = Depends(get_db)):
             "user": {
                 "id": user.id,
                 "email": user.email,
-                "full_name": user.full_name
+                "full_name": user.full_name,
+                "created_at": user.created_at
             }
         }
     except ValueError:
