@@ -193,6 +193,7 @@ class _LoginScreenState extends State<LoginScreen>
     try {
       final GoogleSignIn googleSignIn = GoogleSignIn.instance;
       await googleSignIn.initialize(
+        clientId: '984161335343-0l7irv2t1nkrft49bo186ahd46unania.apps.googleusercontent.com',
         serverClientId: '984161335343-0l7irv2t1nkrft49bo186ahd46unania.apps.googleusercontent.com',
       );
 
@@ -261,7 +262,7 @@ class _LoginScreenState extends State<LoginScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Something went wrong during Google Sign In")),
+        SnackBar(content: Text("Error: $e")),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
