@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+import os
+import shutil
+import uuid
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, File, UploadFile
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from datetime import datetime, timedelta, timezone
@@ -67,6 +70,7 @@ def signup(user_data: UserCreate, db: Session = Depends(get_db)):
             "id": new_user.id,
             "email": new_user.email,
             "full_name": new_user.full_name,
+            "profile_picture_url": new_user.profile_picture_url,
             "created_at": new_user.created_at
         }
     }
@@ -99,6 +103,7 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
             "id": user.id,
             "email": user.email,
             "full_name": user.full_name,
+            "profile_picture_url": user.profile_picture_url,
             "created_at": user.created_at
         }
     }
@@ -215,9 +220,36 @@ def google_auth(request: GoogleTokenRequest, db: Session = Depends(get_db)):
                 "id": user.id,
                 "email": user.email,
                 "full_name": user.full_name,
+                "profile_picture_url": user.profile_picture_url,
                 "created_at": user.created_at
             }
         }
     except ValueError:
         # Invalid token
         raise HTTPException(status_code=401, detail="Invalid Google token")
+
+
+@router.post("/profile-picture", response_model=UserResponse)
+def upload_profile_picture(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+    file_ext = os.path.splitext(file.filename or "")[1].lower()
+    if file_ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Invalid image format. Allowed: JPG, PNG, WEBP")
+
+    os.makedirs("uploads/profiles", exist_ok=True)
+    filename = f"user_{current_user.id}_{uuid.uuid4().hex[:8]}{file_ext}"
+    filepath = os.path.join("uploads/profiles", filename)
+
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    relative_url = f"/static/profiles/{filename}"
+    current_user.profile_picture_url = relative_url
+    db.commit()
+    db.refresh(current_user)
+
+    return current_user

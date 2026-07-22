@@ -106,6 +106,12 @@ class _LoginScreenState extends State<LoginScreen>
     if (email != null && email.isNotEmpty) {
       await prefs.setString('user_email', email);
     }
+
+    final picUrl = user['profile_picture_url']?.toString();
+    if (picUrl != null && picUrl.isNotEmpty) {
+      final fullUrl = picUrl.startsWith('http') ? picUrl : '$kApiBaseUrl$picUrl';
+      await prefs.setString('profile_picture_url', fullUrl);
+    }
   }
 
   Future<void> _handleLogin() async {
