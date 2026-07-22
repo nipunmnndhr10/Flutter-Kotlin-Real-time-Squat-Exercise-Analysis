@@ -26,8 +26,21 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class _StartupGate extends StatelessWidget {
+class _StartupGate extends StatefulWidget {
   const _StartupGate();
+
+  @override
+  State<_StartupGate> createState() => _StartupGateState();
+}
+
+class _StartupGateState extends State<_StartupGate> {
+  late final Future<Widget> _sessionFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessionFuture = _checkSession();
+  }
 
   Future<Widget> _checkSession() async {
     final prefs = await SharedPreferences.getInstance();
@@ -55,7 +68,13 @@ class _StartupGate extends StatelessWidget {
 
   Future<Map<String, dynamic>?> checkCurrentUser(String token) async {
     try {
-      final response = await Dio().get(
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 3),
+          receiveTimeout: const Duration(seconds: 3),
+        ),
+      );
+      final response = await dio.get(
         '$kApiBaseUrl/auth/me',
         options: Options(headers: {"Authorization": "Bearer $token"}),
       );
@@ -66,7 +85,7 @@ class _StartupGate extends StatelessWidget {
 
       return null;
     } catch (e) {
-      // Return null on any error (network failure, 401 Unauthorized, etc.)
+      // Return null on any error (network failure, 401 Unauthorized, timeout, etc.)
       return null;
     }
   }
@@ -74,11 +93,14 @@ class _StartupGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Widget>(
-      future: _checkSession(),
+      future: _sessionFuture,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            backgroundColor: Color(0xFFF5F5F5),
+            body: Center(
+              child: CircularProgressIndicator(color: Color(0xFF2ECC71)),
+            ),
           );
         }
 

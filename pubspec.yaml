@@ -55,6 +55,8 @@ flutter_launcher_icons:
   android: true
   ios: false
   image_path: "assets/app_logo.png"
+  adaptive_icon_background: "#D9FE03"
+  adaptive_icon_foreground: "assets/app_logo_foreground.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
