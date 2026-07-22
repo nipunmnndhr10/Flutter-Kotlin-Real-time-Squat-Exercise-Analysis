@@ -72,12 +72,9 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         }
     }
 
-    // ---------------- SMOOTHING (zero-allocation rolling average) ----------------
-    // Expanded from 5→7 frames to further dampen MediaPipe noise (~230ms at 30fps).
-    private val kneeAngleBuffer = FloatArray(7)
-    private var bufferIndex = 0
-    private var bufferCount = 0
-    private var rollingSum = 0f
+    // ---------------- SMOOTHING (One Euro Adaptive Filter) ----------------
+    private val kneeAngleFilter = OneEuroFilter(minCutoff = 1.0f, beta = 0.005f, dCutoff = 1.0f)
+    private val hipAngleFilter  = OneEuroFilter(minCutoff = 1.0f, beta = 0.005f, dCutoff = 1.0f)
 
     // ---------------- FAULT TRACKING ----------------
     private val faultsAnnouncedThisRep = mutableSetOf<SquatFault>()
@@ -237,16 +234,14 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         rawHistIndex = (rawHistIndex + 1) % rawAngleHistory.size
         rawAngleHistory[rawHistIndex] = rawAngle
 
-        // Rolling-sum smoothing — zero allocation
-        val slot = bufferIndex % kneeAngleBuffer.size
-        rollingSum += rawAngle - kneeAngleBuffer[slot]
-        kneeAngleBuffer[slot] = rawAngle
-        bufferIndex++
-        if (bufferCount < kneeAngleBuffer.size) bufferCount++
-        val kneeAngle = rollingSum / bufferCount
+        // 1€ Adaptive Filtering — dynamically scales cutoff frequency with movement speed.
+        // Fast movements → Zero lag. Slow/static holds → Zero jitter.
+        val nowMs = System.currentTimeMillis()
+        val kneeAngle = kneeAngleFilter.filter(rawAngle, nowMs)
+        val smoothedHipAngle = hipAngleFilter.filter(hipAngle, nowMs)
 
         val tooLowFault = updatePhaseAndReps(kneeAngle, hipY)
-        val faults = detectFaults(kneeAngle, hipAngle, landmarkArray, isFrontView, w, h)
+        val faults = detectFaults(kneeAngle, smoothedHipAngle, landmarkArray, isFrontView, w, h)
         val allFaults = if (tooLowFault != null) faults + tooLowFault else faults
 
         if (isPaused) return null
@@ -583,10 +578,8 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         leanForwardFrameStreak = 0
         rawAngleHistory.fill(180f)
         rawHistIndex = 0
-        bufferIndex = 0
-        bufferCount = 0
-        rollingSum = 0f
-        kneeAngleBuffer.fill(0f)
+        kneeAngleFilter.reset()
+        hipAngleFilter.reset()
         faultsAnnouncedThisRep.clear()
         faultCooldowns.fill(0L)
 
@@ -622,5 +615,61 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         var angle = abs(Math.toDegrees(radians)).toFloat()
         if (angle > 180f) angle = 360f - angle
         return angle
+    }
+}
+
+/**
+ * One Euro (1€) Adaptive Filter for real-time joint angle smoothing.
+ * Dynamically adjusts cutoff frequency based on movement speed:
+ * - High movement velocity (explosive squats) -> Low smoothing, Zero lag.
+ * - Low movement velocity (bottom holds) -> High smoothing, Zero micro-jitter.
+ */
+class OneEuroFilter(
+    private var minCutoff: Float = 1.0f,
+    private var beta: Float = 0.005f,
+    private var dCutoff: Float = 1.0f
+) {
+    private var xPrev: Float? = null
+    private var dxPrev: Float = 0.0f
+    private var tPrev: Long? = null
+
+    fun filter(x: Float, timestampMs: Long = System.currentTimeMillis()): Float {
+        val tPrevLocal = tPrev
+        val xPrevLocal = xPrev
+        if (tPrevLocal == null || xPrevLocal == null) {
+            xPrev = x
+            tPrev = timestampMs
+            dxPrev = 0.0f
+            return x
+        }
+
+        val dt = (timestampMs - tPrevLocal) / 1000.0f
+        if (dt <= 0.0f) return xPrevLocal
+
+        // Derivative (angular velocity)
+        val dx = (x - xPrevLocal) / dt
+        val alphaDx = alpha(dt, dCutoff)
+        val edx = alphaDx * dx + (1.0f - alphaDx) * dxPrev
+
+        // Dynamic cutoff frequency scaling with velocity magnitude
+        val cutoff = minCutoff + beta * abs(edx)
+        val alphaX = alpha(dt, cutoff)
+        val result = alphaX * x + (1.0f - alphaX) * xPrevLocal
+
+        xPrev = result
+        dxPrev = edx
+        tPrev = timestampMs
+        return result
+    }
+
+    private fun alpha(dt: Float, cutoff: Float): Float {
+        val tau = 1.0f / (2.0f * Math.PI.toFloat() * cutoff)
+        return 1.0f / (1.0f + tau / dt)
+    }
+
+    fun reset() {
+        xPrev = null
+        dxPrev = 0.0f
+        tPrev = null
     }
 }
