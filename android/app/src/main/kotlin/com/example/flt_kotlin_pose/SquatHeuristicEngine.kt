@@ -47,28 +47,27 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     private var rawHistIndex = 0
 
     // Depth profile configuration
-    // hipDropTarget removed — the hip-drop secondary path was a major source of phantom
-    // reps (camera sway causing small Y-coordinate shifts). Knee angle alone with the
-    // wider hysteresis gap is sufficient for reliable rep detection.
     data class DepthProfile(
         val targetBottom: Float,
+        val maxValidAngle: Float,
         val repStart: Float,
         val standing: Float,
     )
 
     private var activePreset = SquatDepthPreset.DEFAULT
-    // Hysteresis gap widened to ≥20° between repStart and standing.
-    // This ensures the user must bend their knees meaningfully (~20° from fully straight)
-    // before a rep begins tracking, eliminating phantom reps from postural shifts.
-    private var depthProfile = DepthProfile(100f, 148f, 170f)
+    private var depthProfile = DepthProfile(
+        targetBottom = 95f,
+        maxValidAngle = 105f,
+        repStart = 148f,
+        standing = 162f,
+    )
 
     fun setDepthThreshold(angle: Float) {
         activePreset = SquatDepthPreset.fromAngle(angle)
         depthProfile = when (activePreset) {
-            // Gap: standing - repStart ≥ 20° for all presets.
-            SquatDepthPreset.QUARTER_SQUAT -> DepthProfile(145f, 155f, 175f)
-            SquatDepthPreset.HALF_SQUAT    -> DepthProfile(125f, 150f, 172f)
-            SquatDepthPreset.FULL_SQUAT    -> DepthProfile(100f, 148f, 170f)
+            SquatDepthPreset.QUARTER_SQUAT -> DepthProfile(140f, 148f, 155f, 165f)
+            SquatDepthPreset.HALF_SQUAT    -> DepthProfile(120f, 130f, 150f, 162f)
+            SquatDepthPreset.FULL_SQUAT    -> DepthProfile(95f, 105f, 148f, 162f)
         }
     }
 
@@ -218,9 +217,8 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
         val rawAngle = when {
             isFrontView && leftValid && rightValid -> (leftKneeAngle + rightKneeAngle) / 2f
-            leftValid  -> leftKneeAngle
-            rightValid -> rightKneeAngle
-            else       -> 180f
+            useLeft    -> leftKneeAngle
+            else       -> rightKneeAngle
         }
         val hipAngle = calculateAngle(shoulder, hip, knee, w, h)
         val hipY = if (leftValid && rightValid) {
@@ -272,9 +270,10 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
     // Core rep and phase logic
     private fun updatePhaseAndReps(kneeAngle: Float, hipY: Float): SquatFault? {
-        val bottom   = depthProfile.targetBottom
-        val repStart = depthProfile.repStart
-        val standing = depthProfile.standing
+        val bottom        = depthProfile.targetBottom
+        val maxValidAngle = depthProfile.maxValidAngle
+        val repStart      = depthProfile.repStart
+        val standing      = depthProfile.standing
         var tooLowFault: SquatFault? = null
 
         val hipBaseline = standingHipYBaseline
@@ -289,13 +288,6 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         }
 
         // Rep-start condition.
-        //
-        // Only the knee angle path is used. The hip-drop secondary path was removed because
-        // it caused phantom reps from camera sway and postural shifts. The wider hysteresis
-        // gap (≥20° between standing and repStart) ensures the user must bend meaningfully.
-        //
-        // Debounced: the condition must hold for ≥4 consecutive frames (~130ms at 30fps)
-        // before a rep is registered, filtering out all brief multi-frame jitter.
         val wantsToStart = kneeAngle < repStart
 
         if (wantsToStart) {
@@ -304,7 +296,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             repStartFrameStreak = 0
         }
 
-        if (!isInsideRep && repStartFrameStreak >= 4) {
+        if (!isInsideRep && repStartFrameStreak >= 3) {
             isInsideRep = true
             maxDepthReachedThisRep = kneeAngle
             maxHipDropThisRep = maxOf(0f, hipDrop)
@@ -312,18 +304,15 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             repStartFrameStreak = 0
         }
 
-        // hasLeftStandingThisRep prevents immediate rep termination when a rep is triggered
-        // by hip drop while the knee angle is still above the 'standing' threshold.
         if (isInsideRep && kneeAngle <= standing) {
             hasLeftStandingThisRep = true
         }
 
         // Too-low detection (unified as a SquatFault).
-        // Buffers are wide so accidental too-low fires do not suppress valid full squats.
         val tooLowThreshold = bottom - when {
             bottom >= 140f -> 15f  // quarter squat
             bottom >= 120f -> 20f  // half squat
-            else           -> 25f  // full squat (target 100°, fires if < 75°)
+            else           -> 25f  // full squat
         }
 
         if (isInsideRep && kneeAngle < tooLowThreshold) {
@@ -332,24 +321,20 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             tooLowFrameStreak = 0
         }
 
-        // Require a short sustained violation to avoid one-frame jitter false positives.
         if (tooLowFrameStreak >= 3) {
             tooLowFault = SquatFault.TOO_LOW
         }
 
         // Rep-end condition (standing hysteresis).
-        // The user must remain above 'standing' for ≥4 consecutive frames (~130ms) before
-        // the rep is closed. This prevents double-counting when the user briefly hits the
-        // standing angle then immediately re-descends — a natural pause at the top of a rep.
         if (isInsideRep && hasLeftStandingThisRep && kneeAngle > standing) {
             standingFrameStreak++
         } else {
             standingFrameStreak = 0
         }
 
-        if (standingFrameStreak >= 4) {
-            // Validate rep depth using knee angle only (hip-drop path removed).
-            val validRep = maxDepthReachedThisRep <= (bottom + 15f)
+        if (standingFrameStreak >= 3) {
+            // Validate rep depth using maxValidAngle defined in depthProfile.
+            val validRep = maxDepthReachedThisRep <= maxValidAngle
 
             if (validRep) {
                 repCount++
@@ -368,29 +353,23 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         }
 
         // Phase direction via raw angle velocity.
-        // Compare the current raw angle to the raw angle stored 6 frames ago (the oldest
-        // entry in the 6-slot ring buffer). This bypasses the 7-frame rolling-average lag
-        // that previously caused DESCENDING/ASCENDING to flicker at the transition point.
         val oldRaw     = rawAngleHistory[(rawHistIndex + 1) % rawAngleHistory.size]
         val currentRaw = rawAngleHistory[rawHistIndex]
-        val rawDelta     = currentRaw - oldRaw
-        // Widened dead zone: require ≥3° delta to register meaningful movement.
-        // Previous thresholds (1.5°/2.0°) were too thin and triggered on noise.
-        val isDescending = rawDelta < -3.0f
-        val isAscending  = rawDelta >  3.0f
+        val rawDelta   = currentRaw - oldRaw
 
-        // Determine the candidate phase from velocity and position.
+        val isDescending = rawDelta < -2.5f
+        val isAscending  = rawDelta >  2.5f
+
+        // Determine candidate phase
         val candidatePhase = when {
-            !isInsideRep        -> SquatPhase.STANDING
-            kneeAngle <= bottom -> SquatPhase.BOTTOM
-            isDescending        -> SquatPhase.DESCENDING
-            isAscending         -> SquatPhase.ASCENDING
+            kneeAngle <= bottom                  -> SquatPhase.BOTTOM
+            isDescending && kneeAngle < standing -> SquatPhase.DESCENDING
+            isAscending  && kneeAngle < standing -> SquatPhase.ASCENDING
+            kneeAngle >= standing && !isInsideRep -> SquatPhase.STANDING
             else -> if (currentPhase == SquatPhase.STANDING) SquatPhase.DESCENDING else currentPhase
         }
 
-        // Phase-hold hysteresis: the candidate must disagree with the current phase for
-        // ≥3 consecutive frames before the phase actually changes. This eliminates
-        // single-frame and brief multi-frame noise from flickering the UI.
+        // Phase-hold hysteresis
         if (candidatePhase != currentPhase) {
             if (candidatePhase == pendingPhase) {
                 phaseHoldCounter++
@@ -398,11 +377,9 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
                 pendingPhase = candidatePhase
                 phaseHoldCounter = 1
             }
-            // STANDING and BOTTOM transitions are allowed immediately (non-negotiable states).
-            // DESCENDING/ASCENDING transitions require 3 consecutive frames.
             val holdThreshold = when (candidatePhase) {
                 SquatPhase.STANDING, SquatPhase.BOTTOM -> 1
-                else -> 3
+                else -> 2
             }
             if (phaseHoldCounter >= holdThreshold) {
                 currentPhase = candidatePhase
@@ -440,7 +417,6 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             SquatDepthPreset.HALF_SQUAT    -> 144f
             SquatDepthPreset.FULL_SQUAT    -> 145f
         }
-        // Increased from ~0.045 to 0.06 to allow natural wobble without triggering a fault.
         val kneeCaveOffsetGate = when (activePreset) {
             SquatDepthPreset.QUARTER_SQUAT -> 0.065f
             SquatDepthPreset.HALF_SQUAT    -> 0.06f
@@ -459,13 +435,9 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
         if (currentPhase == SquatPhase.STANDING) return faults
 
-        // 1) GO_DEEPER — only when the user starts ascending without reaching target depth.
-        //    The extra guard (kneeAngle > maxDepthReachedThisRep + 5°) ensures the fault
-        //    only fires when the knee is measurably above the deepest point reached,
-        //    preventing false triggers when the user is stable at a shallow plateau
-        //    (where the phase may briefly appear ASCENDING due to a zero raw-angle delta).
+        // 1) GO_DEEPER — only when the user starts ascending without reaching maxValidAngle.
         if (currentPhase == SquatPhase.ASCENDING &&
-            maxDepthReachedThisRep > depthProfile.targetBottom + 12f &&
+            maxDepthReachedThisRep > depthProfile.maxValidAngle &&
             kneeAngle < depthProfile.repStart &&
             kneeAngle > maxDepthReachedThisRep + 5f
         ) {
