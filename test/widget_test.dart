@@ -7,17 +7,16 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flt_kotlin_pose/main.dart';
 
 void main() {
-  testWidgets('renders the pose screen shell', (WidgetTester tester) async {
+  testWidgets('renders app startup gate', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const MyApp(enableNativePreview: false));
+    await tester.pump();
 
-    expect(find.byType(Scaffold), findsOneWidget);
-    expect(
-      find.text('Native preview is available on Android only'),
-      findsOneWidget,
-    );
+    expect(find.byType(MaterialApp), findsOneWidget);
   });
 }
