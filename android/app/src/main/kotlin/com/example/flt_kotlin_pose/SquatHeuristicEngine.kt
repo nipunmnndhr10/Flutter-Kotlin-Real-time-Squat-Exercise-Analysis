@@ -362,11 +362,11 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
         // Determine candidate phase
         val candidatePhase = when {
-            kneeAngle <= bottom                  -> SquatPhase.BOTTOM
-            isDescending && kneeAngle < standing -> SquatPhase.DESCENDING
-            isAscending  && kneeAngle < standing -> SquatPhase.ASCENDING
+            kneeAngle <= bottom                   -> SquatPhase.BOTTOM
+            isDescending                          -> SquatPhase.DESCENDING
+            isAscending && isInsideRep            -> SquatPhase.ASCENDING
             kneeAngle >= standing && !isInsideRep -> SquatPhase.STANDING
-            else -> if (currentPhase == SquatPhase.STANDING) SquatPhase.DESCENDING else currentPhase
+            else -> currentPhase
         }
 
         // Phase-hold hysteresis
@@ -407,16 +407,8 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         w: Int,
         h: Int,
     ): List<SquatFault> {
-        val formCheckGate = when (activePreset) {
-            SquatDepthPreset.QUARTER_SQUAT -> 148f
-            SquatDepthPreset.HALF_SQUAT    -> 132f
-            SquatDepthPreset.FULL_SQUAT    -> 130f
-        }
-        val kneeCaveAngleGate = when (activePreset) {
-            SquatDepthPreset.QUARTER_SQUAT -> 152f
-            SquatDepthPreset.HALF_SQUAT    -> 144f
-            SquatDepthPreset.FULL_SQUAT    -> 145f
-        }
+        val formCheckGate = depthProfile.repStart
+        val kneeCaveAngleGate = depthProfile.repStart
         val kneeCaveOffsetGate = when (activePreset) {
             SquatDepthPreset.QUARTER_SQUAT -> 0.065f
             SquatDepthPreset.HALF_SQUAT    -> 0.06f
@@ -433,25 +425,23 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             }
         }
 
-        if (currentPhase == SquatPhase.STANDING) return faults
+        if (currentPhase == SquatPhase.STANDING && !isInsideRep) return faults
 
         // 1) GO_DEEPER — only when the user starts ascending without reaching maxValidAngle.
-        if (currentPhase == SquatPhase.ASCENDING &&
+        val oldRaw     = rawAngleHistory[(rawHistIndex + 1) % rawAngleHistory.size]
+        val currentRaw = rawAngleHistory[rawHistIndex]
+        val rawDelta   = currentRaw - oldRaw
+        val isAscending = rawDelta > 2.5f
+
+        if ((currentPhase == SquatPhase.ASCENDING || isAscending) &&
             maxDepthReachedThisRep > depthProfile.maxValidAngle &&
-            kneeAngle < depthProfile.repStart &&
-            kneeAngle > maxDepthReachedThisRep + 5f
+            kneeAngle < depthProfile.standing
         ) {
             addFault(SquatFault.GO_DEEPER)
         }
 
         // 2) LEAN_FORWARD ("chest up") — detects excessive forward lean.
-        //    Front view: torso height/shoulder width ratio (unchanged, works well frontally).
-        //    Side view: anatomical hip angle (shoulder→hip→knee) — this is the angle at the
-        //    point where the spine meets the thigh. When the user leans too far forward, this
-        //    angle decreases. A threshold of 55° catches excessive forward lean while allowing
-        //    the natural 30°-45° torso incline of a proper squat.
-        //    A 3-frame streak is required in side view to prevent single-frame jitter.
-        if (kneeAngle < formCheckGate) {
+        if (kneeAngle < formCheckGate || isInsideRep) {
             if (isFrontView) {
                 val lS = lm[LM.LEFT_SHOULDER]
                 val rS = lm[LM.RIGHT_SHOULDER]
@@ -463,37 +453,26 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
                     val torsoHeight =
                         (abs((lS.y * h) - (lH.y * h)) + abs((rS.y * h) - (rH.y * h))) / 2f
 
-                    // Relaxed from 0.68f to 0.62f to allow natural lean for longer femurs.
                     if (torsoHeight < shoulderWidth * 0.62f) {
                         addFault(SquatFault.LEAN_FORWARD)
                     }
                 }
             } else {
-                // Side view: use the anatomical hip angle (shoulder→hip→knee).
-                // This is the angle at the hip joint where the upper body (spine) meets
-                // the lower body (thigh). During a proper squat, this angle stays ~70°-90°.
-                // Below 55° indicates the chest is dropping excessively forward.
-                // A 3-frame streak prevents single-frame jitter from false-triggering.
                 if (hipAngle < 55f) {
                     leanForwardFrameStreak++
                 } else {
                     leanForwardFrameStreak = 0
                 }
-                if (leanForwardFrameStreak >= 3) {
+                if (leanForwardFrameStreak >= 2) {
                     addFault(SquatFault.LEAN_FORWARD)
                 }
             }
         } else {
-            // Reset streak when not deep enough to check form
             leanForwardFrameStreak = 0
         }
 
         // 3) KNEE CAVE — front view ONLY.
-        //    Knee valgus/varus is physically undetectable in a side or 3/4 view; the isFrontView
-        //    guard (threshold now 0.15) already suppresses this for all non-frontal camera angles.
-        //    This means side-view sessions — the recommended and primary mode — are never
-        //    incorrectly flagged for knee cave.
-        if (isFrontView) {
+        if (isFrontView && (kneeAngle < kneeCaveAngleGate || isInsideRep)) {
             val lH = lm[LM.LEFT_HIP]
             val lK = lm[LM.LEFT_KNEE]
             val lA = lm[LM.LEFT_ANKLE]
@@ -506,18 +485,14 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             val rightKneeAngle = if (rH != null && rK != null && rA != null)
                 calculateAngle(rH, rK, rA, w, h) else 180f
 
-            // Use the MINIMUM of both knee angles so a caved side is detected even
-            // if the other side is straight.
             val minKneeAngle = minOf(leftKneeAngle, rightKneeAngle)
             if (minKneeAngle < kneeCaveAngleGate) {
                 if (lK != null && lA != null) {
-                    // Left knee caves inward → x decreases toward the centre
                     if (lK.x < lA.x - kneeCaveOffsetGate) {
                         addFault(SquatFault.LEFT_KNEE_CAVE)
                     }
                 }
                 if (rK != null && rA != null) {
-                    // Right knee caves inward → x increases toward the centre
                     if (rK.x > rA.x + kneeCaveOffsetGate) {
                         addFault(SquatFault.RIGHT_KNEE_CAVE)
                     }
@@ -615,8 +590,8 @@ class OneEuroFilter(
             return x
         }
 
-        val dt = (timestampMs - tPrev) / 1000.0f
-        if (dt <= 0.0f) return xPrev
+        val dtRaw = (timestampMs - tPrev) / 1000.0f
+        val dt = if (dtRaw > 0.001f) dtRaw else 0.033f
 
         // Derivative (angular velocity)
         val dx = (x - xPrev) / dt

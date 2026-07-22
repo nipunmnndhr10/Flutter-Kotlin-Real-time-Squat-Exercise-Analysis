@@ -415,6 +415,25 @@ class SquatHeuristicEngineTest {
         assertEquals(SquatPhase.STANDING, result.phase)
     }
 
+    @Test
+    fun `side view uses right leg angle when right leg is more visible`() {
+        // Right side landmarks visible (0.95), left side low visibility (0.52)
+        val rightFacingSideView = frame(
+            LM.LEFT_SHOULDER  to Triple(0.52f, 0.20f, 0.52f),
+            LM.RIGHT_SHOULDER to Triple(0.50f, 0.20f, 0.95f),
+            LM.LEFT_HIP       to Triple(0.52f, 0.45f, 0.52f),
+            LM.RIGHT_HIP      to Triple(0.50f, 0.45f, 0.95f),
+            LM.LEFT_KNEE      to Triple(0.52f, 0.65f, 0.52f),
+            LM.RIGHT_KNEE     to Triple(0.50f, 0.65f, 0.95f),
+            LM.LEFT_ANKLE     to Triple(0.52f, 0.90f, 0.52f),
+            LM.RIGHT_ANKLE    to Triple(0.50f, 0.90f, 0.95f),
+        )
+        val result = engine.analyze(rightFacingSideView)!!
+        assertNotNull(result)
+        assertEquals(SquatPhase.STANDING, result.phase)
+        assertTrue("Landmark should be reliable", result.isLandmarkReliable)
+    }
+
     // ---------- DEPTH PRESETS ----------
 
     @Test
