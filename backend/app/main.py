@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 # Ensure uploads directory exists
 os.makedirs("uploads/profiles", exist_ok=True)
 
-# Create database tables
+# Create database tables automatically from SQLAlchemy models
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Capstone Backend")

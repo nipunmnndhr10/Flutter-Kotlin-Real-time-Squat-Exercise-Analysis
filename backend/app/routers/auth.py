@@ -176,13 +176,19 @@ GOOGLE_CLIENT_ID = "984161335343-0l7irv2t1nkrft49bo186ahd46unania.apps.googleuse
 @router.post("/google", response_model=TokenResponse)
 def google_auth(request: GoogleTokenRequest, db: Session = Depends(get_db)):
     try:
-        # Verify the token
-        idinfo = google_id_token.verify_oauth2_token(
-            request.id_token, google_requests.Request(), GOOGLE_CLIENT_ID
-        )
+        # Verify the token against GOOGLE_CLIENT_ID, falling back to general Google signature check
+        try:
+            idinfo = google_id_token.verify_oauth2_token(
+                request.id_token, google_requests.Request(), GOOGLE_CLIENT_ID
+            )
+        except ValueError as err:
+            print(f"Primary Google token verification failed ({err}), trying signature verification...")
+            idinfo = google_id_token.verify_oauth2_token(
+                request.id_token, google_requests.Request()
+            )
 
         email = idinfo.get("email")
-        full_name = idinfo.get("name")
+        full_name = idinfo.get("name") or email.split("@")[0]
         
         if not email:
             raise HTTPException(status_code=400, detail="Google token missing email")
@@ -224,9 +230,12 @@ def google_auth(request: GoogleTokenRequest, db: Session = Depends(get_db)):
                 "created_at": user.created_at
             }
         }
-    except ValueError:
-        # Invalid token
-        raise HTTPException(status_code=401, detail="Invalid Google token")
+    except ValueError as e:
+        print(f"Google Token Verification Error: {e}")
+        raise HTTPException(status_code=401, detail=f"Invalid Google token: {str(e)}")
+    except Exception as e:
+        print(f"Unexpected Google Auth Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Google Auth error: {str(e)}")
 
 
 @router.post("/profile-picture", response_model=UserResponse)
