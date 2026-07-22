@@ -169,12 +169,11 @@ packages:
     source: hosted
     version: "7.2.0"
   google_sign_in_android:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: google_sign_in_android
-      sha256: a01d4fd5a0e4eb0c1961434a0289a436abf9225b0933963c8e4e5ed88c26e40b
-      url: "https://pub.dev"
-    source: hosted
+      path: "local_packages/google_sign_in_android"
+      relative: true
+    source: path
     version: "7.2.15"
   google_sign_in_ios:
     dependency: transitive

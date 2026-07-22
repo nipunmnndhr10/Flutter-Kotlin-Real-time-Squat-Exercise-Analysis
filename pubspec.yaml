@@ -68,3 +68,7 @@ flutter:
     - assets/pose_landmarker_lite.task
     - assets/login_image.png
     - assets/google logo.png
+
+dependency_overrides:
+  google_sign_in_android:
+    path: local_packages/google_sign_in_android
