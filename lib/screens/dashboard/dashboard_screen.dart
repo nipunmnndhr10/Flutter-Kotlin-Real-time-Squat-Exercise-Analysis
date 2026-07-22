@@ -33,6 +33,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _error;
   String _currentUserName = '';
   String _joinedDate = '';
+  String _profilePictureUrl = '';
   bool _hasLoggedInBefore = false;
   int _weeksAgo = 0;
 
@@ -75,6 +76,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final token = prefs.getString('access_token');
       final savedName = prefs.getString('user_name');
       final savedJoinedDate = prefs.getString('joined_date');
+      final savedPicUrl = prefs.getString('profile_picture_url');
       final hasLoggedInBefore = prefs.getBool('has_logged_in_before') ?? false;
 
       if (!prefs.containsKey('has_logged_in_before')) {
@@ -116,6 +118,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               await prefs.setString('joined_date', _joinedDate);
             }
           }
+          if (profileData['profile_picture_url'] != null) {
+            final picUrl = profileData['profile_picture_url'].toString();
+            if (picUrl.isNotEmpty) {
+              final fullPicUrl = picUrl.startsWith('http') ? picUrl : '$kApiBaseUrl$picUrl';
+              await prefs.setString('profile_picture_url', fullPicUrl);
+              _profilePictureUrl = fullPicUrl;
+            }
+          }
         }
       } catch (_) {
         // Fallback to local storage if profile fetch fails (e.g., network error).
@@ -131,6 +141,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
         if (_joinedDate.isEmpty && savedJoinedDate != null && savedJoinedDate.isNotEmpty) {
           _joinedDate = savedJoinedDate;
+        }
+        if (_profilePictureUrl.isEmpty && savedPicUrl != null && savedPicUrl.isNotEmpty) {
+          _profilePictureUrl = savedPicUrl;
         }
         _hasLoggedInBefore = hasLoggedInBefore;
         _workouts = workouts;
@@ -263,6 +276,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         HomeScreen(
           userName: _currentUserName,
           greeting: _getGreeting(),
+          profilePictureUrl: _profilePictureUrl,
           totalSquats: totalSquats,
           topForm: topForm,
           weeklySquats: weeklySquats,
@@ -278,6 +292,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         HistoryScreen(
           userName: _currentUserName,
           greeting: _getGreeting(),
+          profilePictureUrl: _profilePictureUrl,
           onLogout: _logout,
           workouts: _workouts,
           onDeleteWorkout: _deleteWorkout,
@@ -286,7 +301,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           userName: _currentUserName,
           greeting: _getGreeting(),
           joinedDate: _joinedDate.isNotEmpty ? _joinedDate : 'Unknown',
+          profilePictureUrl: _profilePictureUrl,
           onLogout: _logout,
+          onProfilePictureUpdated: (newUrl) {
+            setState(() {
+              _profilePictureUrl = newUrl;
+            });
+          },
         ),
       ],
     );

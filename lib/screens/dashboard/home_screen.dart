@@ -10,6 +10,7 @@ const kTextMuted = Color(0xFF757575);
 class HomeScreen extends StatelessWidget {
   final String userName;
   final String greeting;
+  final String profilePictureUrl;
   final int totalSquats;
   final int topForm;
   final List<int> weeklySquats;
@@ -26,6 +27,7 @@ class HomeScreen extends StatelessWidget {
     super.key,
     required this.userName,
     required this.greeting,
+    this.profilePictureUrl = '',
     required this.totalSquats,
     required this.topForm,
     required this.weeklySquats,
@@ -48,6 +50,7 @@ class HomeScreen extends StatelessWidget {
           _Header(
             userName: userName,
             greeting: greeting,
+            profilePictureUrl: profilePictureUrl,
             onLogout: onLogout,
           ),
           const SizedBox(height: 24),
@@ -73,11 +76,13 @@ class HomeScreen extends StatelessWidget {
 class _Header extends StatelessWidget {
   final String userName;
   final String greeting;
+  final String profilePictureUrl;
   final VoidCallback onLogout;
 
   const _Header({
     required this.userName,
     required this.greeting,
+    this.profilePictureUrl = '',
     required this.onLogout,
   });
 
@@ -88,11 +93,19 @@ class _Header extends StatelessWidget {
         Container(
           width: 44,
           height: 44,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: kSurface,
             shape: BoxShape.circle,
+            image: profilePictureUrl.isNotEmpty
+                ? DecorationImage(
+                    image: NetworkImage(profilePictureUrl),
+                    fit: BoxFit.cover,
+                  )
+                : null,
           ),
-          child: const Icon(Icons.person_outline, color: kPrimary, size: 24),
+          child: profilePictureUrl.isEmpty
+              ? const Icon(Icons.person_outline, color: kPrimary, size: 24)
+              : null,
         ),
         const SizedBox(width: 12),
         Expanded(

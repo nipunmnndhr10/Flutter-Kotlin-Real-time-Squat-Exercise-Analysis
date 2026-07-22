@@ -37,6 +37,7 @@ dependencies:
   dio: ^5.10.0
   shared_preferences: ^2.3.2
   google_sign_in: ^7.2.0
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
@@ -53,7 +54,9 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: "assets/login_image.png"
+  image_path: "assets/app_logo.png"
+  adaptive_icon_background: "#D9FE03"
+  adaptive_icon_foreground: "assets/app_logo_foreground.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -66,6 +69,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/pose_landmarker_lite.task
+    - assets/app_logo.png
     - assets/login_image.png
     - assets/google logo.png
 

@@ -10,6 +10,7 @@ const kTextMuted = Color(0xFF757575);
 class HistoryScreen extends StatelessWidget {
   final String userName;
   final String greeting;
+  final String profilePictureUrl;
   final VoidCallback onLogout;
   final List<Map<String, dynamic>> workouts;
   final Future<void> Function(int sessionId) onDeleteWorkout;
@@ -18,6 +19,7 @@ class HistoryScreen extends StatelessWidget {
     super.key,
     required this.userName,
     required this.greeting,
+    this.profilePictureUrl = '',
     required this.onLogout,
     required this.workouts,
     required this.onDeleteWorkout,
@@ -33,6 +35,7 @@ class HistoryScreen extends StatelessWidget {
           child: _Header(
             userName: userName,
             greeting: greeting,
+            profilePictureUrl: profilePictureUrl,
             onLogout: onLogout,
           ),
         ),
@@ -482,11 +485,13 @@ class HistoryScreen extends StatelessWidget {
 class _Header extends StatelessWidget {
   final String userName;
   final String greeting;
+  final String profilePictureUrl;
   final VoidCallback onLogout;
 
   const _Header({
     required this.userName,
     required this.greeting,
+    this.profilePictureUrl = '',
     required this.onLogout,
   });
 
@@ -497,11 +502,19 @@ class _Header extends StatelessWidget {
         Container(
           width: 44,
           height: 44,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: kSurface,
             shape: BoxShape.circle,
+            image: profilePictureUrl.isNotEmpty
+                ? DecorationImage(
+                    image: NetworkImage(profilePictureUrl),
+                    fit: BoxFit.cover,
+                  )
+                : null,
           ),
-          child: const Icon(Icons.person_outline, color: kPrimary, size: 24),
+          child: profilePictureUrl.isEmpty
+              ? const Icon(Icons.person_outline, color: kPrimary, size: 24)
+              : null,
         ),
         const SizedBox(width: 12),
         Expanded(

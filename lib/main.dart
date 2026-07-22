@@ -1,7 +1,5 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flt_kotlin_pose/core/constants/app_constants.dart';
 import 'package:flt_kotlin_pose/screens/auth/loginscreen.dart';
 import 'package:flt_kotlin_pose/screens/dashboard/dashboard_screen.dart';
 
@@ -26,8 +24,21 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class _StartupGate extends StatelessWidget {
+class _StartupGate extends StatefulWidget {
   const _StartupGate();
+
+  @override
+  State<_StartupGate> createState() => _StartupGateState();
+}
+
+class _StartupGateState extends State<_StartupGate> {
+  late final Future<Widget> _sessionFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessionFuture = _checkSession();
+  }
 
   Future<Widget> _checkSession() async {
     final prefs = await SharedPreferences.getInstance();
@@ -37,48 +48,21 @@ class _StartupGate extends StatelessWidget {
       return const LoginScreen();
     }
 
-    final user = await checkCurrentUser(token);
-
-    // if user exists
-    if (user != null) {
-      final userName = user['full_name'] ?? 'User';
-      return DashboardScreen(userName: userName);
-    }
-
-    // if user does not exist or token is expired/invalid
-    await prefs.remove('access_token');
-    await prefs.remove('user_name');
-    await prefs.remove('user_email');
-    await prefs.remove('user_id');
-    return const LoginScreen();
-  }
-
-  Future<Map<String, dynamic>?> checkCurrentUser(String token) async {
-    try {
-      final response = await Dio().get(
-        '$kApiBaseUrl/auth/me',
-        options: Options(headers: {"Authorization": "Bearer $token"}),
-      );
-
-      if (response.statusCode == 200) {
-        return Map<String, dynamic>.from(response.data);
-      }
-
-      return null;
-    } catch (e) {
-      // Return null on any error (network failure, 401 Unauthorized, etc.)
-      return null;
-    }
+    final userName = prefs.getString('user_name') ?? 'User';
+    return DashboardScreen(userName: userName);
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Widget>(
-      future: _checkSession(),
+      future: _sessionFuture,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            backgroundColor: Color(0xFFF5F5F5),
+            body: Center(
+              child: CircularProgressIndicator(color: Color(0xFF2ECC71)),
+            ),
           );
         }
 

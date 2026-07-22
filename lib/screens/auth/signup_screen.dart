@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -148,6 +149,12 @@ class _SignupScreenState extends State<SignupScreen> {
     if (email != null && email.isNotEmpty) {
       await prefs.setString('user_email', email);
     }
+
+    final picUrl = user['profile_picture_url']?.toString();
+    if (picUrl != null && picUrl.isNotEmpty) {
+      final fullUrl = picUrl.startsWith('http') ? picUrl : '$kApiBaseUrl$picUrl';
+      await prefs.setString('profile_picture_url', fullUrl);
+    }
   }
 
   void _validateAll() {
@@ -234,24 +241,34 @@ class _SignupScreenState extends State<SignupScreen> {
     try {
       final GoogleSignIn googleSignIn = GoogleSignIn.instance;
       await googleSignIn.initialize(
-        clientId: '984161335343-0l7irv2t1nkrft49bo186ahd46unania.apps.googleusercontent.com',
         serverClientId: '984161335343-0l7irv2t1nkrft49bo186ahd46unania.apps.googleusercontent.com',
+        clientId: kIsWeb ? '984161335343-0l7irv2t1nkrft49bo186ahd46unania.apps.googleusercontent.com' : null,
       );
 
-      GoogleSignInAccount? googleUser;
+      final GoogleSignInAccount googleUser;
       try {
         googleUser = await googleSignIn.authenticate();
       } on GoogleSignInException catch (e) {
         if (e.code == GoogleSignInExceptionCode.canceled) {
           // User canceled the sign-in
-          setState(() => _isGoogleLoading = false);
+          if (mounted) setState(() => _isGoogleLoading = false);
           return;
         }
+        debugPrint('GoogleSignInException: ${e.code} - $e');
         rethrow;
       }
 
       final GoogleSignInAuthentication googleAuth = googleUser.authentication;
       final String? idToken = googleAuth.idToken;
+
+      if (idToken == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to get Google ID token"), backgroundColor: Colors.red),
+        );
+        setState(() => _isGoogleLoading = false);
+        return;
+      }
 
       final response = await Dio().post(
         '$kApiBaseUrl/auth/google',
@@ -282,7 +299,9 @@ class _SignupScreenState extends State<SignupScreen> {
           ),
         );
       }
-    } on DioException catch (e) {
+    } on DioException catch (e, stackTrace) {
+      debugPrint('DioException during Google signup: $e');
+      debugPrintStack(stackTrace: stackTrace);
       String errorMsg = "Google Signup failed";
       if (e.response?.data is Map) {
         errorMsg = e.response?.data['detail'] ?? errorMsg;
@@ -291,7 +310,9 @@ class _SignupScreenState extends State<SignupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('Error during Google signup: $e');
+      debugPrintStack(stackTrace: stackTrace);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: $e")),
