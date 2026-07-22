@@ -5,7 +5,7 @@ import kotlin.math.atan2
 
 class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
-    // ---------------- STATE ----------------
+    // State variables
     private var currentPhase = SquatPhase.STANDING
     private var repCount = 0
 
@@ -46,7 +46,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     private val rawAngleHistory = FloatArray(6) { 180f }
     private var rawHistIndex = 0
 
-    // ---------------- DEPTH PROFILE ----------------
+    // Depth profile configuration
     // hipDropTarget removed — the hip-drop secondary path was a major source of phantom
     // reps (camera sway causing small Y-coordinate shifts). Knee angle alone with the
     // wider hysteresis gap is sufficient for reliable rep detection.
@@ -72,11 +72,11 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         }
     }
 
-    // ---------------- SMOOTHING (One Euro Adaptive Filter) ----------------
+    // Adaptive smoothing filters
     private val kneeAngleFilter = OneEuroFilter(minCutoff = 1.0f, beta = 0.005f, dCutoff = 1.0f)
     private val hipAngleFilter  = OneEuroFilter(minCutoff = 1.0f, beta = 0.005f, dCutoff = 1.0f)
 
-    // ---------------- FAULT TRACKING ----------------
+    // Fault tracking
     private val faultsAnnouncedThisRep = mutableSetOf<SquatFault>()
 
     // Fixed-size cooldown array indexed by enum ordinal — no HashMap churn
@@ -86,7 +86,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     // Pre-allocated landmark lookup — zero-allocation per frame
     private val landmarkArray = Array<PoseLandmarkPayload?>(33) { null }
 
-    // ---------------- SUMMARY STATISTICS ----------------
+    // Summary statistics
     private var sessionFrameCount = 0
     private var sessionSumKneeAngle = 0f
     private var sessionSumHipAngle = 0f
@@ -146,7 +146,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         isPaused = false
     }
 
-    // ---------------- MAIN ----------------
+    // Analysis engine entry point
     fun analyze(frame: PoseFramePayload): SquatFeedback? {
         if (isPaused) return null
 
@@ -270,7 +270,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         )
     }
 
-    // ---------------- CORE LOGIC ----------------
+    // Core rep and phase logic
     private fun updatePhaseAndReps(kneeAngle: Float, hipY: Float): SquatFault? {
         val bottom   = depthProfile.targetBottom
         val repStart = depthProfile.repStart
@@ -421,7 +421,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         return tooLowFault
     }
 
-    // ---------------- FAULTS ----------------
+    // Fault detection logic
     private fun detectFaults(
         kneeAngle: Float,
         hipAngle: Float,
