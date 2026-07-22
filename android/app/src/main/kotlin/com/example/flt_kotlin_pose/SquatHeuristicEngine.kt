@@ -462,12 +462,23 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
                     }
                 }
             } else {
-                // Side view: threshold tightened from 45° → 35°.
-                // A hip angle of 35° means the torso is only 35° from horizontal — a genuinely
-                // extreme lean that requires correction. The previous 45° threshold was too
-                // close to the normal hip angle at the bottom of a full squat, causing constant
-                // false alarms on correct form.
-                if (hipAngle < 35f) {
+                // Side view: use absolute torso lean angle instead of internal hip angle.
+                // The internal hip angle (torso-to-femur) is unreliable because it depends on the femur angle,
+                // meaning a user can lean completely parallel to the floor during a quarter-squat and not trigger the fault.
+                val s = lm[LM.LEFT_SHOULDER].takeIf { (it?.visibility ?: 0f) > 0.5f } ?: lm[LM.RIGHT_SHOULDER]
+                val h_lm = lm[LM.LEFT_HIP].takeIf { (it?.visibility ?: 0f) > 0.5f } ?: lm[LM.RIGHT_HIP]
+                
+                if (s != null && h_lm != null) {
+                    val dx = abs(s.x * w - h_lm.x * w)
+                    val dy = abs(h_lm.y * h - s.y * h) // hip.y is > shoulder.y
+                    val torsoLeanFromVertical = Math.toDegrees(atan2(dx.toDouble(), dy.toDouble())).toFloat()
+                    
+                    // A normal squat has the torso leaning roughly 30°-45° from vertical.
+                    // If they lean > 55°, they are dropping their chest excessively towards parallel with the floor.
+                    if (torsoLeanFromVertical > 55f) {
+                        addFault(SquatFault.LEAN_FORWARD)
+                    }
+                } else if (hipAngle < 35f) { // fallback
                     addFault(SquatFault.LEAN_FORWARD)
                 }
             }
