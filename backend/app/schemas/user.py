@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr
+from datetime import datetime
 
 # For Signup request
 class UserCreate(BaseModel):
@@ -16,6 +17,7 @@ class UserResponse(BaseModel):
     id: int
     email: str
     full_name: str | None = None
+    created_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -36,3 +38,7 @@ class ResetPasswordRequest(BaseModel):
     email: EmailStr
     otp: str
     new_password: str
+
+# For Google Sign-In request
+class GoogleTokenRequest(BaseModel):
+    id_token: str

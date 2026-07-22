@@ -42,21 +42,34 @@ class _PoseScreenState extends State<PoseScreen> {
   Timer? _poseLostTimer;
   final ValueNotifier<bool> _isPoseLost = ValueNotifier<bool>(false);
 
-  // Idle detection
+  // Idle detection — tracks actual landmark movement, not just rep/phase changes.
+  // When zero movement is detected for 1 minute, show the "Are you there?" banner.
+  // If the user doesn't respond within another 1 minute, auto-end the session.
   static const Duration _idleThreshold = Duration(minutes: 1);
+  static const Duration _autoEndTimeout = Duration(minutes: 1);
   static const Duration _idleCheckInterval = Duration(seconds: 5);
   Timer? _idleCheckTimer;
-  DateTime _lastActivityTime = DateTime.now();
+  Timer? _autoEndTimer;
+  DateTime _lastMovementTime = DateTime.now();
   int _lastKnownRepCount = 0;
   String _lastKnownPhase = 'STANDING';
   bool _showIdleBanner = false;
 
+  // Landmark movement tracking — compare hip position across frames.
+  // A movement threshold of 0.005 (0.5% of normalised frame) filters out
+  // MediaPipe jitter while still detecting any real body motion.
+  double? _prevHipX;
+  double? _prevHipY;
+  static const double _movementThreshold = 0.005;
+
   // Workout summary payload assembled during the session.
   final Map<String, int> _faultSummaryCounts = <String, int>{};
+  final Set<String> _faultsThisRep = <String>{};
+  int _currentRepForFaults = 0;
   bool _isWorkoutPaused = false;
   late final DateTime _workoutStartedAt;
 
-  // ── Depth preset ────────────────────────────────────────────────────────
+  // Depth preset configuration
   static const _presets = [
     _SquatPreset(
       'Explosive Power (¼ Squat)',
@@ -99,7 +112,7 @@ class _PoseScreenState extends State<PoseScreen> {
     await _actionChannel.invokeMethod<void>('resetSquatSession');
   }
 
-  // ── Channel setup ────────────────────────────────────────────────────────
+  // Channel setup
 
   void _setupPoseChannel() {
     _subscription = _poseChannel.receiveBroadcastStream().listen((event) {
@@ -125,7 +138,34 @@ class _PoseScreenState extends State<PoseScreen> {
       _poseLostTimer = Timer(const Duration(seconds: 2), () {
         if (mounted) _isPoseLost.value = true;
       });
+
+      // Track actual landmark movement for idle detection.
+      // Use the hip landmark (index 23 or 24) as a proxy for body movement.
+      // Any displacement above the threshold resets the idle timer.
+      _checkLandmarkMovement(parsed);
     }, onError: (Object error) => debugPrint('Pose stream error: $error'));
+  }
+
+  /// Checks if the user's body has actually moved by comparing the current
+  /// hip position to the previous frame. Resets the idle timer on movement.
+  void _checkLandmarkMovement(PoseFrameData frame) {
+    // Try left hip (23), fall back to right hip (24)
+    final hip = frame.landmarks[23] ?? frame.landmarks[24];
+    if (hip == null) return;
+
+    final prevX = _prevHipX;
+    final prevY = _prevHipY;
+    _prevHipX = hip.x;
+    _prevHipY = hip.y;
+
+    if (prevX == null || prevY == null) return;
+
+    final dx = (hip.x - prevX).abs();
+    final dy = (hip.y - prevY).abs();
+
+    if (dx > _movementThreshold || dy > _movementThreshold) {
+      _lastMovementTime = DateTime.now();
+    }
   }
 
   void _setupSquatChannel() {
@@ -134,15 +174,17 @@ class _PoseScreenState extends State<PoseScreen> {
       if (event is! Map) return;
       final newFeedback = SquatFeedbackData.fromMap(event);
 
-      _recordFaultSummary(newFeedback.activeFaults);
+      _recordFaultSummary(newFeedback.repCount, newFeedback.activeFaults);
 
       if (newFeedback.repCount != _lastKnownRepCount ||
           newFeedback.phase != _lastKnownPhase) {
-        _lastActivityTime = DateTime.now();
+        // Rep or phase change counts as movement too
+        _lastMovementTime = DateTime.now();
         _lastKnownRepCount = newFeedback.repCount;
         _lastKnownPhase = newFeedback.phase;
 
         if (_showIdleBanner) {
+          _cancelAutoEndTimer();
           _squatFeedback.value = newFeedback;
           setState(() => _showIdleBanner = false);
           return;
@@ -154,9 +196,15 @@ class _PoseScreenState extends State<PoseScreen> {
     }, onError: (Object error) => debugPrint('Squat feedback error: $error'));
   }
 
-  void _recordFaultSummary(List<String> faults) {
+  void _recordFaultSummary(int repCount, List<String> faults) {
+    if (repCount != _currentRepForFaults) {
+      _currentRepForFaults = repCount;
+      _faultsThisRep.clear();
+    }
     for (final fault in faults) {
-      _faultSummaryCounts[fault] = (_faultSummaryCounts[fault] ?? 0) + 1;
+      if (_faultsThisRep.add(fault)) {
+        _faultSummaryCounts[fault] = (_faultSummaryCounts[fault] ?? 0) + 1;
+      }
     }
   }
 
@@ -165,6 +213,7 @@ class _PoseScreenState extends State<PoseScreen> {
     _isWorkoutPaused = true;
     _poseLostTimer?.cancel();
     _idleCheckTimer?.cancel();
+    _cancelAutoEndTimer();
     _subscription?.pause();
     _squatSubscription?.pause();
     if (widget.enableNativePreview &&
@@ -186,12 +235,50 @@ class _PoseScreenState extends State<PoseScreen> {
   }
 
   void _startIdleCheck() {
+    _idleCheckTimer?.cancel();
     _idleCheckTimer = Timer.periodic(_idleCheckInterval, (_) {
       if (!mounted || _showIdleBanner) return;
-      if (DateTime.now().difference(_lastActivityTime) >= _idleThreshold) {
+      if (DateTime.now().difference(_lastMovementTime) >= _idleThreshold) {
         setState(() => _showIdleBanner = true);
+        _startAutoEndTimer();
       }
     });
+  }
+
+  /// Starts a 1-minute countdown. If the user doesn't respond to the idle
+  /// banner within this time, the session ends automatically.
+  void _startAutoEndTimer() {
+    _cancelAutoEndTimer();
+    _autoEndTimer = Timer(_autoEndTimeout, () {
+      if (!mounted) return;
+      _autoEndSession();
+    });
+  }
+
+  void _cancelAutoEndTimer() {
+    _autoEndTimer?.cancel();
+    _autoEndTimer = null;
+  }
+
+  /// Auto-ends the session when the user fails to respond to the idle banner.
+  /// Bypasses the confirmation dialog — the banner itself served as the warning.
+  Future<void> _autoEndSession() async {
+    if (!mounted) return;
+    _cancelAutoEndTimer();
+    _idleCheckTimer?.cancel();
+
+    Map<Object?, Object?>? summaryMap;
+    if (widget.enableNativePreview &&
+        defaultTargetPlatform == TargetPlatform.android) {
+      summaryMap = await _actionChannel.invokeMapMethod<String, dynamic>(
+        'endWorkoutSession',
+      );
+      await _actionChannel.invokeMethod<void>('resetSquatSession');
+    }
+    if (!mounted) return;
+
+    final mergedSummary = _buildWorkoutSummary(summaryMap);
+    Navigator.of(context).pop(mergedSummary);
   }
 
   Future<void> _setupPermission() async {
@@ -222,7 +309,7 @@ class _PoseScreenState extends State<PoseScreen> {
     }
   }
 
-  // ── Actions ──────────────────────────────────────────────────────────────
+  // Actions
 
   Future<void> _resetSession() async {
     if (!widget.enableNativePreview ||
@@ -232,9 +319,13 @@ class _PoseScreenState extends State<PoseScreen> {
     await _actionChannel.invokeMethod<void>('resetSquatSession');
     if (!mounted) return;
     _squatFeedback.value = const SquatFeedbackData.empty();
+    _faultSummaryCounts.clear();
+    _faultsThisRep.clear();
+    _currentRepForFaults = 0;
     _lastKnownRepCount = 0;
     _lastKnownPhase = 'STANDING';
-    _lastActivityTime = DateTime.now();
+    _lastMovementTime = DateTime.now();
+    _cancelAutoEndTimer();
     setState(() => _showIdleBanner = false);
   }
 
@@ -318,14 +409,21 @@ class _PoseScreenState extends State<PoseScreen> {
     await _actionChannel.invokeMethod('setDepthThreshold', preset.angle);
   }
 
-  void _handleEndSession() => setState(() => _showIdleBanner = false);
+  /// User chose "End Session" from the idle banner — end immediately.
+  void _handleEndSession() {
+    _cancelAutoEndTimer();
+    setState(() => _showIdleBanner = false);
+    _autoEndSession();
+  }
 
+  /// User chose "Keep Going" — dismiss the banner, reset idle timer.
   void _handleDismissIdleBanner() {
-    _lastActivityTime = DateTime.now();
+    _cancelAutoEndTimer();
+    _lastMovementTime = DateTime.now();
     setState(() => _showIdleBanner = false);
   }
 
-  // ── Frame parsing ────────────────────────────────────────────────────────
+  // Frame parsing
 
   PoseFrameData? _parseFrameData(dynamic event) {
     if (event is! Map) return null;
@@ -368,13 +466,14 @@ class _PoseScreenState extends State<PoseScreen> {
     _squatSubscription?.cancel();
     _poseLostTimer?.cancel();
     _idleCheckTimer?.cancel();
+    _autoEndTimer?.cancel();
     _frameData.dispose();
     _squatFeedback.dispose();
     _isPoseLost.dispose();
     super.dispose();
   }
 
-  // ── Build ────────────────────────────────────────────────────────────────
+  // Build
 
   @override
   Widget build(BuildContext context) {
@@ -513,6 +612,7 @@ class _PoseScreenState extends State<PoseScreen> {
               child: _IdleSessionBanner(
                 onEndSession: _handleEndSession,
                 onKeepGoing: _handleDismissIdleBanner,
+                autoEndTimeout: _autoEndTimeout,
               ),
             ),
           ),
@@ -559,7 +659,7 @@ class _PoseScreenState extends State<PoseScreen> {
   }
 }
 
-// ─── Native Preview ───────────────────────────────────────────────────────────
+// Native Preview
 
 class NativePosePreview extends StatelessWidget {
   const NativePosePreview({super.key, required this.enableNativePreview});
@@ -593,7 +693,7 @@ class NativePosePreview extends StatelessWidget {
   }
 }
 
-// ─── Data Models ──────────────────────────────────────────────────────────────
+// Data Models
 
 class PoseFrameData {
   const PoseFrameData({
@@ -677,7 +777,7 @@ class SquatFeedbackData {
   final String presetLabel;
 }
 
-// ─── Squat Depth Preset ───────────────────────────────────────────────────────
+// Squat Depth Preset
 
 class _SquatPreset {
   final String label;
@@ -686,7 +786,7 @@ class _SquatPreset {
   const _SquatPreset(this.label, this.angle, this.description);
 }
 
-// ─── Premium Pose Painter ─────────────────────────────────────────────────────
+// Pose Painter
 
 class PosePainter extends CustomPainter {
   PosePainter({
@@ -886,7 +986,7 @@ class PosePainter extends CustomPainter {
   }
 }
 
-// ─── Squat Overlay Widgets ────────────────────────────────────────────────────
+// Squat Overlay Widgets
 
 class _RepCounter extends StatelessWidget {
   const _RepCounter({required this.feedback});
@@ -1032,13 +1132,48 @@ class _LandmarkLostBadge extends StatelessWidget {
   }
 }
 
-class _IdleSessionBanner extends StatelessWidget {
+class _IdleSessionBanner extends StatefulWidget {
   const _IdleSessionBanner({
     required this.onEndSession,
     required this.onKeepGoing,
+    required this.autoEndTimeout,
   });
   final VoidCallback onEndSession;
   final VoidCallback onKeepGoing;
+  final Duration autoEndTimeout;
+
+  @override
+  State<_IdleSessionBanner> createState() => _IdleSessionBannerState();
+}
+
+class _IdleSessionBannerState extends State<_IdleSessionBanner> {
+  late int _secondsRemaining;
+  Timer? _countdownTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _secondsRemaining = widget.autoEndTimeout.inSeconds;
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        _secondsRemaining = (_secondsRemaining - 1).clamp(0, 999);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  String get _countdownText {
+    final m = _secondsRemaining ~/ 60;
+    final s = _secondsRemaining % 60;
+    if (m > 0) return '${m}m ${s.toString().padLeft(2, '0')}s';
+    return '${s}s';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1060,7 +1195,7 @@ class _IdleSessionBanner extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           const Text(
-            'Still there?',
+            'Are you there?',
             style: TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -1070,16 +1205,37 @@ class _IdleSessionBanner extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            "You've been idle for a minute.\nWould you like to end your session?",
+            "No movement detected for a minute.\nThe session will end automatically if you don't respond.",
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white60, fontSize: 14, height: 1.5),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
+          // Countdown badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE5534B).withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFFE5534B).withValues(alpha: 0.6),
+                width: 0.8,
+              ),
+            ),
+            child: Text(
+              'Auto-ending in $_countdownText',
+              style: const TextStyle(
+                color: Color(0xFFE5534B),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: onKeepGoing,
+                  onPressed: widget.onKeepGoing,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: Colors.white24),
@@ -1089,7 +1245,7 @@ class _IdleSessionBanner extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   child: const Text(
-                    'Keep Going',
+                    "I'm here!",
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                   ),
                 ),
@@ -1097,7 +1253,7 @@ class _IdleSessionBanner extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: onEndSession,
+                  onPressed: widget.onEndSession,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFE5534B),
                     foregroundColor: Colors.white,
@@ -1121,7 +1277,7 @@ class _IdleSessionBanner extends StatelessWidget {
   }
 }
 
-// ─── Depth Preset Dropdown ────────────────────────────────────────────────────
+// Depth Preset Dropdown
 
 class _DepthPresetDropdown extends StatelessWidget {
   const _DepthPresetDropdown({

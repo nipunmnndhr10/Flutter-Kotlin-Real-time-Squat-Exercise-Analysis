@@ -1,10 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flt_kotlin_pose/core/constants/app_constants.dart';
 import 'package:flt_kotlin_pose/screens/auth/components/login_components.dart';
 import 'package:flt_kotlin_pose/core/utils/validators.dart';
-// import 'package:flt_kotlin_pose/screens/workout/pose_screen.dart';
 import 'package:flt_kotlin_pose/screens/dashboard/dashboard_screen.dart';
 
 // Design tokens
@@ -37,7 +37,8 @@ class _SignupScreenState extends State<SignupScreen> {
   String? _confirmError;
 
   bool _agree = false;
-  bool _isLoading = false;
+  bool _isEmailLoading = false;
+  bool _isGoogleLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
 
@@ -168,7 +169,7 @@ class _SignupScreenState extends State<SignupScreen> {
     _validateAll();
     if (!_formValid) return;
 
-    setState(() => _isLoading = true);
+    setState(() => _isEmailLoading = true);
 
     try {
       final response = await Dio().post(
@@ -224,7 +225,79 @@ class _SignupScreenState extends State<SignupScreen> {
         context,
       ).showSnackBar(const SnackBar(content: Text("Something went wrong")));
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _isEmailLoading = false);
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    setState(() => _isGoogleLoading = true);
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn.instance;
+      await googleSignIn.initialize(
+        clientId: '984161335343-0l7irv2t1nkrft49bo186ahd46unania.apps.googleusercontent.com',
+        serverClientId: '984161335343-0l7irv2t1nkrft49bo186ahd46unania.apps.googleusercontent.com',
+      );
+
+      GoogleSignInAccount? googleUser;
+      try {
+        googleUser = await googleSignIn.authenticate();
+      } on GoogleSignInException catch (e) {
+        if (e.code == GoogleSignInExceptionCode.canceled) {
+          // User canceled the sign-in
+          setState(() => _isGoogleLoading = false);
+          return;
+        }
+        rethrow;
+      }
+
+      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
+      final String? idToken = googleAuth.idToken;
+
+      final response = await Dio().post(
+        '$kApiBaseUrl/auth/google',
+        data: {
+          "id_token": idToken,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        await _saveSession(Map<String, dynamic>.from(data as Map));
+
+        final user = (data['user'] as Map?)?.cast<String, dynamic>() ?? {};
+        final displayName = user['full_name']?.toString() ?? 'User';
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Google Signup successful!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => DashboardScreen(userName: displayName),
+          ),
+        );
+      }
+    } on DioException catch (e) {
+      String errorMsg = "Google Signup failed";
+      if (e.response?.data is Map) {
+        errorMsg = e.response?.data['detail'] ?? errorMsg;
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
+    } finally {
+      if (mounted) setState(() => _isGoogleLoading = false);
     }
   }
 
@@ -447,11 +520,9 @@ class _SignupScreenState extends State<SignupScreen> {
                       // CTA Button
                       SizedBox(
                         width: double.infinity,
-                        height: 52,
+                        height: 55,
                         child: ElevatedButton(
-                          // FIX #5: Read cached _formValid — no getter/regex
-                          // runs during build() anymore.
-                          onPressed: (_isLoading || !_formValid)
+                          onPressed: (_isEmailLoading || !_formValid)
                               ? null
                               : _handleSignup,
                           style: ElevatedButton.styleFrom(
@@ -463,7 +534,7 @@ class _SignupScreenState extends State<SignupScreen> {
                               borderRadius: BorderRadius.circular(30),
                             ),
                           ),
-                          child: _isLoading
+                          child: _isEmailLoading
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
@@ -519,9 +590,24 @@ class _SignupScreenState extends State<SignupScreen> {
                       // Google button
                       SizedBox(
                         width: double.infinity,
-                        height: 50,
-                        child: OutlinedButton(
-                          onPressed: () {},
+                        height: 55,
+                        child: OutlinedButton.icon(
+                          onPressed: (_isEmailLoading || _isGoogleLoading) ? null : _handleGoogleSignIn,
+                          icon: _isGoogleLoading 
+                              ? const SizedBox(
+                                  width: 24, 
+                                  height: 24, 
+                                  child: CircularProgressIndicator(strokeWidth: 2.5)
+                                )
+                              : const GoogleLogo(),
+                          label: Text(
+                            _isGoogleLoading ? 'Signing up...' : 'Sign up with Google',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: _kDark,
+                            ),
+                          ),
                           style: OutlinedButton.styleFrom(
                             backgroundColor: _kCard,
                             side: const BorderSide(color: _kBorder, width: 1.5),
@@ -529,24 +615,8 @@ class _SignupScreenState extends State<SignupScreen> {
                               borderRadius: BorderRadius.circular(30),
                             ),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const GoogleLogo(),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Continue with Google',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: _kDark,
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
                       ),
-
                       const SizedBox(height: kSpacingXl),
 
                       // Log in link

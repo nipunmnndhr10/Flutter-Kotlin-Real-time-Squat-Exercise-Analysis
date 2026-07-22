@@ -322,15 +322,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       'workout_type': summary['workoutType'],
       'started_at': summary['startedAt'],
       'ended_at': summary['endedAt'],
-      'duration_seconds': summary['durationSeconds'],
+      'duration_seconds': summary['durationSeconds'] ?? 0,
       'target_angle_threshold': summary['targetAngleThreshold'],
       'camera': summary['camera'],
-      'min_knee_angle': summary['minKneeAngle'],
-      'avg_knee_angle': summary['avgKneeAngle'],
-      'min_hip_angle': summary['minHipAngle'],
-      'avg_hip_angle': summary['avgHipAngle'],
-      'total_reps': summary['totalReps'],
-      'fault_summary_json': summary['faultSummaryJson'],
+      'min_knee_angle': summary['minKneeAngle'] ?? 0.0,
+      'avg_knee_angle': summary['avgKneeAngle'] ?? 0.0,
+      'min_hip_angle': summary['minHipAngle'] ?? 0.0,
+      'avg_hip_angle': summary['avgHipAngle'] ?? 0.0,
+      'total_reps': summary['totalReps'] ?? 0,
+      'fault_summary_json': summary['faultSummaryJson'] ?? {},
     };
 
     await authedDio.post('/workouts/', data: payload);
