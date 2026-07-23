@@ -53,9 +53,7 @@ internal object SquatFeedbackEventBus {
                     "kneeAngle"          to feedback.kneeAngle,
                     "hipAngle"           to feedback.hipAngle,
                     "isLandmarkReliable" to feedback.isLandmarkReliable,
-                    "activePreset"       to feedback.activePreset.name,
-                    "angleThreshold"     to feedback.activePreset.angleThreshold,
-                    "presetLabel"        to feedback.activePreset.label,
+                    "angleThreshold"     to feedback.targetAngleThreshold,
                 )
             )
         }

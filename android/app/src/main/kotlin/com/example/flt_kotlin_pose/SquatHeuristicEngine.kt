@@ -54,7 +54,6 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         val standing: Float,
     )
 
-    private var activePreset = SquatDepthPreset.DEFAULT
     private var depthProfile = DepthProfile(
         targetBottom = 95f,
         maxValidAngle = 105f,
@@ -62,13 +61,13 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         standing = 162f,
     )
 
-    fun setDepthThreshold(angle: Float) {
-        activePreset = SquatDepthPreset.fromAngle(angle)
-        depthProfile = when (activePreset) {
-            SquatDepthPreset.QUARTER_SQUAT -> DepthProfile(140f, 148f, 155f, 165f)
-            SquatDepthPreset.HALF_SQUAT    -> DepthProfile(120f, 130f, 150f, 162f)
-            SquatDepthPreset.FULL_SQUAT    -> DepthProfile(95f, 105f, 148f, 162f)
-        }
+    fun setDepthThreshold(targetBottom: Float) {
+        depthProfile = DepthProfile(
+            targetBottom = targetBottom,
+            maxValidAngle = targetBottom + 10f,
+            repStart = 148f,
+            standing = 162f,
+        )
     }
 
 
@@ -336,7 +335,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             kneeAngle = kneeAngle,
             hipAngle = hipAngle,
             isLandmarkReliable = true,
-            activePreset = activePreset,
+            targetAngleThreshold = depthProfile.targetBottom,
         )
     }
 
@@ -381,11 +380,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         }
 
         // Too-low detection (unified as a SquatFault).
-        val tooLowThreshold = bottom - when {
-            bottom >= 140f -> 15f  // quarter squat
-            bottom >= 120f -> 20f  // half squat
-            else           -> 25f  // full squat
-        }
+        val tooLowThreshold = bottom - 25f
 
         if (isInsideRep && kneeAngle < tooLowThreshold) {
             tooLowFrameStreak++
@@ -482,11 +477,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     ): List<SquatFault> {
         val formCheckGate = depthProfile.repStart
         val kneeCaveAngleGate = depthProfile.repStart
-        val kneeCaveOffsetGate = when (activePreset) {
-            SquatDepthPreset.QUARTER_SQUAT -> 0.065f
-            SquatDepthPreset.HALF_SQUAT    -> 0.06f
-            SquatDepthPreset.FULL_SQUAT    -> 0.06f
-        }
+        val kneeCaveOffsetGate = 0.06f
         val faults = mutableListOf<SquatFault>()
         val now = System.currentTimeMillis()
 

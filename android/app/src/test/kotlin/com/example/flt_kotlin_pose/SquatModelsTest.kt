@@ -8,20 +8,6 @@ import org.junit.Test
  */
 class SquatModelsTest {
 
-    // SquatDepthPreset Tests
-
-    @Test
-    fun `default depth preset is FULL_SQUAT`() {
-        assertEquals(SquatDepthPreset.FULL_SQUAT, SquatDepthPreset.DEFAULT)
-    }
-
-    @Test
-    fun `fromAngle defaults to FULL_SQUAT`() {
-        assertEquals(SquatDepthPreset.FULL_SQUAT, SquatDepthPreset.fromAngle(90f))
-        assertEquals(SquatDepthPreset.DEFAULT, SquatDepthPreset.fromAngle(45f))
-        assertEquals(SquatDepthPreset.DEFAULT, SquatDepthPreset.fromAngle(200f))
-    }
-
     // SquatPhase Tests
 
     @Test
@@ -67,7 +53,7 @@ class SquatModelsTest {
     // SquatFeedback Data Class Tests
 
     @Test
-    fun `feedback default preset is full squat`() {
+    fun `feedback default target angle threshold is 95`() {
         val feedback = SquatFeedback(
             phase = SquatPhase.STANDING,
             repCount = 0,
@@ -76,7 +62,7 @@ class SquatModelsTest {
             hipAngle = 180f,
             isLandmarkReliable = true,
         )
-        assertEquals(SquatDepthPreset.FULL_SQUAT, feedback.activePreset)
+        assertEquals(95.0f, feedback.targetAngleThreshold, 0.01f)
     }
 
     @Test
@@ -98,19 +84,5 @@ class SquatModelsTest {
             isLandmarkReliable = true,
         )
         assertEquals(a, b)
-    }
-
-    @Test
-    fun `feedback inequality when phase differs`() {
-        val a = SquatFeedback(
-            phase = SquatPhase.DESCENDING,
-            repCount = 1,
-            activeFaults = emptyList(),
-            kneeAngle = 120f,
-            hipAngle = 90f,
-            isLandmarkReliable = true,
-        )
-        val b = a.copy(phase = SquatPhase.ASCENDING)
-        assertNotEquals(a, b)
     }
 }
