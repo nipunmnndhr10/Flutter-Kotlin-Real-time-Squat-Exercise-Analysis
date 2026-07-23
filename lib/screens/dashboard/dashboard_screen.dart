@@ -322,6 +322,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         currentIndex: _currentIndex,
         onTap: (i) {
           setState(() => _currentIndex = i);
+          if (i == 0 || i == 2) {
+            _loadWorkouts();
+          }
         },
       ),
     );

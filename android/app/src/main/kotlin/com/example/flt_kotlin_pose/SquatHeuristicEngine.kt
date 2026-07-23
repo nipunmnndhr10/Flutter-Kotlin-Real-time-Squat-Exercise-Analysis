@@ -201,14 +201,20 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             }
         }
 
-        // Raised visibility threshold from 0.45 → 0.50 for more reliable landmark selection.
+        // Raised visibility and presence thresholds to 0.55f for human pose verification.
         val leftValid = listOf(
             LM.LEFT_SHOULDER, LM.LEFT_HIP, LM.LEFT_KNEE, LM.LEFT_ANKLE,
-        ).all { landmarkArray[it]?.visibility ?: 0f > 0.50f }
+        ).all { 
+            val lm = landmarkArray[it]
+            (lm?.visibility ?: 0f) >= 0.55f && (lm?.presence ?: lm?.visibility ?: 1.0f) >= 0.55f
+        }
 
         val rightValid = listOf(
             LM.RIGHT_SHOULDER, LM.RIGHT_HIP, LM.RIGHT_KNEE, LM.RIGHT_ANKLE,
-        ).all { landmarkArray[it]?.visibility ?: 0f > 0.50f }
+        ).all { 
+            val lm = landmarkArray[it]
+            (lm?.visibility ?: 0f) >= 0.55f && (lm?.presence ?: lm?.visibility ?: 1.0f) >= 0.55f
+        }
 
         if (!leftValid && !rightValid) return null
 
@@ -228,6 +234,14 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         val knee     = if (useLeft) landmarkArray[LM.LEFT_KNEE]     ?: return null else landmarkArray[LM.RIGHT_KNEE]     ?: return null
         val ankle    = if (useLeft) landmarkArray[LM.LEFT_ANKLE]    ?: return null else landmarkArray[LM.RIGHT_ANKLE]    ?: return null
         val shoulder = if (useLeft) landmarkArray[LM.LEFT_SHOULDER] ?: return null else landmarkArray[LM.RIGHT_SHOULDER] ?: return null
+
+        // Anatomical Proportion Sanity Check: Reject non-human background object hallucinations (e.g. fans, chairs)
+        val minY = minOf(shoulder.y, hip.y, knee.y, ankle.y)
+        val maxY = maxOf(shoulder.y, hip.y, knee.y, ankle.y)
+        val totalVerticalSpan = maxY - minY
+        if (totalVerticalSpan < 0.10f) {
+            return null
+        }
 
         val w = frame.frameWidth
         val h = frame.frameHeight

@@ -64,12 +64,12 @@ class PoseLandmarkerProcessor(
     @Volatile var isPaused: Boolean = false
     private var poseLandmarker: PoseLandmarker = createPoseLandmarker(context)
 
-    // Reusable bitmaps — zero per-frame allocation.
-    // Lazily resized when camera dimensions change (e.g. front/back switch).
+    // Reusable bitmaps — double-buffered to prevent Mali GPU gralloc buffer locking collisions
     private var bufferBitmap: Bitmap? = null
-    private var rotatedBitmap: Bitmap? = null
+    private val rotatedBitmaps = arrayOfNulls<Bitmap>(2)
+    private val rotationCanvases = arrayOfNulls<Canvas>(2)
+    private var frameBufferCounter = 0
     private var pixelArray: IntArray? = null
-    private var rotationCanvas: Canvas? = null
 
     fun detectLiveStream(imageProxy: ImageProxy) {
         if (isPaused) {
@@ -100,9 +100,12 @@ class PoseLandmarkerProcessor(
             val dstW = if (isRotated90) srcH else srcW
             val dstH = if (isRotated90) srcW else srcH
 
+            val bufIndex = frameBufferCounter % 2
+            frameBufferCounter++
+
             // Ensure reusable bitmaps match current dimensions
             val buf = getOrResizeBitmap(bufferBitmap, srcW, srcH).also { bufferBitmap = it }
-            val rot = getOrResizeBitmap(rotatedBitmap, dstW, dstH).also { rotatedBitmap = it }
+            val rot = getOrResizeBitmap(rotatedBitmaps[bufIndex], dstW, dstH).also { rotatedBitmaps[bufIndex] = it }
 
             // Stride-safe buffer copy (handles CameraX padding)
             val plane = imageProxy.planes[0]
@@ -110,7 +113,7 @@ class PoseLandmarkerProcessor(
 
             imageProxy.close()
 
-            val canvas = getOrCreateCanvas(rot).also { rotationCanvas = it }
+            val canvas = getOrCreateCanvas(rot, bufIndex)
             // Clear reused bitmap before drawing transformed pixels.
             canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
 
@@ -133,9 +136,11 @@ class PoseLandmarkerProcessor(
         synchronized(lock) { poseLandmarker.close() }
         isProcessingFrame.set(false)
         bufferBitmap?.recycle(); bufferBitmap = null
-        rotatedBitmap?.recycle(); rotatedBitmap = null
+        rotatedBitmaps[0]?.recycle(); rotatedBitmaps[0] = null
+        rotatedBitmaps[1]?.recycle(); rotatedBitmaps[1] = null
         pixelArray = null
-        rotationCanvas = null
+        rotationCanvases[0] = null
+        rotationCanvases[1] = null
     }
 
     private fun createPoseLandmarker(context: Context): PoseLandmarker {
@@ -164,7 +169,21 @@ class PoseLandmarkerProcessor(
         }
 
         val allLandmarks = result.landmarks().firstOrNull().orEmpty()
-        val filteredLandmarks = allLandmarks.mapIndexedNotNull { index, landmark ->
+        
+        // Verify genuine human pose presence: if key joints (shoulders, hips, knees, ankles)
+        // do not meet 0.55 average visibility, reject false-positive hallucinations on fans/furniture.
+        val isHumanDetected = run {
+            if (allLandmarks.size < 29) false
+            else {
+                val keyIndices = listOf(11, 12, 23, 24, 25, 26, 27, 28)
+                val avgVis = keyIndices.map { idx ->
+                    allLandmarks[idx].visibility().takeIf { it.isPresent }?.get() ?: 0f
+                }.average()
+                avgVis >= 0.55
+            }
+        }
+
+        val filteredLandmarks = if (!isHumanDetected) emptyList() else allLandmarks.mapIndexedNotNull { index, landmark ->
             if (index !in TRACKED_LANDMARK_INDICES) null
             else PoseLandmarkPayload(
                 index      = index,
@@ -208,13 +227,13 @@ class PoseLandmarkerProcessor(
         return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     }
 
-    private fun getOrCreateCanvas(bitmap: Bitmap): Canvas {
-        val existing = rotationCanvas
+    private fun getOrCreateCanvas(bitmap: Bitmap, bufIndex: Int): Canvas {
+        val existing = rotationCanvases[bufIndex]
         if (existing != null) {
             existing.setBitmap(bitmap)
             return existing
         }
-        return Canvas(bitmap).also { rotationCanvas = it }
+        return Canvas(bitmap).also { rotationCanvases[bufIndex] = it }
     }
 
     /** Copies a CameraX ImageProxy buffer into a Bitmap, handling row-stride padding. */
