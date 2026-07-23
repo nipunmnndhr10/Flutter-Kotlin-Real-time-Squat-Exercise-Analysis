@@ -42,6 +42,7 @@ data class PoseLandmarkPayload(
     val index:      Int,
     val x:          Float,
     val y:          Float,
+    val z:          Float = 0f,
     val visibility: Float?,
     val presence:   Float?,
 )
@@ -168,6 +169,7 @@ class PoseLandmarkerProcessor(
                 index      = index,
                 x          = landmark.x().coerceIn(0f, 1f),
                 y          = landmark.y().coerceIn(0f, 1f),
+                z          = landmark.z(),
                 visibility = landmark.visibility().takeIf { it.isPresent }?.get(),
                 presence   = landmark.presence().takeIf { it.isPresent }?.get(),
             )

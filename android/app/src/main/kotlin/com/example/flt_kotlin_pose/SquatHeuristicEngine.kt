@@ -1,7 +1,6 @@
 package com.example.flt_kotlin_pose
 
 import kotlin.math.abs
-import kotlin.math.atan2
 
 class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
@@ -365,6 +364,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             kneeAngle <= bottom                   -> SquatPhase.BOTTOM
             isDescending                          -> SquatPhase.DESCENDING
             isAscending && isInsideRep            -> SquatPhase.ASCENDING
+            isInsideRep && currentPhase == SquatPhase.ASCENDING -> SquatPhase.ASCENDING
             kneeAngle >= standing && !isInsideRep -> SquatPhase.STANDING
             else -> currentPhase
         }
@@ -378,7 +378,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
                 phaseHoldCounter = 1
             }
             val holdThreshold = when (candidatePhase) {
-                SquatPhase.STANDING, SquatPhase.BOTTOM -> 1
+                SquatPhase.STANDING, SquatPhase.BOTTOM, SquatPhase.ASCENDING -> 1
                 else -> 2
             }
             if (phaseHoldCounter >= holdThreshold) {
@@ -433,9 +433,9 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         val rawDelta   = currentRaw - oldRaw
         val isAscending = rawDelta > 2.5f
 
-        if ((currentPhase == SquatPhase.ASCENDING || isAscending) &&
-            maxDepthReachedThisRep > depthProfile.maxValidAngle &&
-            kneeAngle < depthProfile.standing
+        if ((isInsideRep || hasLeftStandingThisRep) &&
+            (currentPhase == SquatPhase.ASCENDING || isAscending) &&
+            maxDepthReachedThisRep > depthProfile.maxValidAngle
         ) {
             addFault(SquatFault.GO_DEEPER)
         }
@@ -472,7 +472,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         }
 
         // 3) KNEE CAVE — front view ONLY.
-        if (isFrontView && (kneeAngle < kneeCaveAngleGate || isInsideRep)) {
+        if (isFrontView) {
             val lH = lm[LM.LEFT_HIP]
             val lK = lm[LM.LEFT_KNEE]
             val lA = lm[LM.LEFT_ANKLE]
@@ -486,7 +486,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
                 calculateAngle(rH, rK, rA, w, h) else 180f
 
             val minKneeAngle = minOf(leftKneeAngle, rightKneeAngle)
-            if (minKneeAngle < kneeCaveAngleGate) {
+            if (minKneeAngle < kneeCaveAngleGate || kneeAngle < kneeCaveAngleGate || isInsideRep) {
                 if (lK != null && lA != null) {
                     if (lK.x < lA.x - kneeCaveOffsetGate) {
                         addFault(SquatFault.LEFT_KNEE_CAVE)
@@ -549,19 +549,22 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         width: Int,
         height: Int,
     ): Float {
-        val ax = a.x * width
-        val ay = a.y * height
-        val bx = b.x * width
-        val by = b.y * height
-        val cx = c.x * width
-        val cy = c.y * height
+        val ux = (a.x - b.x) * width
+        val uy = (a.y - b.y) * height
+        val uz = (a.z - b.z) * width
 
-        val radians = atan2((cy - by).toDouble(), (cx - bx).toDouble()) -
-                atan2((ay - by).toDouble(), (ax - bx).toDouble())
+        val vx = (c.x - b.x) * width
+        val vy = (c.y - b.y) * height
+        val vz = (c.z - b.z) * width
 
-        var angle = abs(Math.toDegrees(radians)).toFloat()
-        if (angle > 180f) angle = 360f - angle
-        return angle
+        val dot = ux * vx + uy * vy + uz * vz
+        val magU = kotlin.math.sqrt(ux * ux + uy * uy + uz * uz)
+        val magV = kotlin.math.sqrt(vx * vx + vy * vy + vz * vz)
+
+        if (magU * magV == 0f) return 180f
+
+        val cosTheta = (dot / (magU * magV)).coerceIn(-1.0f, 1.0f)
+        return Math.toDegrees(kotlin.math.acos(cosTheta.toDouble())).toFloat()
     }
 }
 

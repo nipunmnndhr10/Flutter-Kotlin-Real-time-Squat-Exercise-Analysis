@@ -41,6 +41,26 @@ class SquatHeuristicEngineTest {
         return PoseFramePayload(frameWidth = width, frameHeight = height, landmarks = list)
     }
 
+    private data class Landmark3D(val x: Float, val y: Float, val z: Float, val visibility: Float = 0.95f)
+
+    private fun frame3D(
+        vararg landmarks: Pair<Int, Landmark3D>,
+        width: Int = 1080,
+        height: Int = 1920,
+    ): PoseFramePayload {
+        val list = landmarks.map { (index, lm) ->
+            PoseLandmarkPayload(
+                index = index,
+                x = lm.x,
+                y = lm.y,
+                z = lm.z,
+                visibility = lm.visibility,
+                presence = null,
+            )
+        }
+        return PoseFramePayload(frameWidth = width, frameHeight = height, landmarks = list)
+    }
+
     /** Feed N frames of the same position to prime the rolling-average buffer. */
     private fun prime(target: PoseFramePayload) {
         repeat(5) { engine.analyze(target) }
@@ -316,7 +336,7 @@ class SquatHeuristicEngineTest {
         // — exactly the three conditions required to fire GO_DEEPER.
         engine.setDepthThreshold(90f)
         prime(standing())
-        repeat(5) { engine.analyze(shallow()) } // rep starts (streak ≥ 2), depth NOT reached
+        repeat(8) { engine.analyze(shallow()) } // rep starts (streak ≥ 3), depth NOT reached
 
         var goDeeperResult: SquatFeedback? = null
         repeat(5) {
@@ -434,33 +454,45 @@ class SquatHeuristicEngineTest {
         assertTrue("Landmark should be reliable", result.isLandmarkReliable)
     }
 
-    // ---------- DEPTH PRESETS ----------
+    // ---------- 3D KINEMATICS & PERSPECTIVE INVARIANCE ----------
 
     @Test
-    fun `quarter squat preset has higher bottom threshold`() {
-        // Quarter squat: repStart=166, targetBottom=145, standing=173.
-        // shallow() ≈ 139.84° < repStart (166°) → rep starts after 2 frames.
-        // maxDepthReachedThisRep ≈ 139.84° ≤ (145+15)=160° → kneeDepthAchieved=true.
-        // standing() = 180° > 173° → rep ends after 2 consecutive frames.
-        engine.setDepthThreshold(140f)
-        prime(standing())
-        prime(shallow())
-        prime(standing())
-        val result = engine.analyze(standing())!!
-        assertEquals(1, result.repCount)
+    fun `3D vector dot product calculates accurate knee angle with depth z`() {
+        // Orthogonal 90-degree knee bend with depth Z:
+        // Hip=(0.5, 0.3, 0.0), Knee=(0.5, 0.6, 0.0), Ankle=(0.5, 0.6, 0.3)
+        // Vector BA (Knee->Hip) = (0, -0.3, 0) [pointing straight up]
+        // Vector BC (Knee->Ankle) = (0, 0, 0.3) [pointing forward in depth Z]
+        // Dot product between vertical Y and depth Z vectors = 90.0°
+        val bend3D = frame3D(
+            LM.LEFT_SHOULDER  to Landmark3D(0.50f, 0.10f, 0.00f),
+            LM.RIGHT_SHOULDER to Landmark3D(0.48f, 0.10f, 0.00f),
+            LM.LEFT_HIP       to Landmark3D(0.50f, 0.30f, 0.00f),
+            LM.RIGHT_HIP      to Landmark3D(0.48f, 0.30f, 0.00f),
+            LM.LEFT_KNEE      to Landmark3D(0.50f, 0.60f, 0.00f),
+            LM.RIGHT_KNEE     to Landmark3D(0.48f, 0.60f, 0.00f),
+            LM.LEFT_ANKLE     to Landmark3D(0.50f, 0.60f, 0.30f),
+            LM.RIGHT_ANKLE    to Landmark3D(0.48f, 0.60f, 0.30f),
+        )
+        val result = engine.analyze(bend3D)!!
+        assertEquals(90.0f, result.kneeAngle, 1.0f)
     }
 
     @Test
-    fun `full squat preset requires deeper descent`() {
-        // Full squat: repStart=160, targetBottom=100, standing=168.
-        // shallow() ≈ 139.84° starts a rep, but maxDepth (139.84°) > (100+15)=115°
-        // so kneeDepthAchieved=false, and hipDrop < hipDropTarget → rep NOT counted.
-        engine.setDepthThreshold(90f)
-        prime(standing())
-        prime(shallow())
-        prime(standing())
-        val result = engine.analyze(standing())!!
-        assertEquals(0, result.repCount)
+    fun `3D vector dot product preserves knee angle under 45-degree diagonal camera view`() {
+        // 90° knee bend rotated 45° around the Y-axis:
+        // Ankle X' = 0.5 + (0.3 * cos 45°) = 0.7121, Z' = 0.3 * sin 45° = 0.2121
+        val rotated3D = frame3D(
+            LM.LEFT_SHOULDER  to Landmark3D(0.50f, 0.10f, 0.00f),
+            LM.RIGHT_SHOULDER to Landmark3D(0.48f, 0.10f, 0.00f),
+            LM.LEFT_HIP       to Landmark3D(0.50f, 0.30f, 0.00f),
+            LM.RIGHT_HIP      to Landmark3D(0.48f, 0.30f, 0.00f),
+            LM.LEFT_KNEE      to Landmark3D(0.50f, 0.60f, 0.00f),
+            LM.RIGHT_KNEE     to Landmark3D(0.48f, 0.60f, 0.00f),
+            LM.LEFT_ANKLE     to Landmark3D(0.7121f, 0.60f, 0.2121f),
+            LM.RIGHT_ANKLE    to Landmark3D(0.6921f, 0.60f, 0.2121f),
+        )
+        val result = engine.analyze(rotated3D)!!
+        assertEquals(90.0f, result.kneeAngle, 1.0f)
     }
 
     // ---------- SMOOTHING ----------

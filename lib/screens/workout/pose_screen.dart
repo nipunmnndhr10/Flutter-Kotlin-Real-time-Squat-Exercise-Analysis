@@ -69,29 +69,7 @@ class _PoseScreenState extends State<PoseScreen> {
   bool _isWorkoutPaused = false;
   late final DateTime _workoutStartedAt;
 
-  // Depth preset configuration
-  static const _presets = [
-    _SquatPreset(
-      'Explosive Power (¼ Squat)',
-      140.0,
-      'Vertical jump, sprinting, basketball',
-    ),
-    _SquatPreset(
-      'Athletic Strength (½ Squat)',
-      120.0,
-      'Sports performance, power development',
-    ),
-    _SquatPreset(
-      'Full Strength (Full Squat)',
-      90.0,
-      'Strength training, muscle growth',
-    ),
-  ];
-  _SquatPreset _selectedPreset = const _SquatPreset(
-    'Full Strength (Full Squat)',
-    90.0,
-    'Strength training, muscle growth',
-  );
+
 
   @override
   void initState() {
@@ -400,14 +378,7 @@ class _PoseScreenState extends State<PoseScreen> {
     await _actionChannel.invokeMethod('toggleCameraFacing', newFrontState);
   }
 
-  Future<void> _setDepthPreset(_SquatPreset preset) async {
-    setState(() => _selectedPreset = preset);
-    if (!widget.enableNativePreview ||
-        defaultTargetPlatform != TargetPlatform.android) {
-      return;
-    }
-    await _actionChannel.invokeMethod('setDepthThreshold', preset.angle);
-  }
+
 
   /// User chose "End Session" from the idle banner — end immediately.
   void _handleEndSession() {
@@ -625,11 +596,7 @@ class _PoseScreenState extends State<PoseScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _DepthPresetDropdown(
-                presets: _presets,
-                selected: _selectedPreset,
-                onChanged: _setDepthPreset,
-              ),
+              const _TargetDepthBadge(),
               const SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -777,14 +744,7 @@ class SquatFeedbackData {
   final String presetLabel;
 }
 
-// Squat Depth Preset
 
-class _SquatPreset {
-  final String label;
-  final double angle;
-  final String description;
-  const _SquatPreset(this.label, this.angle, this.description);
-}
 
 // Pose Painter
 
@@ -1277,136 +1237,58 @@ class _IdleSessionBannerState extends State<_IdleSessionBanner> {
   }
 }
 
-// Depth Preset Dropdown
+// Target Depth Badge (Standard Parallel 90°)
 
-class _DepthPresetDropdown extends StatelessWidget {
-  const _DepthPresetDropdown({
-    required this.presets,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  final List<_SquatPreset> presets;
-  final _SquatPreset selected;
-  final ValueChanged<_SquatPreset> onChanged;
+class _TargetDepthBadge extends StatelessWidget {
+  const _TargetDepthBadge();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white12),
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<_SquatPreset>(
-          value: selected,
-          isExpanded: true,
-          dropdownColor: const Color(0xFF1A1A1A),
-          iconEnabledColor: Colors.white54,
-          style: const TextStyle(color: Colors.white, fontSize: 13),
-          // Collapsed display: icon + label + angle badge
-          selectedItemBuilder: (_) => presets
-              .map(
-                (p) => Row(
-                  children: [
-                    const Icon(
-                      Icons.tune_rounded,
-                      color: Color(0xFF2ECC71),
-                      size: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        p.label,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2ECC71).withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: const Color(0xFF2ECC71),
-                          width: 0.8,
-                        ),
-                      ),
-                      child: Text(
-                        '${p.angle.toInt()}°',
-                        style: const TextStyle(
-                          color: Color(0xFF2ECC71),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-              .toList(),
-          // Expanded menu items: label + angle + description
-          items: presets.map((p) {
-            final isSelected = p.angle == selected.angle;
-            return DropdownMenuItem<_SquatPreset>(
-              value: p,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            p.label,
-                            style: TextStyle(
-                              color: isSelected
-                                  ? const Color(0xFF2ECC71)
-                                  : Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          '${p.angle.toInt()}°',
-                          style: const TextStyle(
-                            color: Color(0xFF2ECC71),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      p.description,
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.fitness_center_rounded,
+            color: Color(0xFF2ECC71),
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'Target Depth: Standard Parallel (90°)',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
-            );
-          }).toList(),
-          onChanged: (preset) {
-            if (preset != null) onChanged(preset);
-          },
-        ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2ECC71).withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF2ECC71).withValues(alpha: 0.5),
+              ),
+            ),
+            child: const Text(
+              '90° Target',
+              style: TextStyle(
+                color: Color(0xFF2ECC71),
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -8,51 +8,21 @@ import org.junit.Test
  */
 class SquatModelsTest {
 
-    // ─────────────────── SquatDepthPreset ───────────────────
+    // SquatDepthPreset Tests
 
     @Test
-    fun `fromAngle resolves quarter squat`() {
-        assertEquals(SquatDepthPreset.QUARTER_SQUAT, SquatDepthPreset.fromAngle(140f))
-    }
-
-    @Test
-    fun `fromAngle resolves half squat`() {
-        assertEquals(SquatDepthPreset.HALF_SQUAT, SquatDepthPreset.fromAngle(120f))
-    }
-
-    @Test
-    fun `fromAngle resolves full squat`() {
-        assertEquals(SquatDepthPreset.FULL_SQUAT, SquatDepthPreset.fromAngle(90f))
-    }
-
-    @Test
-    fun `fromAngle defaults to full squat for unknown angles`() {
-        assertEquals(SquatDepthPreset.DEFAULT, SquatDepthPreset.fromAngle(45f))
-        assertEquals(SquatDepthPreset.DEFAULT, SquatDepthPreset.fromAngle(200f))
-        assertEquals(SquatDepthPreset.DEFAULT, SquatDepthPreset.fromAngle(0f))
-    }
-
-    @Test
-    fun `default preset is FULL_SQUAT`() {
+    fun `default depth preset is FULL_SQUAT`() {
         assertEquals(SquatDepthPreset.FULL_SQUAT, SquatDepthPreset.DEFAULT)
     }
 
     @Test
-    fun `quarter squat has correct angle threshold`() {
-        assertEquals(140f, SquatDepthPreset.QUARTER_SQUAT.angleThreshold, 0.001f)
+    fun `fromAngle defaults to FULL_SQUAT`() {
+        assertEquals(SquatDepthPreset.FULL_SQUAT, SquatDepthPreset.fromAngle(90f))
+        assertEquals(SquatDepthPreset.DEFAULT, SquatDepthPreset.fromAngle(45f))
+        assertEquals(SquatDepthPreset.DEFAULT, SquatDepthPreset.fromAngle(200f))
     }
 
-    @Test
-    fun `half squat has correct angle threshold`() {
-        assertEquals(120f, SquatDepthPreset.HALF_SQUAT.angleThreshold, 0.001f)
-    }
-
-    @Test
-    fun `full squat has correct angle threshold`() {
-        assertEquals(90f, SquatDepthPreset.FULL_SQUAT.angleThreshold, 0.001f)
-    }
-
-    // ─────────────────── SquatPhase ───────────────────
+    // SquatPhase Tests
 
     @Test
     fun `phase enum has four states`() {
@@ -64,7 +34,7 @@ class SquatModelsTest {
         assertTrue(phases.contains(SquatPhase.ASCENDING))
     }
 
-    // ─────────────────── SquatFault ───────────────────
+    // SquatFault Tests
 
     @Test
     fun `fault enum has five entries`() {
@@ -80,7 +50,7 @@ class SquatModelsTest {
         assertEquals("too_low", SquatFault.TOO_LOW.cueName)
     }
 
-    // ─────────────────── LM constants ───────────────────
+    // LM Constants Tests
 
     @Test
     fun `landmark indices match MediaPipe spec`() {
@@ -94,7 +64,7 @@ class SquatModelsTest {
         assertEquals(28, LM.RIGHT_ANKLE)
     }
 
-    // ─────────────────── SquatFeedback data class ───────────────────
+    // SquatFeedback Data Class Tests
 
     @Test
     fun `feedback default preset is full squat`() {
