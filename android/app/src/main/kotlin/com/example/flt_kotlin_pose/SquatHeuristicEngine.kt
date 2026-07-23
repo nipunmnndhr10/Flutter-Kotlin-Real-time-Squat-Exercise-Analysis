@@ -391,8 +391,8 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         }
 
         if (standingFrameStreak >= 3) {
-            // Validate rep depth using maxValidAngle defined in depthProfile.
-            val validRep = maxDepthReachedThisRep <= maxValidAngle
+            // Validate rep depth: rep count ONLY increments if user achieved parallel depth (<= targetBottom + 2f)
+            val validRep = maxDepthReachedThisRep <= (bottom + 2f)
 
             if (validRep) {
                 repCount++
