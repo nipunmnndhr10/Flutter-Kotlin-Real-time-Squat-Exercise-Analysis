@@ -500,16 +500,12 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
         if (currentPhase == SquatPhase.STANDING && !isInsideRep) return faults
 
-        // 1) GO_DEEPER — only when the user starts ascending without reaching maxValidAngle.
-        val oldRaw     = rawAngleHistory[(rawHistIndex + 1) % rawAngleHistory.size]
-        val currentRaw = rawAngleHistory[rawHistIndex]
-        val rawDelta   = currentRaw - oldRaw
-        val isAscending = rawDelta > 2.5f
-
-        if ((isInsideRep || hasLeftStandingThisRep) &&
-            (currentPhase == SquatPhase.ASCENDING || isAscending) &&
-            maxDepthReachedThisRep > depthProfile.maxValidAngle
+        // 1) GO_DEEPER — only when the user is ascending back to standing after failing to reach parallel depth.
+        if (isInsideRep && hasLeftStandingThisRep && currentPhase == SquatPhase.ASCENDING &&
+            maxDepthReachedThisRep > (depthProfile.targetBottom + 2f) &&
+            SquatFault.GO_DEEPER !in faultsAnnouncedThisRep
         ) {
+            faultsAnnouncedThisRep.add(SquatFault.GO_DEEPER)
             addFault(SquatFault.GO_DEEPER)
         }
 

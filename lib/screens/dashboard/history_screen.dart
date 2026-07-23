@@ -110,7 +110,7 @@ class HistoryScreen extends StatelessWidget {
             : '${seconds}s';
 
         final startedAt = workout['started_at'] != null
-            ? DateTime.tryParse(workout['started_at'].toString())
+            ? DateTime.tryParse(workout['started_at'].toString())?.toLocal()
             : null;
 
         final startedAtText = startedAt != null
@@ -584,7 +584,7 @@ class _WorkoutHistoryCard extends StatelessWidget {
 
   String _formatDateTime(String? dateStr) {
     if (dateStr == null) return '';
-    final dt = DateTime.tryParse(dateStr);
+    final dt = DateTime.tryParse(dateStr)?.toLocal();
     if (dt == null) return dateStr;
     final months = [
       'Jan',
