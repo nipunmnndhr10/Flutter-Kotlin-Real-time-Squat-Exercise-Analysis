@@ -22,11 +22,13 @@ class SquatHeuristicEngineTest {
 
     private lateinit var audioController: SquatAudioController
     private lateinit var engine: SquatHeuristicEngine
+    private var testTimestamp = 1000L
 
     @Before
     fun setUp() {
         audioController = mockk(relaxed = true)
         engine = SquatHeuristicEngine(audioController)
+        testTimestamp = 1000L
     }
 
     // ---------- Frame Helpers ----------
@@ -36,6 +38,7 @@ class SquatHeuristicEngineTest {
         width: Int = 1080,
         height: Int = 1920,
     ): PoseFramePayload {
+        testTimestamp += 33L
         val list = landmarks.map { (index, triple) ->
             PoseLandmarkPayload(
                 index = index,
@@ -45,7 +48,7 @@ class SquatHeuristicEngineTest {
                 presence = null,
             )
         }
-        return PoseFramePayload(frameWidth = width, frameHeight = height, landmarks = list)
+        return PoseFramePayload(frameWidth = width, frameHeight = height, landmarks = list, timestampMs = testTimestamp)
     }
 
     private data class Landmark3D(val x: Float, val y: Float, val z: Float, val visibility: Float = 0.95f)
@@ -55,6 +58,7 @@ class SquatHeuristicEngineTest {
         width: Int = 1080,
         height: Int = 1920,
     ): PoseFramePayload {
+        testTimestamp += 33L
         val list = landmarks.map { (index, lm) ->
             PoseLandmarkPayload(
                 index = index,
@@ -65,7 +69,7 @@ class SquatHeuristicEngineTest {
                 presence = null,
             )
         }
-        return PoseFramePayload(frameWidth = width, frameHeight = height, landmarks = list)
+        return PoseFramePayload(frameWidth = width, frameHeight = height, landmarks = list, timestampMs = testTimestamp)
     }
 
     private fun prime(target: PoseFramePayload) {
@@ -108,6 +112,17 @@ class SquatHeuristicEngineTest {
     private fun shallow() = frame(
         LM.LEFT_SHOULDER  to Triple(0.70f, 0.20f, 0.95f),
         LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+        LM.LEFT_HIP       to Triple(0.85f, 0.60f, 0.95f),
+        LM.RIGHT_HIP      to Triple(0.15f, 0.60f, 0.95f),
+        LM.LEFT_KNEE      to Triple(0.65f, 0.70f, 0.95f),
+        LM.RIGHT_KNEE     to Triple(0.35f, 0.70f, 0.95f),
+        LM.LEFT_ANKLE     to Triple(0.65f, 0.90f, 0.95f),
+        LM.RIGHT_ANKLE    to Triple(0.35f, 0.90f, 0.95f),
+    )
+
+    private fun ascending() = frame(
+        LM.LEFT_SHOULDER  to Triple(0.70f, 0.20f, 0.95f),
+        LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
         LM.LEFT_HIP       to Triple(0.75f, 0.55f, 0.95f),
         LM.RIGHT_HIP      to Triple(0.25f, 0.55f, 0.95f),
         LM.LEFT_KNEE      to Triple(0.65f, 0.68f, 0.95f),
@@ -135,7 +150,7 @@ class SquatHeuristicEngineTest {
         LM.LEFT_KNEE      to Triple(0.65f, 0.70f, 0.95f),
         LM.RIGHT_KNEE     to Triple(0.35f, 0.70f, 0.95f),
         LM.LEFT_ANKLE     to Triple(0.65f, 0.90f, 0.95f),
-        LM.RIGHT_ANKLE    to Triple(0.35f, 0.90f, 0.95f),
+        LM.RIGHT_ANKLE    to Triple(0.40f, 0.90f, 0.95f),
     )
 
     private fun leftKneeCave() = frame(
@@ -197,12 +212,12 @@ class SquatHeuristicEngineTest {
     fun `4 GO_DEEPER fires on ascent when depth was shallow`() {
         engine.setDepthThreshold(90f)
         prime(standing())
-        repeat(8) { engine.analyze(shallow()) }
+        prime(shallow())
 
         var goDeeperResult: SquatFeedback? = null
         repeat(5) {
-            val r = engine.analyze(descending())!!
-            if (r.activeFaults.contains(SquatFault.GO_DEEPER)) {
+            val r = engine.analyze(ascending())
+            if (r != null && r.activeFaults.contains(SquatFault.GO_DEEPER)) {
                 goDeeperResult = r
             }
         }
