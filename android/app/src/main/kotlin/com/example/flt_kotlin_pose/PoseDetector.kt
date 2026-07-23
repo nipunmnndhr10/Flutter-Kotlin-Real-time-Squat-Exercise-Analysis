@@ -51,6 +51,7 @@ data class PoseFramePayload(
     val frameWidth:  Int,
     val frameHeight: Int,
     val landmarks:   List<PoseLandmarkPayload>,
+    val timestampMs: Long = System.currentTimeMillis(),
 )
 
 class PoseLandmarkerProcessor(

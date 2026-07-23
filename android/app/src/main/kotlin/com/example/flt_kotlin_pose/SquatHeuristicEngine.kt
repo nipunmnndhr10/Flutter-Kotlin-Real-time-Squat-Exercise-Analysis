@@ -1,5 +1,6 @@
 package com.example.flt_kotlin_pose
 
+import android.os.SystemClock
 import kotlin.math.abs
 
 class SquatHeuristicEngine(private val audioController: SquatAudioController) {
@@ -70,9 +71,50 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         }
     }
 
+
+
+    // STAGE 1 & 2: 3D Spatial Landmark Spike Guard + 3D Spatial 1€ Trajectory Filters
+    private val lastLandmarkCoords = Array<PoseLandmarkPayload?>(33) { null }
+    private val landmarkFilters = Array(33) { OneEuroFilter3D(minCutoffXY = 3.0f, betaXY = 0.5f, minCutoffZ = 1.5f, betaZ = 0.1f) }
+
+    private var lastFilteredTorsoLength: Float? = null
+
+    private fun getDynamicSpikeThreshold(): Float {
+        val torso = lastFilteredTorsoLength ?: 0.35f
+        return (1.5f * torso).coerceIn(0.25f, 0.60f)
+    }
+
+    private fun clampSpatialSpike(lm: PoseLandmarkPayload): PoseLandmarkPayload {
+        val prev = lastLandmarkCoords[lm.index] ?: run {
+            lastLandmarkCoords[lm.index] = lm
+            return lm
+        }
+        val maxDelta = getDynamicSpikeThreshold()
+        val cx = lm.x.coerceIn(prev.x - maxDelta, prev.x + maxDelta)
+        val cy = lm.y.coerceIn(prev.y - maxDelta, prev.y + maxDelta)
+        val cz = lm.z.coerceIn(prev.z - maxDelta, prev.z + maxDelta)
+        val clamped = lm.copy(x = cx, y = cy, z = cz)
+        lastLandmarkCoords[lm.index] = clamped
+        return clamped
+    }
+
     // Adaptive smoothing filters
-    private val kneeAngleFilter = OneEuroFilter(minCutoff = 1.0f, beta = 0.005f, dCutoff = 1.0f)
-    private val hipAngleFilter  = OneEuroFilter(minCutoff = 1.0f, beta = 0.005f, dCutoff = 1.0f)
+    private val kneeAngleFilter = OneEuroFilter(minCutoff = 1.0f, beta = 0.015f, dCutoff = 1.0f)
+    private val hipAngleFilter  = OneEuroFilter(minCutoff = 1.0f, beta = 0.015f, dCutoff = 1.0f)
+
+    // Outlier Spike Guard tracking (clamps camera occlusion & lighting glare noise spikes before filtering)
+    private var lastRawKneeAngle: Float? = null
+    private var lastRawHipAngle: Float? = null
+
+    private fun clampSpike(current: Float, last: Float?, maxDelta: Float = 45f): Float {
+        if (last == null) return current
+        val diff = current - last
+        return when {
+            diff > maxDelta  -> last + maxDelta
+            diff < -maxDelta -> last - maxDelta
+            else             -> current
+        }
+    }
 
     // Fault tracking
     private val faultsAnnouncedThisRep = mutableSetOf<SquatFault>()
@@ -148,10 +190,15 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     fun analyze(frame: PoseFramePayload): SquatFeedback? {
         if (isPaused) return null
 
-        // Zero-fill and populate lookup array
+        // STAGE 1 & 2: 3D Spatial Landmark Spike Guard + 3D Spatial 1€ Trajectory Filtering
         landmarkArray.fill(null)
+        val timestampMs = frame.timestampMs
         for (lm in frame.landmarks) {
-            if (lm.index in 0..32) landmarkArray[lm.index] = lm
+            if (lm.index in 0..32) {
+                val isVisible = (lm.visibility ?: 0f) >= 0.50f
+                val clampedLm = clampSpatialSpike(lm)
+                landmarkArray[lm.index] = landmarkFilters[lm.index].filter(lm, timestampMs, isVisible, clampedLm)
+            }
         }
 
         // Raised visibility threshold from 0.45 → 0.50 for more reliable landmark selection.
@@ -226,16 +273,19 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             hip.y
         }
 
+        // Outlier Spike Guard: clamp unphysical camera glare / occlusion angle jumps (> 45°) BEFORE 1€ filtering
+        val clampedKneeAngle = clampSpike(rawAngle, lastRawKneeAngle, maxDelta = 45f)
+        val clampedHipAngle  = clampSpike(hipAngle, lastRawHipAngle, maxDelta = 45f)
+        lastRawKneeAngle = clampedKneeAngle
+        lastRawHipAngle  = clampedHipAngle
+
         // Store raw angle in ring buffer BEFORE smoothing so the velocity signal is
         // not contaminated by the rolling-average lag.
         rawHistIndex = (rawHistIndex + 1) % rawAngleHistory.size
-        rawAngleHistory[rawHistIndex] = rawAngle
+        rawAngleHistory[rawHistIndex] = clampedKneeAngle
 
-        // 1€ Adaptive Filtering — dynamically scales cutoff frequency with movement speed.
-        // Fast movements → Zero lag. Slow/static holds → Zero jitter.
-        val nowMs = System.currentTimeMillis()
-        val kneeAngle = kneeAngleFilter.filter(rawAngle, nowMs)
-        val smoothedHipAngle = hipAngleFilter.filter(hipAngle, nowMs)
+        val kneeAngle = clampedKneeAngle
+        val smoothedHipAngle = clampedHipAngle
 
         val tooLowFault = updatePhaseAndReps(kneeAngle, hipY)
         val faults = detectFaults(kneeAngle, smoothedHipAngle, landmarkArray, isFrontView, w, h)
@@ -255,6 +305,15 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         sessionSumHipAngle += hipAngle
         if (kneeAngle < sessionMinKneeAngle) sessionMinKneeAngle = kneeAngle
         if (hipAngle < sessionMinHipAngle) sessionMinHipAngle = hipAngle
+
+        val lS = landmarkArray[LM.LEFT_SHOULDER]
+        val lH = landmarkArray[LM.LEFT_HIP]
+        if (lS != null && lH != null) {
+            val dx = lS.x - lH.x
+            val dy = lS.y - lH.y
+            val dz = lS.z - lH.z
+            lastFilteredTorsoLength = kotlin.math.sqrt((dx * dx + dy * dy + dz * dz).toDouble()).toFloat()
+        }
 
         return SquatFeedback(
             phase = currentPhase,
@@ -525,8 +584,12 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         leanForwardFrameStreak = 0
         rawAngleHistory.fill(180f)
         rawHistIndex = 0
+        lastRawKneeAngle = null
+        lastRawHipAngle = null
+        lastLandmarkCoords.fill(null)
         kneeAngleFilter.reset()
         hipAngleFilter.reset()
+        landmarkFilters.forEach { it.reset() }
         faultsAnnouncedThisRep.clear()
         faultCooldowns.fill(0L)
 
@@ -558,21 +621,25 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         val vz = (c.z - b.z) * width
 
         val dot = ux * vx + uy * vy + uz * vz
-        val magU = kotlin.math.sqrt(ux * ux + uy * uy + uz * uz)
-        val magV = kotlin.math.sqrt(vx * vx + vy * vy + vz * vz)
 
-        if (magU * magV == 0f) return 180f
+        // Cross product u x v
+        val cx = uy * vz - uz * vy
+        val cy = uz * vx - ux * vz
+        val cz = ux * vy - uy * vx
+        val crossNorm = kotlin.math.sqrt((cx * cx + cy * cy + cz * cz).toDouble())
 
-        val cosTheta = (dot / (magU * magV)).coerceIn(-1.0f, 1.0f)
-        return Math.toDegrees(kotlin.math.acos(cosTheta.toDouble())).toFloat()
+        if (crossNorm == 0.0 && dot == 0f) return 180f
+
+        val angleRad = kotlin.math.atan2(crossNorm, dot.toDouble())
+        return Math.toDegrees(angleRad).toFloat()
     }
 }
 
 /**
- * One Euro (1€) Adaptive Filter for real-time joint angle smoothing.
+ * One Euro (1€) Adaptive Filter for real-time kinematic signal smoothing.
  * Dynamically adjusts cutoff frequency based on movement speed:
- * - High movement velocity (explosive squats) -> Low smoothing, Zero lag.
- * - Low movement velocity (bottom holds) -> High smoothing, Zero micro-jitter.
+ * - High movement velocity (explosive motion) -> Low smoothing, Zero lag.
+ * - Low movement velocity (static holds) -> High smoothing, Zero micro-jitter.
  */
 class OneEuroFilter(
     private var minCutoff: Float = 1.0f,
@@ -594,9 +661,10 @@ class OneEuroFilter(
         }
 
         val dtRaw = (timestampMs - tPrev) / 1000.0f
-        val dt = if (dtRaw > 0.001f) dtRaw else 0.033f
+        // Monotonic dt clamping: use measured dt if >1ms, else fallback to 0.033s (30fps) for test loops
+        val dt = if (dtRaw > 0.001f) dtRaw.coerceAtMost(0.200f) else 0.033f
 
-        // Derivative (angular velocity)
+        // Derivative (velocity)
         val dx = (x - xPrev) / dt
         val alphaDx = alpha(dt, dCutoff)
         val edx = alphaDx * dx + (1.0f - alphaDx) * dxPrev
@@ -617,10 +685,67 @@ class OneEuroFilter(
         return 1.0f / (1.0f + tau / dt)
     }
 
+    fun reset(seedValue: Float = 0.0f, timestampMs: Long = 0L) {
+        if (timestampMs > 0L) {
+            xPrev = seedValue
+            dxPrev = 0.0f
+            tPrev = timestampMs
+            isInitialized = true
+        } else {
+            isInitialized = false
+            xPrev = 0.0f
+            dxPrev = 0.0f
+            tPrev = 0L
+        }
+    }
+}
+
+/**
+ * Anisotropic 3D Spatial Landmark Coordinate One Euro (1€) Filter.
+ * Applies dedicated parameters for 2D image plane (X, Y) vs 3D depth (Z).
+ * Supports visibility-gated state freezing and seeded re-acquisition recovery.
+ */
+class OneEuroFilter3D(
+    minCutoffXY: Float = 3.0f,
+    betaXY: Float = 0.5f,
+    minCutoffZ: Float = 1.5f,
+    betaZ: Float = 0.1f,
+    dCutoff: Float = 1.0f
+) {
+    private val filterX = OneEuroFilter(minCutoffXY, betaXY, dCutoff)
+    private val filterY = OneEuroFilter(minCutoffXY, betaXY, dCutoff)
+    private val filterZ = OneEuroFilter(minCutoffZ, betaZ, dCutoff)
+    private var isOccluded = false
+
+    fun filter(
+        lm: PoseLandmarkPayload,
+        timestampMs: Long,
+        isVisible: Boolean,
+        clampedLm: PoseLandmarkPayload
+    ): PoseLandmarkPayload {
+        if (!isVisible) {
+            isOccluded = true
+            return clampedLm
+        }
+
+        if (isOccluded) {
+            filterX.reset(clampedLm.x, timestampMs)
+            filterY.reset(clampedLm.y, timestampMs)
+            filterZ.reset(clampedLm.z, timestampMs)
+            isOccluded = false
+            return clampedLm
+        }
+
+        val fx = filterX.filter(clampedLm.x, timestampMs)
+        val fy = filterY.filter(clampedLm.y, timestampMs)
+        val fz = filterZ.filter(clampedLm.z, timestampMs)
+        return clampedLm.copy(x = fx, y = fy, z = fz)
+    }
+
     fun reset() {
-        isInitialized = false
-        xPrev = 0.0f
-        dxPrev = 0.0f
-        tPrev = 0L
+        filterX.reset()
+        filterY.reset()
+        filterZ.reset()
+        isOccluded = false
     }
 }
