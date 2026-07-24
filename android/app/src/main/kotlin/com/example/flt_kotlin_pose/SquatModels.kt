@@ -1,38 +1,5 @@
 package com.example.flt_kotlin_pose
 
-import kotlin.math.abs
-
-enum class SquatDepthPreset(
-    val label: String,
-    val angleThreshold: Float,
-    val description: String
-) {
-    QUARTER_SQUAT(
-        label = "Explosive Power (¼ Squat)",
-        angleThreshold = 140f,
-        description = "Best for vertical jump, sprinting, basketball, athletic explosiveness"
-    ),
-    HALF_SQUAT(
-        label = "Athletic Strength (½ Squat)",
-        angleThreshold = 120f,
-        description = "Best for sports performance, power development, general athleticism"
-    ),
-    FULL_SQUAT(
-        label = "Full Strength (Full Squat)",
-        angleThreshold = 90f,
-        description = "Best for strength training, muscle growth, full-range squat technique"
-    );
-
-    companion object {
-        val DEFAULT = FULL_SQUAT
-
-        // Safely resolve a threshold value back to its preset (used when receiving from Flutter)
-        fun fromAngle(angle: Float): SquatDepthPreset =
-            entries.firstOrNull { abs(it.angleThreshold - angle) < 0.01f } ?: DEFAULT
-    }
-}
-
-
 // MediaPipe landmark indices 
 object LM {
     const val LEFT_SHOULDER  = 11
@@ -64,5 +31,5 @@ data class SquatFeedback(
     val kneeAngle: Float,
     val hipAngle: Float,
     val isLandmarkReliable: Boolean,
-    val activePreset: SquatDepthPreset = SquatDepthPreset.DEFAULT,
+    val targetAngleThreshold: Float = 95.0f,
 )

@@ -85,6 +85,7 @@ internal class PoseCameraView(
         }
 
     init {
+        keepScreenOn = true
         PoseCameraRegistry.processor = poseLandmarkerProcessor
         PoseCameraRegistry.register(this)
         addView(previewView)

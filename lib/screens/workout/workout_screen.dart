@@ -1,21 +1,28 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flt_kotlin_pose/core/constants/app_constants.dart';
 import 'package:flt_kotlin_pose/screens/auth/loginscreen.dart';
 import 'package:flt_kotlin_pose/screens/workout/pose_screen.dart';
 
-const kPrimary = Color(0xFF4CAF50);
-const kSecondary = Color(0xFF81C784);
-const kBackground = Color(0xFFF9F9F9);
-const kSurface = Color(0xFFE8F5E9);
-const kTextPrimary = Color(0xFF1A1A1A);
-const kTextMuted = Color(0xFF757575);
+// Kinetic Noir Color System (from start workout screen.md)
+const kBackground = Color(0xFFFCF8F8);
+const kSurface = Color(0xFFF6F3F2);
+const kSurfaceContainerHigh = Color(0xFFEBE7E7);
+const kSurfaceContainerHighest = Color(0xFFE5E2E1);
+const kTextPrimary = Color(0xFF1C1B1B);
+const kTextMuted = Color(0xFF696A6D);
+const kPrimary = Color(0xFF506600);
+const kPrimaryLime = Color(0xFFD9FE03); // Bright electric lime for CTA
+const kSecondary = Color(0xFF006970);
+const kSecondaryContainer = Color(0xFF00EEFC);
 
 class WorkoutScreen extends StatefulWidget {
-  const WorkoutScreen({super.key});
+  final VoidCallback? onWorkoutSaved;
+  const WorkoutScreen({super.key, this.onWorkoutSaved});
 
   @override
   State<WorkoutScreen> createState() => _WorkoutScreenState();
@@ -24,143 +31,146 @@ class WorkoutScreen extends StatefulWidget {
 class _WorkoutScreenState extends State<WorkoutScreen> {
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Workout Session",
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: kTextPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            "Start your squat workout and track your form in real-time.",
-            style: TextStyle(fontSize: 14, color: kTextMuted),
-          ),
-          const SizedBox(height: 30),
+    return SafeArea(
+      child: Scaffold(
+        backgroundColor: kBackground,
+        body: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Section Header: New Session
+              Text(
+                'New Session',
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: kTextPrimary,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Position your camera to capture your full range of motion.',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: kTextMuted,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 20),
 
-          // Start Workout Card
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: kSurface,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              children: [
-                const Icon(Icons.fitness_center, size: 70, color: kPrimary),
-                const SizedBox(height: 16),
-                const Text(
-                  "Squat Analysis",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: kTextPrimary,
-                  ),
+              // Image & Start Workout Container
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: kSurface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: kSurfaceContainerHighest, width: 1),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  "AI-powered squat tracking and form correction.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: kTextMuted),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 55,
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      final result = await Navigator.push<Map<String, dynamic>>(
-                        context,
-                        MaterialPageRoute(builder: (_) => const PoseScreen()),
-                      );
-                      if (!mounted || result == null) return;
-                      await _showWorkoutSummaryDialog(result);
-                    },
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text(
-                      "Start Workout",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                child: Column(
+                  children: [
+                    // Squat Pose Tracking Preview Image
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 10,
+                        child: Image.asset(
+                          'assets/squat-posetrack.png',
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                        ),
                       ),
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: kPrimary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                    const SizedBox(height: 14),
+
+                    // START WORKOUT Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final result = await Navigator.push<Map<String, dynamic>>(
+                            context,
+                            MaterialPageRoute(builder: (_) => const PoseScreen()),
+                          );
+                          if (!mounted || result == null) return;
+                          await _showWorkoutSummaryDialog(result);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: kPrimaryLime,
+                          foregroundColor: kTextPrimary,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.play_circle_outline_rounded,
+                              size: 22,
+                              color: kTextPrimary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'START WORKOUT',
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: kTextPrimary,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
 
-          const SizedBox(height: 24),
+              const SizedBox(height: 28),
 
-          // Mistakes Summary Card
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: kSurface,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  "Common Mistakes",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: kTextPrimary,
-                  ),
+              // Section Header: Get Started
+              Text(
+                'Get Started',
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  color: kTextPrimary,
                 ),
-                SizedBox(height: 12),
-                _MistakeRow(mistake: "Knees caving in", count: 5),
-                _MistakeRow(mistake: "Shallow squat depth", count: 3),
-                _MistakeRow(mistake: "Back rounding", count: 2),
-              ],
-            ),
-          ),
+              ),
+              const SizedBox(height: 14),
 
-          const SizedBox(height: 24),
+              // Info Card 1: AI Engine & Form Tracking
+              _InfoCard(
+                icon: Icons.psychology_outlined,
+                title: 'AI Engine & Form Tracking',
+                bulletPoints: const [
+                  '3D Tracking: Analyzes live knee/hip angles, camera views, and movement phases.',
+                  'Fault Detection: Automatically flags shallow depth, knee cave, chest collapse, or going too low.',
+                ],
+              ),
 
-          // Workout Details Card
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: kSurface,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Workout Details",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: kTextPrimary,
-                  ),
-                ),
-                SizedBox(height: 12),
-                Text("• Real-time pose detection"),
-                Text("• Automatic squat counting"),
-                Text("• Form correction feedback"),
-                Text("• Progress tracking"),
-              ],
-            ),
+              const SizedBox(height: 14),
+
+              // Info Card 2: What to Keep in Mind
+              _InfoCard(
+                icon: Icons.lightbulb_outline_rounded,
+                title: 'What to Keep in Mind',
+                bulletPoints: const [
+                  'Side View is Best: Stand sideways to the camera for optimal depth tracking.',
+                  'Optimal Setup: Place phone at hip height and ensure your full body is in frame.',
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -170,7 +180,18 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       context: context,
       barrierDismissible: true,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Workout Summary'),
+        backgroundColor: kBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Text(
+          'Workout Summary',
+          style: GoogleFonts.hankenGrotesk(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: kTextPrimary,
+          ),
+        ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -250,12 +271,17 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 if (!dialogContext.mounted) return;
                 Navigator.of(dialogContext).pop();
                 messenger.showSnackBar(
-                  const SnackBar(content: Text('Workout saved successfully')),
+                  const SnackBar(
+                    content: Text('Workout saved successfully'),
+                    backgroundColor: kPrimary,
+                  ),
                 );
+                if (widget.onWorkoutSaved != null) {
+                  widget.onWorkoutSaved!();
+                }
               } on DioException catch (e) {
                 if (!dialogContext.mounted) return;
                 if (e.response?.statusCode == 401) {
-                  // Token expired — clear and redirect to login
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.remove('access_token');
                   Navigator.of(dialogContext).pop();
@@ -285,15 +311,27 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 );
               }
             },
-            child: const Text('Save Workout'),
+            child: Text(
+              'Save Workout',
+              style: GoogleFonts.inter(
+                color: kPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text("Don't Save"),
+            child: Text(
+              "Don't Save",
+              style: GoogleFonts.inter(color: kTextMuted),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Close'),
+            child: Text(
+              'Close',
+              style: GoogleFonts.inter(color: kTextMuted),
+            ),
           ),
         ],
       ),
@@ -354,29 +392,87 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 }
 
-// Mistake Row Widget
-class _MistakeRow extends StatelessWidget {
-  final String mistake;
-  final int count;
+class _InfoCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final List<String> bulletPoints;
 
-  const _MistakeRow({required this.mistake, required this.count});
+  const _InfoCard({
+    required this.icon,
+    required this.title,
+    required this.bulletPoints,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: kSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: kSurfaceContainerHighest, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "• $mistake",
-            style: const TextStyle(color: kTextMuted, fontSize: 14),
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: kSecondaryContainer.withValues(alpha: 0.35),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: kSecondary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: kTextPrimary,
+                  ),
+                ),
+              ),
+            ],
           ),
-          Text(
-            "x$count",
-            style: const TextStyle(
-              color: kPrimary,
-              fontWeight: FontWeight.w600,
+          const SizedBox(height: 12),
+          ...bulletPoints.map(
+            (point) => Padding(
+              padding: const EdgeInsets.only(left: 52, bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '• ',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: kTextMuted,
+                      height: 1.4,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      point,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: kTextMuted,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -400,7 +496,7 @@ class _SummaryRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: GoogleFonts.jetBrainsMono(
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: kTextMuted,
@@ -409,7 +505,7 @@ class _SummaryRow extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
+            style: GoogleFonts.inter(
               fontSize: 15,
               fontWeight: FontWeight.w600,
               color: kTextPrimary,
@@ -420,3 +516,4 @@ class _SummaryRow extends StatelessWidget {
     );
   }
 }
+

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flt_kotlin_pose/core/constants/app_constants.dart';
 import 'package:flt_kotlin_pose/screens/auth/loginscreen.dart';
@@ -8,10 +9,10 @@ import 'package:flt_kotlin_pose/screens/dashboard/home_screen.dart';
 import 'package:flt_kotlin_pose/screens/dashboard/history_screen.dart';
 import 'package:flt_kotlin_pose/screens/dashboard/profile_screen.dart';
 
-const kPrimary = Color(0xFF4CAF50);
+const kPrimary = Color(0xFFC5F014);
 const kSecondary = Color(0xFF81C784);
 const kBackground = Color(0xFFF9F9F9);
-const kSurface = Color(0xFFE8F5E9);
+const kSurface = Color(0xFFF0F0F0);
 const kTextPrimary = Color(0xFF1A1A1A);
 const kTextMuted = Color(0xFF757575);
 
@@ -49,17 +50,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final List<int> weekData = List.filled(7, 0);
 
     final now = DateTime.now();
-    final mostRecentSunday = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday % 7));
-    final targetWeekStart = mostRecentSunday.subtract(Duration(days: 7 * _weeksAgo));
+    // In Dart, weekday is 1 for Monday and 7 for Sunday.
+    // If today is Monday (1), subtract 0 days. If today is Sunday (7), subtract 6 days.
+    final mostRecentMonday = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: now.weekday - 1));
+    final targetWeekStart = mostRecentMonday.subtract(
+      Duration(days: 7 * _weeksAgo),
+    );
     final targetWeekEnd = targetWeekStart.add(const Duration(days: 7));
 
     for (final w in _workouts) {
-      final reps = (w['total_reps'] as num?)?.toInt() ?? 0;
+      final repsStr = w['total_reps']?.toString() ?? '0';
+      final reps = int.tryParse(repsStr) ?? 0;
       total += reps;
 
-      final startedAt = DateTime.tryParse(w['started_at']?.toString() ?? '');
+      final startedAt = DateTime.tryParse(
+        w['started_at']?.toString() ?? '',
+      )?.toLocal();
       if (startedAt != null) {
-        if (!startedAt.isBefore(targetWeekStart) && startedAt.isBefore(targetWeekEnd)) {
+        if (!startedAt.isBefore(targetWeekStart) &&
+            startedAt.isBefore(targetWeekEnd)) {
           final dayIndex = startedAt.weekday % 7;
           weekData[dayIndex] += reps;
         }
@@ -111,9 +124,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
             }
           }
           if (profileData['created_at'] != null) {
-            final createdAt = DateTime.tryParse(profileData['created_at'].toString());
+            final createdAt = DateTime.tryParse(
+              profileData['created_at'].toString(),
+            );
             if (createdAt != null) {
-              final months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+              final months = [
+                'Jan',
+                'Feb',
+                'Mar',
+                'Apr',
+                'May',
+                'Jun',
+                'Jul',
+                'Aug',
+                'Sep',
+                'Oct',
+                'Nov',
+                'Dec',
+              ];
               _joinedDate = '${months[createdAt.month - 1]} ${createdAt.year}';
               await prefs.setString('joined_date', _joinedDate);
             }
@@ -121,7 +149,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (profileData['profile_picture_url'] != null) {
             final picUrl = profileData['profile_picture_url'].toString();
             if (picUrl.isNotEmpty) {
-              final fullPicUrl = picUrl.startsWith('http') ? picUrl : '$kApiBaseUrl$picUrl';
+              final fullPicUrl = picUrl.startsWith('http')
+                  ? picUrl
+                  : '$kApiBaseUrl$picUrl';
               await prefs.setString('profile_picture_url', fullPicUrl);
               _profilePictureUrl = fullPicUrl;
             }
@@ -136,13 +166,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final workouts = (response.data as List).cast<Map<String, dynamic>>();
 
       setState(() {
-        if (_currentUserName.isEmpty && savedName != null && savedName.isNotEmpty) {
+        if (_currentUserName.isEmpty &&
+            savedName != null &&
+            savedName.isNotEmpty) {
           _currentUserName = savedName;
         }
-        if (_joinedDate.isEmpty && savedJoinedDate != null && savedJoinedDate.isNotEmpty) {
+        if (_joinedDate.isEmpty &&
+            savedJoinedDate != null &&
+            savedJoinedDate.isNotEmpty) {
           _joinedDate = savedJoinedDate;
         }
-        if (_profilePictureUrl.isEmpty && savedPicUrl != null && savedPicUrl.isNotEmpty) {
+        if (_profilePictureUrl.isEmpty &&
+            savedPicUrl != null &&
+            savedPicUrl.isNotEmpty) {
           _profilePictureUrl = savedPicUrl;
         }
         _hasLoggedInBefore = hasLoggedInBefore;
@@ -240,13 +276,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _getDateRangeText() {
     if (_weeksAgo == 0) return 'This Week';
     if (_weeksAgo == 1) return 'Last Week';
-    
+
     final now = DateTime.now();
-    final mostRecentSunday = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday % 7));
-    final targetWeekStart = mostRecentSunday.subtract(Duration(days: 7 * _weeksAgo));
+    final mostRecentSunday = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: now.weekday % 7));
+    final targetWeekStart = mostRecentSunday.subtract(
+      Duration(days: 7 * _weeksAgo),
+    );
     final targetWeekEnd = targetWeekStart.add(const Duration(days: 6));
-    
-    final months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${months[targetWeekStart.month - 1]} ${targetWeekStart.day} - ${months[targetWeekEnd.month - 1]} ${targetWeekEnd.day}';
   }
 
@@ -288,7 +343,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onPreviousWeek: () => _changeWeek(1),
           onNextWeek: () => _changeWeek(-1),
         ),
-        const WorkoutScreen(),
+        WorkoutScreen(
+          onWorkoutSaved: () {
+            _loadWorkouts();
+            setState(() => _currentIndex = 0);
+          },
+        ),
         HistoryScreen(
           userName: _currentUserName,
           greeting: _getGreeting(),
@@ -302,6 +362,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           greeting: _getGreeting(),
           joinedDate: _joinedDate.isNotEmpty ? _joinedDate : 'Unknown',
           profilePictureUrl: _profilePictureUrl,
+          workouts: _workouts,
           onLogout: _logout,
           onProfilePictureUpdated: (newUrl) {
             setState(() {
@@ -322,6 +383,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         currentIndex: _currentIndex,
         onTap: (i) {
           setState(() => _currentIndex = i);
+          if (i == 0 || i == 2) {
+            _loadWorkouts();
+          }
         },
       ),
     );
@@ -331,50 +395,73 @@ class _DashboardScreenState extends State<DashboardScreen> {
 class _BottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
+
   const _BottomNav({required this.currentIndex, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    const selectedColor = Color.fromARGB(255, 144, 175, 19);
+    const unselectedColor = Color(0xFF5F5F5F);
+
+    const items = [
+      (Icons.home_outlined, 'Home'),
+      (Icons.fitness_center_outlined, 'Workout'),
+      (Icons.history_outlined, 'History'),
+      (Icons.person_outline, 'Profile'),
+    ];
+
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200, width: 1)),
+        border: Border(top: BorderSide(color: Color(0xFFE8E8E8), width: 1)),
       ),
-      child: BottomNavigationBar(
-        currentIndex: currentIndex,
-        onTap: onTap,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        selectedItemColor: kPrimary,
-        unselectedItemColor: kTextMuted,
-        selectedLabelStyle: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            children: List.generate(items.length, (index) {
+              final isSelected = currentIndex == index;
+
+              return Expanded(
+                child: InkWell(
+                  onTap: () => onTap(index),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        items[index].$1,
+                        size: 24,
+                        color: isSelected ? selectedColor : unselectedColor,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        items[index].$2,
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                          color: isSelected ? selectedColor : unselectedColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: isSelected ? selectedColor : Colors.transparent,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
         ),
-        unselectedLabelStyle: const TextStyle(fontSize: 11),
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home_rounded),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.fitness_center_outlined),
-            activeIcon: Icon(Icons.fitness_center),
-            label: 'Workouts',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history_outlined),
-            activeIcon: Icon(Icons.history),
-            label: 'Workout History',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
       ),
     );
   }

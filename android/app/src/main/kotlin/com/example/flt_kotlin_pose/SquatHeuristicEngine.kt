@@ -1,7 +1,7 @@
 package com.example.flt_kotlin_pose
 
+import android.os.SystemClock
 import kotlin.math.abs
-import kotlin.math.atan2
 
 class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
@@ -41,9 +41,9 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     // direction. Comparing the current raw angle to the raw angle 6 frames ago gives a
     // lag-free descending/ascending signal that does not suffer from the rolling-average delay
     // that caused the smoothed angle to linger, flipping ASCENDING↔DESCENDING at transitions.
-    // Expanded from 4→6 to match the wider 7-frame smoothing buffer and provide a more
-    // stable velocity signal.
-    private val rawAngleHistory = FloatArray(6) { 180f }
+    // Expanded to 10 to match wider smoothing buffer and provide a more
+    // stable velocity signal over a longer timeframe for slow squats.
+    private val rawAngleHistory = FloatArray(10) { 180f }
     private var rawHistIndex = 0
 
     // Depth profile configuration
@@ -54,7 +54,6 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         val standing: Float,
     )
 
-    private var activePreset = SquatDepthPreset.DEFAULT
     private var depthProfile = DepthProfile(
         targetBottom = 95f,
         maxValidAngle = 105f,
@@ -62,18 +61,59 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         standing = 162f,
     )
 
-    fun setDepthThreshold(angle: Float) {
-        activePreset = SquatDepthPreset.fromAngle(angle)
-        depthProfile = when (activePreset) {
-            SquatDepthPreset.QUARTER_SQUAT -> DepthProfile(140f, 148f, 155f, 165f)
-            SquatDepthPreset.HALF_SQUAT    -> DepthProfile(120f, 130f, 150f, 162f)
-            SquatDepthPreset.FULL_SQUAT    -> DepthProfile(95f, 105f, 148f, 162f)
+    fun setDepthThreshold(targetBottom: Float) {
+        depthProfile = DepthProfile(
+            targetBottom = targetBottom,
+            maxValidAngle = targetBottom + 10f,
+            repStart = 148f,
+            standing = 162f,
+        )
+    }
+
+
+
+    // STAGE 1 & 2: 3D Spatial Landmark Spike Guard + 3D Spatial 1€ Trajectory Filters
+    private val lastLandmarkCoords = Array<PoseLandmarkPayload?>(33) { null }
+    private val landmarkFilters = Array(33) { OneEuroFilter3D(minCutoffXY = 3.0f, betaXY = 0.5f, minCutoffZ = 1.5f, betaZ = 0.1f) }
+
+    private var lastFilteredTorsoLength: Float? = null
+
+    private fun getDynamicSpikeThreshold(): Float {
+        val torso = lastFilteredTorsoLength ?: 0.35f
+        return (1.5f * torso).coerceIn(0.25f, 0.60f)
+    }
+
+    private fun clampSpatialSpike(lm: PoseLandmarkPayload): PoseLandmarkPayload {
+        val prev = lastLandmarkCoords[lm.index] ?: run {
+            lastLandmarkCoords[lm.index] = lm
+            return lm
         }
+        val maxDelta = getDynamicSpikeThreshold()
+        val cx = lm.x.coerceIn(prev.x - maxDelta, prev.x + maxDelta)
+        val cy = lm.y.coerceIn(prev.y - maxDelta, prev.y + maxDelta)
+        val cz = lm.z.coerceIn(prev.z - maxDelta, prev.z + maxDelta)
+        val clamped = lm.copy(x = cx, y = cy, z = cz)
+        lastLandmarkCoords[lm.index] = clamped
+        return clamped
     }
 
     // Adaptive smoothing filters
-    private val kneeAngleFilter = OneEuroFilter(minCutoff = 1.0f, beta = 0.005f, dCutoff = 1.0f)
-    private val hipAngleFilter  = OneEuroFilter(minCutoff = 1.0f, beta = 0.005f, dCutoff = 1.0f)
+    private val kneeAngleFilter = OneEuroFilter(minCutoff = 1.0f, beta = 0.015f, dCutoff = 1.0f)
+    private val hipAngleFilter  = OneEuroFilter(minCutoff = 1.0f, beta = 0.015f, dCutoff = 1.0f)
+
+    // Outlier Spike Guard tracking (clamps camera occlusion & lighting glare noise spikes before filtering)
+    private var lastRawKneeAngle: Float? = null
+    private var lastRawHipAngle: Float? = null
+
+    private fun clampSpike(current: Float, last: Float?, maxDelta: Float = 45f): Float {
+        if (last == null) return current
+        val diff = current - last
+        return when {
+            diff > maxDelta  -> last + maxDelta
+            diff < -maxDelta -> last - maxDelta
+            else             -> current
+        }
+    }
 
     // Fault tracking
     private val faultsAnnouncedThisRep = mutableSetOf<SquatFault>()
@@ -149,20 +189,31 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     fun analyze(frame: PoseFramePayload): SquatFeedback? {
         if (isPaused) return null
 
-        // Zero-fill and populate lookup array
+        // STAGE 1 & 2: 3D Spatial Landmark Spike Guard + 3D Spatial 1€ Trajectory Filtering
         landmarkArray.fill(null)
+        val timestampMs = frame.timestampMs
         for (lm in frame.landmarks) {
-            if (lm.index in 0..32) landmarkArray[lm.index] = lm
+            if (lm.index in 0..32) {
+                val isVisible = (lm.visibility ?: 0f) >= 0.50f
+                val clampedLm = clampSpatialSpike(lm)
+                landmarkArray[lm.index] = landmarkFilters[lm.index].filter(lm, timestampMs, isVisible, clampedLm)
+            }
         }
 
-        // Raised visibility threshold from 0.45 → 0.50 for more reliable landmark selection.
+        // Raised visibility and presence thresholds to 0.55f for human pose verification.
         val leftValid = listOf(
             LM.LEFT_SHOULDER, LM.LEFT_HIP, LM.LEFT_KNEE, LM.LEFT_ANKLE,
-        ).all { landmarkArray[it]?.visibility ?: 0f > 0.50f }
+        ).all { 
+            val lm = landmarkArray[it]
+            (lm?.visibility ?: 0f) >= 0.55f && (lm?.presence ?: lm?.visibility ?: 1.0f) >= 0.55f
+        }
 
         val rightValid = listOf(
             LM.RIGHT_SHOULDER, LM.RIGHT_HIP, LM.RIGHT_KNEE, LM.RIGHT_ANKLE,
-        ).all { landmarkArray[it]?.visibility ?: 0f > 0.50f }
+        ).all { 
+            val lm = landmarkArray[it]
+            (lm?.visibility ?: 0f) >= 0.55f && (lm?.presence ?: lm?.visibility ?: 1.0f) >= 0.55f
+        }
 
         if (!leftValid && !rightValid) return null
 
@@ -182,6 +233,14 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         val knee     = if (useLeft) landmarkArray[LM.LEFT_KNEE]     ?: return null else landmarkArray[LM.RIGHT_KNEE]     ?: return null
         val ankle    = if (useLeft) landmarkArray[LM.LEFT_ANKLE]    ?: return null else landmarkArray[LM.RIGHT_ANKLE]    ?: return null
         val shoulder = if (useLeft) landmarkArray[LM.LEFT_SHOULDER] ?: return null else landmarkArray[LM.RIGHT_SHOULDER] ?: return null
+
+        // Anatomical Proportion Sanity Check: Reject non-human background object hallucinations (e.g. fans, chairs)
+        val minY = minOf(shoulder.y, hip.y, knee.y, ankle.y)
+        val maxY = maxOf(shoulder.y, hip.y, knee.y, ankle.y)
+        val totalVerticalSpan = maxY - minY
+        if (totalVerticalSpan < 0.10f) {
+            return null
+        }
 
         val w = frame.frameWidth
         val h = frame.frameHeight
@@ -227,16 +286,19 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             hip.y
         }
 
+        // Outlier Spike Guard: clamp unphysical camera glare / occlusion angle jumps (> 45°) BEFORE 1€ filtering
+        val clampedKneeAngle = clampSpike(rawAngle, lastRawKneeAngle, maxDelta = 45f)
+        val clampedHipAngle  = clampSpike(hipAngle, lastRawHipAngle, maxDelta = 45f)
+        lastRawKneeAngle = clampedKneeAngle
+        lastRawHipAngle  = clampedHipAngle
+
         // Store raw angle in ring buffer BEFORE smoothing so the velocity signal is
         // not contaminated by the rolling-average lag.
         rawHistIndex = (rawHistIndex + 1) % rawAngleHistory.size
-        rawAngleHistory[rawHistIndex] = rawAngle
+        rawAngleHistory[rawHistIndex] = clampedKneeAngle
 
-        // 1€ Adaptive Filtering — dynamically scales cutoff frequency with movement speed.
-        // Fast movements → Zero lag. Slow/static holds → Zero jitter.
-        val nowMs = System.currentTimeMillis()
-        val kneeAngle = kneeAngleFilter.filter(rawAngle, nowMs)
-        val smoothedHipAngle = hipAngleFilter.filter(hipAngle, nowMs)
+        val kneeAngle = clampedKneeAngle
+        val smoothedHipAngle = clampedHipAngle
 
         val tooLowFault = updatePhaseAndReps(kneeAngle, hipY)
         val faults = detectFaults(kneeAngle, smoothedHipAngle, landmarkArray, isFrontView, w, h)
@@ -257,6 +319,15 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         if (kneeAngle < sessionMinKneeAngle) sessionMinKneeAngle = kneeAngle
         if (hipAngle < sessionMinHipAngle) sessionMinHipAngle = hipAngle
 
+        val lS = landmarkArray[LM.LEFT_SHOULDER]
+        val lH = landmarkArray[LM.LEFT_HIP]
+        if (lS != null && lH != null) {
+            val dx = lS.x - lH.x
+            val dy = lS.y - lH.y
+            val dz = lS.z - lH.z
+            lastFilteredTorsoLength = kotlin.math.sqrt((dx * dx + dy * dy + dz * dz).toDouble()).toFloat()
+        }
+
         return SquatFeedback(
             phase = currentPhase,
             repCount = repCount,
@@ -264,7 +335,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             kneeAngle = kneeAngle,
             hipAngle = hipAngle,
             isLandmarkReliable = true,
-            activePreset = activePreset,
+            targetAngleThreshold = depthProfile.targetBottom,
         )
     }
 
@@ -296,7 +367,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             repStartFrameStreak = 0
         }
 
-        if (!isInsideRep && repStartFrameStreak >= 3) {
+        if (!isInsideRep && repStartFrameStreak >= 2) {
             isInsideRep = true
             maxDepthReachedThisRep = kneeAngle
             maxHipDropThisRep = maxOf(0f, hipDrop)
@@ -309,11 +380,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         }
 
         // Too-low detection (unified as a SquatFault).
-        val tooLowThreshold = bottom - when {
-            bottom >= 140f -> 15f  // quarter squat
-            bottom >= 120f -> 20f  // half squat
-            else           -> 25f  // full squat
-        }
+        val tooLowThreshold = bottom - 25f
 
         if (isInsideRep && kneeAngle < tooLowThreshold) {
             tooLowFrameStreak++
@@ -321,7 +388,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             tooLowFrameStreak = 0
         }
 
-        if (tooLowFrameStreak >= 3) {
+        if (tooLowFrameStreak >= 2) {
             tooLowFault = SquatFault.TOO_LOW
         }
 
@@ -332,8 +399,8 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             standingFrameStreak = 0
         }
 
-        if (standingFrameStreak >= 3) {
-            // Validate rep depth using maxValidAngle defined in depthProfile.
+        if (standingFrameStreak >= 2) {
+            // Validate rep depth: rep count ONLY increments if user achieved depth (<= maxValidAngle)
             val validRep = maxDepthReachedThisRep <= maxValidAngle
 
             if (validRep) {
@@ -357,14 +424,17 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         val currentRaw = rawAngleHistory[rawHistIndex]
         val rawDelta   = currentRaw - oldRaw
 
-        val isDescending = rawDelta < -2.5f
-        val isAscending  = rawDelta >  2.5f
+        // Lowered velocity thresholds from 2.5f to 1.0f to reliably trigger 
+        // DESCENDING and ASCENDING phases for slow, controlled squats or high-FPS cameras.
+        val isDescending = rawDelta < -1.0f
+        val isAscending  = rawDelta >  1.0f
 
         // Determine candidate phase
         val candidatePhase = when {
             kneeAngle <= bottom                   -> SquatPhase.BOTTOM
             isDescending                          -> SquatPhase.DESCENDING
             isAscending && isInsideRep            -> SquatPhase.ASCENDING
+            isInsideRep && currentPhase == SquatPhase.ASCENDING -> SquatPhase.ASCENDING
             kneeAngle >= standing && !isInsideRep -> SquatPhase.STANDING
             else -> currentPhase
         }
@@ -378,7 +448,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
                 phaseHoldCounter = 1
             }
             val holdThreshold = when (candidatePhase) {
-                SquatPhase.STANDING, SquatPhase.BOTTOM -> 1
+                SquatPhase.STANDING, SquatPhase.BOTTOM, SquatPhase.ASCENDING -> 1
                 else -> 2
             }
             if (phaseHoldCounter >= holdThreshold) {
@@ -409,11 +479,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     ): List<SquatFault> {
         val formCheckGate = depthProfile.repStart
         val kneeCaveAngleGate = depthProfile.repStart
-        val kneeCaveOffsetGate = when (activePreset) {
-            SquatDepthPreset.QUARTER_SQUAT -> 0.065f
-            SquatDepthPreset.HALF_SQUAT    -> 0.06f
-            SquatDepthPreset.FULL_SQUAT    -> 0.06f
-        }
+        val kneeCaveOffsetGate = 0.06f
         val faults = mutableListOf<SquatFault>()
         val now = System.currentTimeMillis()
 
@@ -427,16 +493,12 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
         if (currentPhase == SquatPhase.STANDING && !isInsideRep) return faults
 
-        // 1) GO_DEEPER — only when the user starts ascending without reaching maxValidAngle.
-        val oldRaw     = rawAngleHistory[(rawHistIndex + 1) % rawAngleHistory.size]
-        val currentRaw = rawAngleHistory[rawHistIndex]
-        val rawDelta   = currentRaw - oldRaw
-        val isAscending = rawDelta > 2.5f
-
-        if ((currentPhase == SquatPhase.ASCENDING || isAscending) &&
-            maxDepthReachedThisRep > depthProfile.maxValidAngle &&
-            kneeAngle < depthProfile.standing
+        // 1) GO_DEEPER — only when the user is ascending back to standing after failing to reach parallel depth.
+        if (isInsideRep && hasLeftStandingThisRep && currentPhase == SquatPhase.ASCENDING &&
+            maxDepthReachedThisRep > (depthProfile.targetBottom + 2f) &&
+            SquatFault.GO_DEEPER !in faultsAnnouncedThisRep
         ) {
+            faultsAnnouncedThisRep.add(SquatFault.GO_DEEPER)
             addFault(SquatFault.GO_DEEPER)
         }
 
@@ -472,7 +534,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         }
 
         // 3) KNEE CAVE — front view ONLY.
-        if (isFrontView && (kneeAngle < kneeCaveAngleGate || isInsideRep)) {
+        if (isFrontView) {
             val lH = lm[LM.LEFT_HIP]
             val lK = lm[LM.LEFT_KNEE]
             val lA = lm[LM.LEFT_ANKLE]
@@ -486,7 +548,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
                 calculateAngle(rH, rK, rA, w, h) else 180f
 
             val minKneeAngle = minOf(leftKneeAngle, rightKneeAngle)
-            if (minKneeAngle < kneeCaveAngleGate) {
+            if (minKneeAngle < kneeCaveAngleGate || kneeAngle < kneeCaveAngleGate || isInsideRep) {
                 if (lK != null && lA != null) {
                     if (lK.x < lA.x - kneeCaveOffsetGate) {
                         addFault(SquatFault.LEFT_KNEE_CAVE)
@@ -525,8 +587,12 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         leanForwardFrameStreak = 0
         rawAngleHistory.fill(180f)
         rawHistIndex = 0
+        lastRawKneeAngle = null
+        lastRawHipAngle = null
+        lastLandmarkCoords.fill(null)
         kneeAngleFilter.reset()
         hipAngleFilter.reset()
+        landmarkFilters.forEach { it.reset() }
         faultsAnnouncedThisRep.clear()
         faultCooldowns.fill(0L)
 
@@ -556,20 +622,20 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         val cx = c.x * width
         val cy = c.y * height
 
-        val radians = atan2((cy - by).toDouble(), (cx - bx).toDouble()) -
-                atan2((ay - by).toDouble(), (ax - bx).toDouble())
+        val radians = kotlin.math.atan2((cy - by).toDouble(), (cx - bx).toDouble()) -
+                kotlin.math.atan2((ay - by).toDouble(), (ax - bx).toDouble())
 
-        var angle = abs(Math.toDegrees(radians)).toFloat()
+        var angle = kotlin.math.abs(Math.toDegrees(radians)).toFloat()
         if (angle > 180f) angle = 360f - angle
         return angle
     }
 }
 
 /**
- * One Euro (1€) Adaptive Filter for real-time joint angle smoothing.
+ * One Euro (1€) Adaptive Filter for real-time kinematic signal smoothing.
  * Dynamically adjusts cutoff frequency based on movement speed:
- * - High movement velocity (explosive squats) -> Low smoothing, Zero lag.
- * - Low movement velocity (bottom holds) -> High smoothing, Zero micro-jitter.
+ * - High movement velocity (explosive motion) -> Low smoothing, Zero lag.
+ * - Low movement velocity (static holds) -> High smoothing, Zero micro-jitter.
  */
 class OneEuroFilter(
     private var minCutoff: Float = 1.0f,
@@ -591,9 +657,10 @@ class OneEuroFilter(
         }
 
         val dtRaw = (timestampMs - tPrev) / 1000.0f
-        val dt = if (dtRaw > 0.001f) dtRaw else 0.033f
+        // Monotonic dt clamping: use measured dt if >1ms, else fallback to 0.033s (30fps) for test loops
+        val dt = if (dtRaw > 0.001f) dtRaw.coerceAtMost(0.200f) else 0.033f
 
-        // Derivative (angular velocity)
+        // Derivative (velocity)
         val dx = (x - xPrev) / dt
         val alphaDx = alpha(dt, dCutoff)
         val edx = alphaDx * dx + (1.0f - alphaDx) * dxPrev
@@ -614,10 +681,67 @@ class OneEuroFilter(
         return 1.0f / (1.0f + tau / dt)
     }
 
+    fun reset(seedValue: Float = 0.0f, timestampMs: Long = 0L) {
+        if (timestampMs > 0L) {
+            xPrev = seedValue
+            dxPrev = 0.0f
+            tPrev = timestampMs
+            isInitialized = true
+        } else {
+            isInitialized = false
+            xPrev = 0.0f
+            dxPrev = 0.0f
+            tPrev = 0L
+        }
+    }
+}
+
+/**
+ * Anisotropic 3D Spatial Landmark Coordinate One Euro (1€) Filter.
+ * Applies dedicated parameters for 2D image plane (X, Y) vs 3D depth (Z).
+ * Supports visibility-gated state freezing and seeded re-acquisition recovery.
+ */
+class OneEuroFilter3D(
+    minCutoffXY: Float = 3.0f,
+    betaXY: Float = 0.5f,
+    minCutoffZ: Float = 1.5f,
+    betaZ: Float = 0.1f,
+    dCutoff: Float = 1.0f
+) {
+    private val filterX = OneEuroFilter(minCutoffXY, betaXY, dCutoff)
+    private val filterY = OneEuroFilter(minCutoffXY, betaXY, dCutoff)
+    private val filterZ = OneEuroFilter(minCutoffZ, betaZ, dCutoff)
+    private var isOccluded = false
+
+    fun filter(
+        lm: PoseLandmarkPayload,
+        timestampMs: Long,
+        isVisible: Boolean,
+        clampedLm: PoseLandmarkPayload
+    ): PoseLandmarkPayload {
+        if (!isVisible) {
+            isOccluded = true
+            return clampedLm
+        }
+
+        if (isOccluded) {
+            filterX.reset(clampedLm.x, timestampMs)
+            filterY.reset(clampedLm.y, timestampMs)
+            filterZ.reset(clampedLm.z, timestampMs)
+            isOccluded = false
+            return clampedLm
+        }
+
+        val fx = filterX.filter(clampedLm.x, timestampMs)
+        val fy = filterY.filter(clampedLm.y, timestampMs)
+        val fz = filterZ.filter(clampedLm.z, timestampMs)
+        return clampedLm.copy(x = fx, y = fy, z = fz)
+    }
+
     fun reset() {
-        isInitialized = false
-        xPrev = 0.0f
-        dxPrev = 0.0f
-        tPrev = 0L
+        filterX.reset()
+        filterY.reset()
+        filterZ.reset()
+        isOccluded = false
     }
 }

@@ -138,7 +138,7 @@ class SquatFeedbackEventBusTest {
             kneeAngle = 85f,
             hipAngle = 60f,
             isLandmarkReliable = true,
-            activePreset = SquatDepthPreset.HALF_SQUAT,
+            targetAngleThreshold = 95f,
         )
         SquatFeedbackEventBus.emit(fb)
 
@@ -154,8 +154,6 @@ class SquatFeedbackEventBusTest {
         assertEquals(85f, map["kneeAngle"])
         assertEquals(60f, map["hipAngle"])
         assertEquals(true, map["isLandmarkReliable"])
-        assertEquals("HALF_SQUAT", map["activePreset"])
-        assertEquals(120f, map["angleThreshold"])
-        assertEquals("Athletic Strength (½ Squat)", map["presetLabel"])
+        assertEquals(95f, map["angleThreshold"])
     }
 }
