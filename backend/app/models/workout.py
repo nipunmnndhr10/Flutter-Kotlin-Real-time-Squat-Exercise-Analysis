@@ -23,7 +23,6 @@ class WorkoutSession(Base):
    avg_hip_angle = Column(Float)
    
    total_reps = Column(Integer, default=0)
-   form_score = Column(Float, default=100.0)
    fault_summary_json = Column(JSON, nullable=True)       # Store faults as JSON
 
    created_at = Column(DateTime(timezone=True), server_default=func.now())

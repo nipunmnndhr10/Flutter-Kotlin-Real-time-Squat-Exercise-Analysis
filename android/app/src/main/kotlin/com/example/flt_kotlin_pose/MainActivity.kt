@@ -108,7 +108,6 @@ class MainActivity : FlutterActivity() {
                         val summaryMap = mapOf(
                             "durationSeconds" to summary.durationSeconds,
                             "totalReps" to summary.totalReps,
-                            "formScore" to summary.formScore,
                             "avgKneeAngle" to summary.avgKneeAngle.toDouble(),
                             "avgHipAngle" to summary.avgHipAngle.toDouble(),
                             "minKneeAngle" to summary.minKneeAngle.toDouble(),

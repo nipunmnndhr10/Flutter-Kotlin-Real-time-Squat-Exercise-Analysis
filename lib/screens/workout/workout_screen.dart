@@ -240,11 +240,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 value: summary['totalReps']?.toString() ?? '-',
               ),
               _SummaryRow(
-                label: 'Form Score',
-                value:
-                    '${(summary['formScore'] ?? summary['form_score'] ?? 100)}%',
-              ),
-              _SummaryRow(
                 label: 'Avg Knee Angle',
                 value:
                     '${(summary['avgKneeAngle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
@@ -373,7 +368,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       'min_hip_angle': summary['minHipAngle'] ?? 0.0,
       'avg_hip_angle': summary['avgHipAngle'] ?? 0.0,
       'total_reps': summary['totalReps'] ?? 0,
-      'form_score': (summary['formScore'] ?? summary['form_score'] ?? 100.0).toDouble(),
       'fault_summary_json': summary['faultSummaryJson'] ?? {},
     };
 

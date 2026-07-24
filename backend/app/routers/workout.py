@@ -42,7 +42,6 @@ def save_session_summary(
         min_hip_angle=session.min_hip_angle,
         avg_hip_angle=session.avg_hip_angle,
         total_reps=session.total_reps,
-        form_score=session.form_score,
         fault_summary_json=session.fault_summary_json,
     )
 

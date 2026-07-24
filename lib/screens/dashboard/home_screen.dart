@@ -19,9 +19,7 @@ class HomeScreen extends StatelessWidget {
   final String greeting;
   final String profilePictureUrl;
   final int totalSquats;
-  final int weeklySquatsTotal;
-  final int weeklyForm;
-  final int allTimeForm;
+  final int topForm;
   final List<int> weeklySquats;
   final VoidCallback onLogout;
   final VoidCallback onOpenCamera;
@@ -38,9 +36,7 @@ class HomeScreen extends StatelessWidget {
     required this.greeting,
     this.profilePictureUrl = '',
     required this.totalSquats,
-    required this.weeklySquatsTotal,
-    required this.weeklyForm,
-    required this.allTimeForm,
+    required this.topForm,
     required this.weeklySquats,
     required this.onLogout,
     required this.onOpenCamera,
@@ -67,12 +63,7 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 24),
           _SquatSessionCard(onTap: onOpenCamera),
           const SizedBox(height: 16),
-          _StatRow(
-            totalSquats: totalSquats,
-            weeklySquatsTotal: weeklySquatsTotal,
-            weeklyForm: weeklyForm,
-            allTimeForm: allTimeForm,
-          ),
+          _StatRow(totalSquats: totalSquats, topForm: topForm),
           const SizedBox(height: 24),
           _WeeklySection(data: weeklySquats),
           const SizedBox(height: 16),
@@ -260,26 +251,10 @@ class _SquatSessionCard extends StatelessWidget {
   }
 }
 
-class _StatRow extends StatefulWidget {
+class _StatRow extends StatelessWidget {
   final int totalSquats;
-  final int weeklySquatsTotal;
-  final int weeklyForm;
-  final int allTimeForm;
-
-  const _StatRow({
-    required this.totalSquats,
-    required this.weeklySquatsTotal,
-    required this.weeklyForm,
-    required this.allTimeForm,
-  });
-
-  @override
-  State<_StatRow> createState() => _StatRowState();
-}
-
-class _StatRowState extends State<_StatRow> {
-  bool _totalSquatsIsAllTime = true;
-  bool _formScoreIsWeekly = true;
+  final int topForm;
+  const _StatRow({required this.totalSquats, required this.topForm});
 
   String _fmt(int n) {
     if (n >= 1000) {
@@ -291,20 +266,13 @@ class _StatRowState extends State<_StatRow> {
 
   @override
   Widget build(BuildContext context) {
-    final squatsValue = _totalSquatsIsAllTime ? widget.totalSquats : widget.weeklySquatsTotal;
-    final squatsBadge = _totalSquatsIsAllTime ? 'ALL TIME' : 'LAST 7 DAYS';
-
-    final formValue = _formScoreIsWeekly ? widget.weeklyForm : widget.allTimeForm;
-    final formBadge = _formScoreIsWeekly ? 'LAST 7 DAYS' : 'ALL TIME';
-
     return Row(
       children: [
         Expanded(
           child: _StatCard(
             label: 'Total Squats',
-            value: _fmt(squatsValue),
-            badgeText: squatsBadge,
-            onTap: () => setState(() => _totalSquatsIsAllTime = !_totalSquatsIsAllTime),
+            value: _fmt(totalSquats),
+            badgeText: 'ALL TIME',
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -316,10 +284,9 @@ class _StatRowState extends State<_StatRow> {
         Expanded(
           child: _StatCard(
             label: 'Form Score',
-            value: '$formValue',
+            value: '94',
             suffix: ' %',
-            badgeText: formBadge,
-            onTap: () => setState(() => _formScoreIsWeekly = !_formScoreIsWeekly),
+            badgeText: 'LAST 7 DAYS',
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -338,7 +305,6 @@ class _StatCard extends StatelessWidget {
   final String? suffix;
   final String badgeText;
   final Gradient gradient;
-  final VoidCallback? onTap;
 
   const _StatCard({
     required this.label,
@@ -346,81 +312,72 @@ class _StatCard extends StatelessWidget {
     this.suffix,
     required this.badgeText,
     required this.gradient,
-    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: gradient,
         borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Ink(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: gradient,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Align(
-                alignment: Alignment.topRight,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(179),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    badgeText,
-                    style: GoogleFonts.jetBrainsMono(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: kTextPrimary,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Align(
+            alignment: Alignment.topRight,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(179),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                badgeText,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: kTextPrimary,
+                  letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 24),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            label,
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: kTextPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
               Text(
-                label,
+                value,
                 style: GoogleFonts.jetBrainsMono(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w700,
                   color: kTextPrimary,
                 ),
               ),
-              const SizedBox(height: 4),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    value,
-                    style: GoogleFonts.jetBrainsMono(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w700,
-                      color: kTextPrimary,
-                    ),
+              if (suffix != null)
+                Text(
+                  suffix!,
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: kTextMuted,
                   ),
-                  if (suffix != null)
-                    Text(
-                      suffix!,
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: kTextMuted,
-                      ),
-                    ),
-                ],
-              ),
+                ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }

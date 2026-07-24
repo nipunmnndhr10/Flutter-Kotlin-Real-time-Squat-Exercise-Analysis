@@ -136,21 +136,13 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     private var sessionPausedMillis = 0L
     @Volatile private var isPaused = false
 
-    private var sessionFaultGoDeeper = 0
-    private var sessionFaultLeanForward = 0
-    private var sessionFaultKneeCave = 0
-    private var sessionFaultTooLow = 0
-    private var sessionFrontViewFrames = 0
-    private var sessionTotalFramesWithView = 0
-
     data class WorkoutSummary(
         val avgKneeAngle: Float,
         val avgHipAngle: Float,
         val minKneeAngle: Float,
         val minHipAngle: Float,
         val durationSeconds: Long,
-        val totalReps: Int,
-        val formScore: Int
+        val totalReps: Int
     )
 
     fun endWorkoutSummary(): WorkoutSummary? {
@@ -162,26 +154,13 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         val avgKneeAngle = sessionSumKneeAngle / sessionFrameCount
         val avgHipAngle = sessionSumHipAngle / sessionFrameCount
 
-        val isMostlyFrontView = (sessionTotalFramesWithView > 0) && (sessionFrontViewFrames.toFloat() / sessionTotalFramesWithView > 0.5f)
-
-        val totalDeduction = if (isMostlyFrontView) {
-            (sessionFaultGoDeeper * 20f) + (sessionFaultLeanForward * 15f) + (sessionFaultKneeCave * 15f) + (sessionFaultTooLow * 10f)
-        } else {
-            // Side View Focus (Primary)
-            (sessionFaultGoDeeper * 25f) + (sessionFaultLeanForward * 20f) + (sessionFaultTooLow * 10f)
-        }
-
-        val reps = repCount.coerceAtLeast(1)
-        val formScore = (100f - (totalDeduction / reps)).toInt().coerceIn(0, 100)
-
         return WorkoutSummary(
             avgKneeAngle = avgKneeAngle,
             avgHipAngle = avgHipAngle,
             minKneeAngle = sessionMinKneeAngle,
             minHipAngle = sessionMinHipAngle,
             durationSeconds = durationSeconds,
-            totalReps = repCount,
-            formScore = formScore
+            totalReps = repCount
         )
     }
 
@@ -278,9 +257,6 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             val shoulderWidthNorm = abs(lS.x - rS.x)
             shoulderWidthNorm > 0.15f
         }
-
-        sessionTotalFramesWithView++
-        if (isFrontView) sessionFrontViewFrames++
 
         // Compute both knee angles. Use bilateral averaging only in front view;
         // in side view rely on the single most-visible side.
@@ -512,12 +488,6 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             if (now - last > faultCooldownTime) {
                 faultCooldowns[f.ordinal] = now
                 faults.add(f)
-                when (f) {
-                    SquatFault.GO_DEEPER -> sessionFaultGoDeeper++
-                    SquatFault.LEAN_FORWARD -> sessionFaultLeanForward++
-                    SquatFault.LEFT_KNEE_CAVE, SquatFault.RIGHT_KNEE_CAVE -> sessionFaultKneeCave++
-                    SquatFault.TOO_LOW -> sessionFaultTooLow++
-                }
             }
         }
 
@@ -635,12 +605,6 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         sessionStartTime = 0L
         sessionPausedAt = 0L
         sessionPausedMillis = 0L
-        sessionFaultGoDeeper = 0
-        sessionFaultLeanForward = 0
-        sessionFaultKneeCave = 0
-        sessionFaultTooLow = 0
-        sessionFrontViewFrames = 0
-        sessionTotalFramesWithView = 0
         isPaused = false
     }
 
