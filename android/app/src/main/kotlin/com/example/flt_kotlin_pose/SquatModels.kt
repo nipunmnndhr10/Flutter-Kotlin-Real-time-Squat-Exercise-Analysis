@@ -32,4 +32,5 @@ data class SquatFeedback(
     val hipAngle: Float,
     val isLandmarkReliable: Boolean,
     val targetAngleThreshold: Float = 95.0f,
+    val formScore: Int = 100,
 )

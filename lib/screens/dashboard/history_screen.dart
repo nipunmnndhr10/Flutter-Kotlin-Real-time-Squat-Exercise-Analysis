@@ -391,9 +391,31 @@ class HistoryScreen extends StatelessWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: _buildDetailCard(
+                          label: 'Form Score',
+                          value:
+                              '${(workout['form_score'] ?? workout['formScore'] as num?)?.round() ?? 100}%',
+                          icon: Icons.verified_rounded,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDetailCard(
                           label: 'Duration',
                           value: durationText,
                           icon: Icons.timer_outlined,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildDetailCard(
+                          label: 'Min Knee Angle',
+                          value:
+                              '${(workout['min_knee_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+                          icon: Icons.transform,
                         ),
                       ),
                     ],
@@ -811,13 +833,34 @@ class _WorkoutHistoryCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  durationText,
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: kTextPrimary,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      durationText,
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: kTextPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: kPrimaryContainer,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${(workout['form_score'] ?? workout['formScore'] as num?)?.round() ?? 100}% Form',
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: kOnPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

@@ -19,7 +19,9 @@ class HomeScreen extends StatelessWidget {
   final String greeting;
   final String profilePictureUrl;
   final int totalSquats;
-  final int topForm;
+  final int weeklySquatsTotal;
+  final int weeklyForm;
+  final int allTimeForm;
   final List<int> weeklySquats;
   final VoidCallback onLogout;
   final VoidCallback onOpenCamera;
@@ -36,7 +38,9 @@ class HomeScreen extends StatelessWidget {
     required this.greeting,
     this.profilePictureUrl = '',
     required this.totalSquats,
-    required this.topForm,
+    required this.weeklySquatsTotal,
+    required this.weeklyForm,
+    required this.allTimeForm,
     required this.weeklySquats,
     required this.onLogout,
     required this.onOpenCamera,
@@ -63,7 +67,12 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 24),
           _SquatSessionCard(onTap: onOpenCamera),
           const SizedBox(height: 16),
-          _StatRow(totalSquats: totalSquats, topForm: topForm),
+          _StatRow(
+            totalSquats: totalSquats,
+            weeklySquatsTotal: weeklySquatsTotal,
+            weeklyForm: weeklyForm,
+            allTimeForm: allTimeForm,
+          ),
           const SizedBox(height: 24),
           _WeeklySection(data: weeklySquats),
           const SizedBox(height: 16),
@@ -251,10 +260,26 @@ class _SquatSessionCard extends StatelessWidget {
   }
 }
 
-class _StatRow extends StatelessWidget {
+class _StatRow extends StatefulWidget {
   final int totalSquats;
-  final int topForm;
-  const _StatRow({required this.totalSquats, required this.topForm});
+  final int weeklySquatsTotal;
+  final int weeklyForm;
+  final int allTimeForm;
+
+  const _StatRow({
+    required this.totalSquats,
+    required this.weeklySquatsTotal,
+    required this.weeklyForm,
+    required this.allTimeForm,
+  });
+
+  @override
+  State<_StatRow> createState() => _StatRowState();
+}
+
+class _StatRowState extends State<_StatRow> {
+  bool _totalSquatsIsAllTime = true;
+  bool _formScoreIsWeekly = true;
 
   String _fmt(int n) {
     if (n >= 1000) {
@@ -266,13 +291,20 @@ class _StatRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final squatsValue = _totalSquatsIsAllTime ? widget.totalSquats : widget.weeklySquatsTotal;
+    final squatsBadge = _totalSquatsIsAllTime ? 'ALL TIME' : 'LAST 7 DAYS';
+
+    final formValue = _formScoreIsWeekly ? widget.weeklyForm : widget.allTimeForm;
+    final formBadge = _formScoreIsWeekly ? 'LAST 7 DAYS' : 'ALL TIME';
+
     return Row(
       children: [
         Expanded(
           child: _StatCard(
             label: 'Total Squats',
-            value: _fmt(totalSquats),
-            badgeText: 'ALL TIME',
+            value: _fmt(squatsValue),
+            badgeText: squatsBadge,
+            onTap: () => setState(() => _totalSquatsIsAllTime = !_totalSquatsIsAllTime),
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -284,9 +316,10 @@ class _StatRow extends StatelessWidget {
         Expanded(
           child: _StatCard(
             label: 'Form Score',
-            value: '94',
+            value: '$formValue',
             suffix: ' %',
-            badgeText: 'LAST 7 DAYS',
+            badgeText: formBadge,
+            onTap: () => setState(() => _formScoreIsWeekly = !_formScoreIsWeekly),
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -305,6 +338,7 @@ class _StatCard extends StatelessWidget {
   final String? suffix;
   final String badgeText;
   final Gradient gradient;
+  final VoidCallback? onTap;
 
   const _StatCard({
     required this.label,
@@ -312,72 +346,81 @@ class _StatCard extends StatelessWidget {
     this.suffix,
     required this.badgeText,
     required this.gradient,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: gradient,
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
         borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Align(
-            alignment: Alignment.topRight,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(179),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                badgeText,
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: kTextPrimary,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
+        onTap: onTap,
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: gradient,
+            borderRadius: BorderRadius.circular(20),
           ),
-          const SizedBox(height: 24),
-          Text(
-            label,
-            style: GoogleFonts.jetBrainsMono(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: kTextPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                value,
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                  color: kTextPrimary,
-                ),
-              ),
-              if (suffix != null)
-                Text(
-                  suffix!,
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: kTextMuted,
+              Align(
+                alignment: Alignment.topRight,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(179),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    badgeText,
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: kTextPrimary,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                label,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: kTextPrimary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    value,
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w700,
+                      color: kTextPrimary,
+                    ),
+                  ),
+                  if (suffix != null)
+                    Text(
+                      suffix!,
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: kTextMuted,
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

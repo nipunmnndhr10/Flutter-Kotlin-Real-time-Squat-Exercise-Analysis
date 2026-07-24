@@ -353,6 +353,11 @@ class _PoseScreenState extends State<PoseScreen> {
 
   Map<String, dynamic> _buildWorkoutSummary(Map<Object?, Object?>? summaryMap) {
     final workoutEndedAt = DateTime.now().toUtc();
+    final totalFaults = _faultSummaryCounts.values.fold(0, (a, b) => a + b);
+    final reps = math.max(1, _lastKnownRepCount);
+    final formScore = summaryMap?['formScore'] ??
+        (100 - ((totalFaults * 20) / reps)).round().clamp(0, 100);
+
     return <String, dynamic>{
       if (summaryMap != null)
         ...summaryMap.map((key, value) => MapEntry(key.toString(), value)),
@@ -363,6 +368,8 @@ class _PoseScreenState extends State<PoseScreen> {
       'targetAngleThreshold': _squatFeedback.value.angleThreshold,
       'camera': _isFrontCamera ? 'front' : 'back',
       'faultSummaryJson': Map<String, int>.from(_faultSummaryCounts),
+      'formScore': formScore,
+      'form_score': formScore,
     };
   }
 
