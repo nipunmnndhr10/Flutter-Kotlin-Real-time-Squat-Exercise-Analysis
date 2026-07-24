@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -41,6 +42,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _profilePictureUrl = '';
   bool _hasLoggedInBefore = false;
   int _weeksAgo = 0;
+  Timer? _notificationTimer;
 
   Future<void> _markNotificationsRead() async {
     try {
@@ -95,6 +97,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _currentUserName = widget.userName;
     _loadWorkouts();
+    // Auto-refresh notifications every 30 seconds
+    _notificationTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _fetchNotifications(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _notificationTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _fetchNotifications() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      if (token == null || token.isEmpty) return;
+
+      final dio = Dio(
+        BaseOptions(
+          baseUrl: kApiBaseUrl,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      final notifResponse = await dio.get('/notifications/my-notifications');
+      if (notifResponse.data is List && mounted) {
+        setState(() {
+          _backendNotifications =
+              (notifResponse.data as List).cast<Map<String, dynamic>>();
+        });
+      }
+    } catch (_) {}
   }
 
   void _updateStatsFromWorkouts() {
@@ -428,6 +467,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         WorkoutScreen(
           onWorkoutSaved: () {
             _loadWorkouts();
+            _fetchNotifications(); // Instantly refresh notifications after workout save
             setState(() => _currentIndex = 0);
           },
         ),

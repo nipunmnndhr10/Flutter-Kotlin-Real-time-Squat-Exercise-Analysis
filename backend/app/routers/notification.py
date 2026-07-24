@@ -35,3 +35,16 @@ def mark_notifications_read(
     ).update({"is_read": True})
     db.commit()
     return {"detail": "All notifications marked as read"}
+
+
+@router.delete("/clear-all")
+def clear_all_notifications(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete all notifications for the current user."""
+    db.query(Notification).filter(
+        Notification.user_id == current_user.id,
+    ).delete()
+    db.commit()
+    return {"detail": "All notifications cleared"}
