@@ -69,8 +69,6 @@ class _PoseScreenState extends State<PoseScreen> {
   bool _isWorkoutPaused = false;
   late final DateTime _workoutStartedAt;
 
-
-
   @override
   void initState() {
     super.initState();
@@ -377,8 +375,6 @@ class _PoseScreenState extends State<PoseScreen> {
     setState(() => _isFrontCamera = newFrontState);
     await _actionChannel.invokeMethod('toggleCameraFacing', newFrontState);
   }
-
-
 
   /// User chose "End Session" from the idle banner — end immediately.
   void _handleEndSession() {
@@ -744,8 +740,6 @@ class SquatFeedbackData {
   final String presetLabel;
 }
 
-
-
 // Pose Painter
 
 class PosePainter extends CustomPainter {
@@ -843,10 +837,8 @@ class PosePainter extends CustomPainter {
   );
 
   static final Map<Color, Paint> _jointFillPaints = {};
-  static Paint _jointFillPaint(Color color) => _jointFillPaints.putIfAbsent(
-    color,
-    () => Paint()..color = color,
-  );
+  static Paint _jointFillPaint(Color color) =>
+      _jointFillPaints.putIfAbsent(color, () => Paint()..color = color);
 
   static final _jointHighlightPaint = Paint()
     ..color = Colors.white.withAlpha(200);

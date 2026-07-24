@@ -1,11 +1,18 @@
+import 'package:flt_kotlin_pose/screens/dashboard/dashboard_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
-const kPrimary = Color(0xFF4CAF50);
-const kSecondary = Color(0xFF81C784);
+import 'dart:math' as math;
+
 const kBackground = Color(0xFFF9F9F9);
-const kSurface = Color(0xFFE8F5E9);
+const kLime = Color(0xFFC5F014);
+const kOlive = Color(0xFF4C5E0E);
+const kSurface = Color(0xFFF4F5F0);
 const kTextPrimary = Color(0xFF1A1A1A);
 const kTextMuted = Color(0xFF757575);
+const kCardGradientStart = Color(0xFFF4EBE3);
+const kCardGradientEnd = Color(0xFFE8F2D0);
 
 class HomeScreen extends StatelessWidget {
   final String userName;
@@ -54,18 +61,11 @@ class HomeScreen extends StatelessWidget {
             onLogout: onLogout,
           ),
           const SizedBox(height: 24),
-          _CameraButton(onTap: onOpenCamera),
-          const SizedBox(height: 20),
+          _SquatSessionCard(onTap: onOpenCamera),
+          const SizedBox(height: 16),
           _StatRow(totalSquats: totalSquats, topForm: topForm),
           const SizedBox(height: 24),
-          _WeeklyChart(
-            data: weeklySquats,
-            dateRangeText: dateRangeText,
-            hasPreviousWeek: hasPreviousWeek,
-            hasNextWeek: hasNextWeek,
-            onPreviousWeek: onPreviousWeek,
-            onNextWeek: onNextWeek,
-          ),
+          _WeeklySection(data: weeklySquats),
           const SizedBox(height: 16),
         ],
       ),
@@ -100,6 +100,7 @@ class _Header extends StatelessWidget {
                 ? DecorationImage(
                     image: NetworkImage(profilePictureUrl),
                     fit: BoxFit.cover,
+                    onError: (exception, stackTrace) {},
                   )
                 : null,
           ),
@@ -114,84 +115,137 @@ class _Header extends StatelessWidget {
             children: [
               Text(
                 greeting,
-                style: const TextStyle(fontSize: 12, color: kTextMuted),
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: kTextMuted,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               Text(
                 userName,
-                style: const TextStyle(
-                  fontSize: 16,
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 22,
                   color: kTextPrimary,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
+                  height: 1.1,
                 ),
               ),
             ],
           ),
         ),
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: kSurface,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Icon(
-            Icons.notifications_outlined,
-            color: kTextPrimary,
-            size: 20,
-          ),
-        ),
-        const SizedBox(width: 8),
-        GestureDetector(
-          onTap: onLogout,
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: kSurface,
-              borderRadius: BorderRadius.circular(12),
+        Stack(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: Colors.transparent,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.notifications_none_rounded,
+                color: kTextPrimary,
+                size: 26,
+              ),
             ),
-            child: const Icon(
-              Icons.logout_outlined,
-              color: Colors.red,
-              size: 20,
+            Positioned(
+              right: 8,
+              top: 8,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: kOlive,
+                  shape: BoxShape.circle,
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ],
     );
   }
 }
 
-class _CameraButton extends StatelessWidget {
+class _SquatSessionCard extends StatelessWidget {
   final VoidCallback onTap;
-  const _CameraButton({required this.onTap});
+  const _SquatSessionCard({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        height: 56,
-        decoration: BoxDecoration(
-          color: kPrimary,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.play_circle_outline, color: Colors.white, size: 24),
-            SizedBox(width: 10),
-            Text(
-              'Camera Setup',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: kLime,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -20,
+            bottom: -20,
+            child: SvgPicture.asset(
+              'assets/squat-icon.svg',
+              width: 200,
+              height: 200,
+              colorFilter: ColorFilter.mode(
+                Colors.black.withAlpha(13),
+                BlendMode.srcIn,
               ),
             ),
-          ],
-        ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Start your\nSquat Session',
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    color: kOlive.withAlpha(230),
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                GestureDetector(
+                  onTap: onTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: kOlive,
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.videocam_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Improve your form in real-time',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -215,14 +269,29 @@ class _StatRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: _StatCard(label: 'Total Squats', value: _fmt(totalSquats)),
+          child: _StatCard(
+            label: 'Total Squats',
+            value: _fmt(totalSquats),
+            badgeText: 'ALL TIME',
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [kCardGradientStart, kCardGradientEnd],
+            ),
+          ),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: 16),
         Expanded(
           child: _StatCard(
-            label: 'Top Form',
-            value: '$topForm%',
-            valueColor: kPrimary,
+            label: 'Form Score',
+            value: '94',
+            suffix: ' %',
+            badgeText: 'LAST 7 DAYS',
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFF3F3F3), Color(0xFFDFF0E8)],
+            ),
           ),
         ),
       ],
@@ -233,33 +302,80 @@ class _StatRow extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
-  final Color valueColor;
+  final String? suffix;
+  final String badgeText;
+  final Gradient gradient;
+
   const _StatCard({
     required this.label,
     required this.value,
-    this.valueColor = kTextPrimary,
+    this.suffix,
+    required this.badgeText,
+    required this.gradient,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: kSurface,
-        borderRadius: BorderRadius.circular(16),
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: kTextMuted)),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-              color: valueColor,
+          Align(
+            alignment: Alignment.topRight,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(179),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                badgeText,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: kTextPrimary,
+                  letterSpacing: 0.5,
+                ),
+              ),
             ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            label,
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: kTextPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                value,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w700,
+                  color: kTextPrimary,
+                ),
+              ),
+              if (suffix != null)
+                Text(
+                  suffix!,
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: kTextMuted,
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -267,116 +383,164 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _WeeklyChart extends StatelessWidget {
+class _WeeklySection extends StatelessWidget {
   final List<int> data;
-  final String dateRangeText;
-  final bool hasPreviousWeek;
-  final bool hasNextWeek;
-  final VoidCallback onPreviousWeek;
-  final VoidCallback onNextWeek;
 
-  const _WeeklyChart({
-    required this.data,
-    required this.dateRangeText,
-    required this.hasPreviousWeek,
-    required this.hasNextWeek,
-    required this.onPreviousWeek,
-    required this.onNextWeek,
-  });
-  static const _days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const _WeeklySection({required this.data});
+
+  static const _dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  static const _dayIndices = [1, 2, 3, 4, 5, 6, 0];
 
   @override
   Widget build(BuildContext context) {
-    final maxVal = data.isEmpty ? 0.0 : data.reduce((a, b) => a > b ? a : b).toDouble();
-    final today = DateTime.now().weekday % 7;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: kSurface,
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFFF6F3F2),
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                onPressed: hasPreviousWeek ? onPreviousWeek : null,
-                color: hasPreviousWeek ? kTextPrimary : Colors.black12,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              Text(
-                dateRangeText,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: kTextPrimary,
+              Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEBE7E7),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: SvgPicture.asset(
+                    'assets/squat-icon.svg',
+                    width: 31,
+                    height: 31,
+                    colorFilter: const ColorFilter.mode(
+                      Color(0xFF1C1B1B),
+                      BlendMode.srcIn,
+                    ),
+                  ),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                onPressed: hasNextWeek ? onNextWeek : null,
-                color: hasNextWeek ? kTextPrimary : Colors.black12,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'This Week',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1C1B1B),
+                    ),
+                  ),
+                  Text(
+                    'Squats',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF444933),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 120,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: List.generate(7, (i) {
-                final fraction = maxVal > 0 ? data[i] / maxVal : 0.0;
-                final isToday = i == today;
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
+          const SizedBox(height: 24),
+          Builder(
+            builder: (context) {
+              final maxVal = data.isEmpty
+                  ? 0.0
+                  : data.reduce(math.max).toDouble();
+              final safeMax = maxVal == 0 ? 1.0 : maxVal;
+
+              return Column(
+                children: List.generate(7, (i) {
+                  final dataIndex = _dayIndices[i];
+                  final val = data[dataIndex];
+                  final fraction = val / safeMax;
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
                       children: [
-                        Text(
-                          data[i] > 0 ? '${data[i]}' : '',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: kTextMuted,
+                        SizedBox(
+                          width: 32,
+                          child: Text(
+                            _dayNames[i],
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: const Color(0xFF444933),
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 600),
-                          curve: Curves.easeOut,
-                          height: 80 * fraction,
-                          decoration: BoxDecoration(
-                            color: isToday ? kPrimary : kSecondary,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          _days[i],
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: isToday ? kPrimary : kTextMuted,
-                            fontWeight: isToday
-                                ? FontWeight.w600
-                                : FontWeight.w400,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              return Stack(
+                                alignment: Alignment.centerLeft,
+                                children: [
+                                  Container(
+                                    height: 24,
+                                    width: constraints.maxWidth - 40,
+                                    decoration: BoxDecoration(
+                                      color: const Color(
+                                        0xFFEBE7E7,
+                                      ).withAlpha(128), // Light grey track
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  Row(
+                                    children: [
+                                      AnimatedContainer(
+                                        duration: const Duration(
+                                          milliseconds: 600,
+                                        ),
+                                        curve: Curves.easeOut,
+                                        height: 24,
+                                        width:
+                                            (constraints.maxWidth - 40) *
+                                            fraction,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFCCFF00),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                      ),
+                                      if (val > 0)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 8.0,
+                                          ),
+                                          child: Text(
+                                            '$val',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                              color: const Color(0xFF1C1B1B),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              );
+                            },
                           ),
                         ),
                       ],
                     ),
-                  ),
-                );
-              }),
-            ),
+                  );
+                }),
+              );
+            },
           ),
         ],
       ),
     );
   }
 }
-
