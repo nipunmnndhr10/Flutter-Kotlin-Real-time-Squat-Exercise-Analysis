@@ -41,9 +41,9 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     // direction. Comparing the current raw angle to the raw angle 6 frames ago gives a
     // lag-free descending/ascending signal that does not suffer from the rolling-average delay
     // that caused the smoothed angle to linger, flipping ASCENDING↔DESCENDING at transitions.
-    // Expanded from 4→6 to match the wider 7-frame smoothing buffer and provide a more
-    // stable velocity signal.
-    private val rawAngleHistory = FloatArray(6) { 180f }
+    // Expanded to 10 to match wider smoothing buffer and provide a more
+    // stable velocity signal over a longer timeframe for slow squats.
+    private val rawAngleHistory = FloatArray(10) { 180f }
     private var rawHistIndex = 0
 
     // Depth profile configuration
@@ -367,7 +367,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             repStartFrameStreak = 0
         }
 
-        if (!isInsideRep && repStartFrameStreak >= 3) {
+        if (!isInsideRep && repStartFrameStreak >= 2) {
             isInsideRep = true
             maxDepthReachedThisRep = kneeAngle
             maxHipDropThisRep = maxOf(0f, hipDrop)
@@ -388,7 +388,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             tooLowFrameStreak = 0
         }
 
-        if (tooLowFrameStreak >= 3) {
+        if (tooLowFrameStreak >= 2) {
             tooLowFault = SquatFault.TOO_LOW
         }
 
@@ -399,9 +399,9 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             standingFrameStreak = 0
         }
 
-        if (standingFrameStreak >= 3) {
-            // Validate rep depth: rep count ONLY increments if user achieved parallel depth (<= targetBottom + 2f)
-            val validRep = maxDepthReachedThisRep <= (bottom + 2f)
+        if (standingFrameStreak >= 2) {
+            // Validate rep depth: rep count ONLY increments if user achieved depth (<= maxValidAngle)
+            val validRep = maxDepthReachedThisRep <= maxValidAngle
 
             if (validRep) {
                 repCount++
@@ -424,8 +424,10 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         val currentRaw = rawAngleHistory[rawHistIndex]
         val rawDelta   = currentRaw - oldRaw
 
-        val isDescending = rawDelta < -2.5f
-        val isAscending  = rawDelta >  2.5f
+        // Lowered velocity thresholds from 2.5f to 1.0f to reliably trigger 
+        // DESCENDING and ASCENDING phases for slow, controlled squats or high-FPS cameras.
+        val isDescending = rawDelta < -1.0f
+        val isAscending  = rawDelta >  1.0f
 
         // Determine candidate phase
         val candidatePhase = when {
@@ -613,26 +615,19 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         width: Int,
         height: Int,
     ): Float {
-        val ux = (a.x - b.x) * width
-        val uy = (a.y - b.y) * height
-        val uz = (a.z - b.z) * width
+        val ax = a.x * width
+        val ay = a.y * height
+        val bx = b.x * width
+        val by = b.y * height
+        val cx = c.x * width
+        val cy = c.y * height
 
-        val vx = (c.x - b.x) * width
-        val vy = (c.y - b.y) * height
-        val vz = (c.z - b.z) * width
+        val radians = kotlin.math.atan2((cy - by).toDouble(), (cx - bx).toDouble()) -
+                kotlin.math.atan2((ay - by).toDouble(), (ax - bx).toDouble())
 
-        val dot = ux * vx + uy * vy + uz * vz
-
-        // Cross product u x v
-        val cx = uy * vz - uz * vy
-        val cy = uz * vx - ux * vz
-        val cz = ux * vy - uy * vx
-        val crossNorm = kotlin.math.sqrt((cx * cx + cy * cy + cz * cz).toDouble())
-
-        if (crossNorm == 0.0 && dot == 0f) return 180f
-
-        val angleRad = kotlin.math.atan2(crossNorm, dot.toDouble())
-        return Math.toDegrees(angleRad).toFloat()
+        var angle = kotlin.math.abs(Math.toDegrees(radians)).toFloat()
+        if (angle > 180f) angle = 360f - angle
+        return angle
     }
 }
 
