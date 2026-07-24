@@ -14,12 +14,17 @@ const kTextMuted = Color(0xFF757575);
 const kCardGradientStart = Color(0xFFF4EBE3);
 const kCardGradientEnd = Color(0xFFE8F2D0);
 
+const kSurfaceContainerHigh = Color(0xFFEBE7E7);
+const kSurfaceContainerHighest = Color(0xFFE5E2E1);
+
 class HomeScreen extends StatelessWidget {
   final String userName;
   final String greeting;
   final String profilePictureUrl;
   final int totalSquats;
-  final int topForm;
+  final int weeklySquatsTotal;
+  final int weeklyForm;
+  final int allTimeForm;
   final List<int> weeklySquats;
   final VoidCallback onLogout;
   final VoidCallback onOpenCamera;
@@ -36,7 +41,9 @@ class HomeScreen extends StatelessWidget {
     required this.greeting,
     this.profilePictureUrl = '',
     required this.totalSquats,
-    required this.topForm,
+    required this.weeklySquatsTotal,
+    required this.weeklyForm,
+    required this.allTimeForm,
     required this.weeklySquats,
     required this.onLogout,
     required this.onOpenCamera,
@@ -63,7 +70,12 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 24),
           _SquatSessionCard(onTap: onOpenCamera),
           const SizedBox(height: 16),
-          _StatRow(totalSquats: totalSquats, topForm: topForm),
+          _StatRow(
+            totalSquats: totalSquats,
+            weeklySquatsTotal: weeklySquatsTotal,
+            weeklyForm: weeklyForm,
+            allTimeForm: allTimeForm,
+          ),
           const SizedBox(height: 24),
           _WeeklySection(data: weeklySquats),
           const SizedBox(height: 16),
@@ -105,7 +117,7 @@ class _Header extends StatelessWidget {
                 : null,
           ),
           child: profilePictureUrl.isEmpty
-              ? const Icon(Icons.person_outline, color: kPrimary, size: 24)
+              ? const Icon(Icons.person_outline, color: kOlive, size: 24)
               : null,
         ),
         const SizedBox(width: 12),
@@ -133,36 +145,207 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
-        Stack(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: const BoxDecoration(
-                color: Colors.transparent,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.notifications_none_rounded,
-                color: kTextPrimary,
-                size: 26,
-              ),
+        const _NotificationButton(),
+      ],
+    );
+  }
+}
+
+class _NotificationButton extends StatefulWidget {
+  const _NotificationButton();
+
+  @override
+  State<_NotificationButton> createState() => _NotificationButtonState();
+}
+
+class _NotificationButtonState extends State<_NotificationButton> {
+  bool _hasUnread = true;
+
+  final List<Map<String, String>> _notifications = [
+    {
+      'title': 'Daily Goal Achieved!',
+      'body': 'You completed 30 squats today with a 94% form score.',
+      'time': '10m ago',
+      'icon': 'fitness',
+    },
+    {
+      'title': 'Form Tip: Knee Alignment',
+      'body': 'Keep your knees tracking over your toes for optimal depth.',
+      'time': '2h ago',
+      'icon': 'tip',
+    },
+    {
+      'title': 'Streak Maintained!',
+      'body': 'Great job keeping your workout streak active.',
+      'time': 'Yesterday',
+      'icon': 'streak',
+    },
+  ];
+
+  void _showNotificationsSheet(BuildContext context) {
+    setState(() => _hasUnread = false);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: kBackground,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: kSurfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Notifications',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: kTextPrimary,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                      },
+                      child: Text(
+                        'Close',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: kOlive,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ..._notifications.map((n) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: kSurface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: kSurfaceContainerHighest, width: 1),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: kOlive.withAlpha(25),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            n['icon'] == 'fitness'
+                                ? Icons.fitness_center_rounded
+                                : n['icon'] == 'tip'
+                                    ? Icons.lightbulb_outline_rounded
+                                    : Icons.local_fire_department_rounded,
+                            size: 18,
+                            color: kOlive,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      n['title']!,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: kTextPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    n['time']!,
+                                    style: GoogleFonts.jetBrainsMono(
+                                      fontSize: 11,
+                                      color: kTextMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                n['body']!,
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: kTextMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
             ),
-            Positioned(
-              right: 8,
-              top: 8,
-              child: Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: kOlive,
-                  shape: BoxShape.circle,
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => _showNotificationsSheet(context),
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Stack(
+          children: [
+            const Icon(
+              Icons.notifications_none_rounded,
+              color: kTextPrimary,
+              size: 26,
+            ),
+            if (_hasUnread)
+              Positioned(
+                right: 2,
+                top: 2,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: kOlive,
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -251,10 +434,26 @@ class _SquatSessionCard extends StatelessWidget {
   }
 }
 
-class _StatRow extends StatelessWidget {
+class _StatRow extends StatefulWidget {
   final int totalSquats;
-  final int topForm;
-  const _StatRow({required this.totalSquats, required this.topForm});
+  final int weeklySquatsTotal;
+  final int weeklyForm;
+  final int allTimeForm;
+
+  const _StatRow({
+    required this.totalSquats,
+    required this.weeklySquatsTotal,
+    required this.weeklyForm,
+    required this.allTimeForm,
+  });
+
+  @override
+  State<_StatRow> createState() => _StatRowState();
+}
+
+class _StatRowState extends State<_StatRow> {
+  bool _totalSquatsIsWeekly = true; // Default to LAST 7 DAYS
+  bool _formScoreIsWeekly = true;   // Default to LAST 7 DAYS
 
   String _fmt(int n) {
     if (n >= 1000) {
@@ -266,13 +465,20 @@ class _StatRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final squatsValue = _totalSquatsIsWeekly ? widget.weeklySquatsTotal : widget.totalSquats;
+    final squatsBadge = _totalSquatsIsWeekly ? 'LAST 7 DAYS' : 'ALL TIME';
+
+    final formValue = _formScoreIsWeekly ? widget.weeklyForm : widget.allTimeForm;
+    final formBadge = _formScoreIsWeekly ? 'LAST 7 DAYS' : 'ALL TIME';
+
     return Row(
       children: [
         Expanded(
           child: _StatCard(
             label: 'Total Squats',
-            value: _fmt(totalSquats),
-            badgeText: 'ALL TIME',
+            value: _fmt(squatsValue),
+            badgeText: squatsBadge,
+            onTap: () => setState(() => _totalSquatsIsWeekly = !_totalSquatsIsWeekly),
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -284,9 +490,10 @@ class _StatRow extends StatelessWidget {
         Expanded(
           child: _StatCard(
             label: 'Form Score',
-            value: '94',
+            value: '$formValue',
             suffix: ' %',
-            badgeText: 'LAST 7 DAYS',
+            badgeText: formBadge,
+            onTap: () => setState(() => _formScoreIsWeekly = !_formScoreIsWeekly),
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -305,6 +512,7 @@ class _StatCard extends StatelessWidget {
   final String? suffix;
   final String badgeText;
   final Gradient gradient;
+  final VoidCallback? onTap;
 
   const _StatCard({
     required this.label,
@@ -312,72 +520,81 @@ class _StatCard extends StatelessWidget {
     this.suffix,
     required this.badgeText,
     required this.gradient,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: gradient,
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
         borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Align(
-            alignment: Alignment.topRight,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(179),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                badgeText,
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: kTextPrimary,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
+        onTap: onTap,
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: gradient,
+            borderRadius: BorderRadius.circular(20),
           ),
-          const SizedBox(height: 24),
-          Text(
-            label,
-            style: GoogleFonts.jetBrainsMono(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: kTextPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                value,
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                  color: kTextPrimary,
-                ),
-              ),
-              if (suffix != null)
-                Text(
-                  suffix!,
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: kTextMuted,
+              Align(
+                alignment: Alignment.topRight,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(179),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    badgeText,
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: kTextPrimary,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                label,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: kTextPrimary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    value,
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w700,
+                      color: kTextPrimary,
+                    ),
+                  ),
+                  if (suffix != null)
+                    Text(
+                      suffix!,
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: kTextMuted,
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

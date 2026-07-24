@@ -27,6 +27,9 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
   int totalSquats = 0;
+  int weeklySquatsTotal = 0;
+  int weeklyForm = 100;
+  int allTimeForm = 100;
   int topForm = 0;
   List<int> weeklySquats = List.filled(7, 0);
   List<Map<String, dynamic>> _workouts = [];
@@ -46,12 +49,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _updateStatsFromWorkouts() {
-    int total = 0;
+    int allTimeTotal = 0;
+    int weekTotal = 0;
     final List<int> weekData = List.filled(7, 0);
 
+    double weekFormSum = 0;
+    int weekFormCount = 0;
+
+    double allTimeFormSum = 0;
+    int allTimeFormCount = 0;
+
     final now = DateTime.now();
-    // In Dart, weekday is 1 for Monday and 7 for Sunday.
-    // If today is Monday (1), subtract 0 days. If today is Sunday (7), subtract 6 days.
     final mostRecentMonday = DateTime(
       now.year,
       now.month,
@@ -65,7 +73,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     for (final w in _workouts) {
       final repsStr = w['total_reps']?.toString() ?? '0';
       final reps = int.tryParse(repsStr) ?? 0;
-      total += reps;
+      allTimeTotal += reps;
+
+      final formVal = (w['form_score'] ?? w['formScore'] as num?)?.toDouble() ?? 100.0;
+      allTimeFormSum += formVal;
+      allTimeFormCount++;
 
       final startedAt = DateTime.tryParse(
         w['started_at']?.toString() ?? '',
@@ -75,12 +87,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             startedAt.isBefore(targetWeekEnd)) {
           final dayIndex = startedAt.weekday % 7;
           weekData[dayIndex] += reps;
+          weekTotal += reps;
+
+          weekFormSum += formVal;
+          weekFormCount++;
         }
       }
     }
 
-    totalSquats = total;
+    totalSquats = allTimeTotal;
+    weeklySquatsTotal = weekTotal;
     weeklySquats = weekData;
+
+    weeklyForm = weekFormCount > 0 ? (weekFormSum / weekFormCount).round() : 100;
+    allTimeForm = allTimeFormCount > 0 ? (allTimeFormSum / allTimeFormCount).round() : 100;
+    topForm = weeklyForm;
   }
 
   Future<void> _loadWorkouts() async {
@@ -333,7 +354,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           greeting: _getGreeting(),
           profilePictureUrl: _profilePictureUrl,
           totalSquats: totalSquats,
-          topForm: topForm,
+          weeklySquatsTotal: weeklySquatsTotal,
+          weeklyForm: weeklyForm,
+          allTimeForm: allTimeForm,
           weeklySquats: weeklySquats,
           onLogout: _logout,
           onOpenCamera: _openCamera,
