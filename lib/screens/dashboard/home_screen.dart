@@ -27,6 +27,7 @@ class HomeScreen extends StatelessWidget {
   final List<int> weeklySquats;
   final List<Map<String, dynamic>> backendNotifications;
   final VoidCallback? onMarkNotificationsRead;
+  final VoidCallback? onClearNotifications;
   final VoidCallback onLogout;
   final VoidCallback onOpenCamera;
 
@@ -48,6 +49,7 @@ class HomeScreen extends StatelessWidget {
     required this.weeklySquats,
     this.backendNotifications = const [],
     this.onMarkNotificationsRead,
+    this.onClearNotifications,
     required this.onLogout,
     required this.onOpenCamera,
     required this.dateRangeText,
@@ -73,6 +75,7 @@ class HomeScreen extends StatelessWidget {
             totalSquats: totalSquats,
             backendNotifications: backendNotifications,
             onMarkNotificationsRead: onMarkNotificationsRead,
+            onClearNotifications: onClearNotifications,
             onLogout: onLogout,
           ),
           const SizedBox(height: 24),
@@ -102,6 +105,7 @@ class _Header extends StatelessWidget {
   final int totalSquats;
   final List<Map<String, dynamic>> backendNotifications;
   final VoidCallback? onMarkNotificationsRead;
+  final VoidCallback? onClearNotifications;
   final VoidCallback onLogout;
 
   const _Header({
@@ -113,6 +117,7 @@ class _Header extends StatelessWidget {
     required this.totalSquats,
     this.backendNotifications = const [],
     this.onMarkNotificationsRead,
+    this.onClearNotifications,
     required this.onLogout,
   });
 
@@ -169,6 +174,7 @@ class _Header extends StatelessWidget {
           totalSquats: totalSquats,
           backendNotifications: backendNotifications,
           onMarkNotificationsRead: onMarkNotificationsRead,
+          onClearNotifications: onClearNotifications,
         ),
       ],
     );
@@ -181,6 +187,7 @@ class _NotificationButton extends StatefulWidget {
   final int totalSquats;
   final List<Map<String, dynamic>> backendNotifications;
   final VoidCallback? onMarkNotificationsRead;
+  final VoidCallback? onClearNotifications;
 
   const _NotificationButton({
     required this.weeklySquatsTotal,
@@ -188,6 +195,7 @@ class _NotificationButton extends StatefulWidget {
     required this.totalSquats,
     this.backendNotifications = const [],
     this.onMarkNotificationsRead,
+    this.onClearNotifications,
   });
 
   @override
@@ -195,89 +203,59 @@ class _NotificationButton extends StatefulWidget {
 }
 
 class _NotificationButtonState extends State<_NotificationButton> {
-  bool _hasUnread = true;
+  bool _localReadState = false;
+  final MenuController _menuController = MenuController();
+
+  bool get _hasUnread {
+    if (_localReadState) return false;
+    if (widget.backendNotifications.isEmpty) return false;
+    return widget.backendNotifications.any(
+      (n) => n['is_read'] == false || n['is_read'] == 0,
+    );
+  }
 
   List<Map<String, String>> get _displayNotifications {
-    if (widget.backendNotifications.isNotEmpty) {
-      return widget.backendNotifications.map((n) {
-        return {
-          'title': n['title']?.toString() ?? 'Notification',
-          'body': n['body']?.toString() ?? '',
-          'time': 'Just now',
-          'icon': n['notification_type']?.toString() ?? 'fitness',
-        };
-      }).toList();
-    }
+    return widget.backendNotifications.map((n) {
+      final createdStr = n['created_at']?.toString();
+      String timeAgo = 'Just now';
+      if (createdStr != null) {
+        final dt = DateTime.tryParse(createdStr)?.toLocal();
+        if (dt != null) {
+          final diff = DateTime.now().difference(dt);
+          if (diff.inMinutes < 1) {
+            timeAgo = 'Just now';
+          } else if (diff.inMinutes < 60) {
+            timeAgo = '${diff.inMinutes}m ago';
+          } else if (diff.inHours < 24) {
+            timeAgo = '${diff.inHours}h ago';
+          } else {
+            timeAgo = '${diff.inDays}d ago';
+          }
+        }
+      }
 
-    final List<Map<String, String>> list = [];
-
-    if (widget.weeklySquatsTotal > 0) {
-      list.add({
-        'title': 'Weekly Goal Progress',
-        'body': 'You completed ${widget.weeklySquatsTotal} squats this week with ${widget.weeklyForm}% avg form!',
-        'time': 'Recent',
-        'icon': 'fitness',
-      });
-    } else {
-      list.add({
-        'title': 'Ready for your workout?',
-        'body': 'Start a squat session today to build your weekly streak!',
-        'time': 'Just now',
-        'icon': 'fitness',
-      });
-    }
-
-    if (widget.weeklyForm >= 90) {
-      list.add({
-        'title': 'Excellent Posture!',
-        'body': 'Your average form score is ${widget.weeklyForm}%. Depth and knee stability look great.',
-        'time': 'Form AI',
-        'icon': 'tip',
-      });
-    } else {
-      list.add({
-        'title': 'Form Coach Tip',
-        'body': 'Focus on keeping knees aligned with toes during descent to improve score.',
-        'time': 'Form AI',
-        'icon': 'tip',
-      });
-    }
-
-    if (widget.totalSquats > 0) {
-      list.add({
-        'title': 'Total Rep Milestone',
-        'body': 'You have completed ${widget.totalSquats} total squats in SquatMate.',
-        'time': 'All-Time',
-        'icon': 'streak',
-      });
-    } else {
-      list.add({
-        'title': 'Welcome to SquatMate',
-        'body': 'Position your camera in full view to begin real-time posture analysis.',
-        'time': 'Getting Started',
-        'icon': 'streak',
-      });
-    }
-
-    return list;
+      return {
+        'title': n['title']?.toString() ?? 'Notification',
+        'body': n['body']?.toString() ?? '',
+        'time': timeAgo,
+        'icon': n['notification_type']?.toString() ?? 'workout',
+      };
+    }).toList();
   }
 
   @override
   void didUpdateWidget(covariant _NotificationButton oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.weeklySquatsTotal != oldWidget.weeklySquatsTotal ||
-        widget.weeklyForm != oldWidget.weeklyForm ||
-        widget.totalSquats != oldWidget.totalSquats) {
-      setState(() {
-        _hasUnread = true;
-      });
+    if (widget.backendNotifications.length != oldWidget.backendNotifications.length) {
+      _localReadState = false;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return MenuAnchor(
-      alignmentOffset: const Offset(-240, 6),
+      controller: _menuController,
+      alignmentOffset: const Offset(-275, 8),
       style: MenuStyle(
         backgroundColor: WidgetStateProperty.all(kBackground),
         elevation: WidgetStateProperty.all(8),
@@ -295,7 +273,7 @@ class _NotificationButtonState extends State<_NotificationButton> {
         return InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: () {
-            setState(() => _hasUnread = false);
+            setState(() => _localReadState = true);
             widget.onMarkNotificationsRead?.call();
             if (controller.isOpen) {
               controller.close();
@@ -350,34 +328,86 @@ class _NotificationButtonState extends State<_NotificationButton> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Notifications',
-                    style: GoogleFonts.hankenGrotesk(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: kTextPrimary,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        'Notifications',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: kTextPrimary,
+                        ),
+                      ),
+                      if (_hasUnread) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: kOlive.withAlpha(25),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'New',
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              color: kOlive,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  if (_hasUnread)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  InkWell(
+                    onTap: () {
+                      widget.onClearNotifications?.call();
+                      _menuController.close();
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: kOlive.withAlpha(25),
-                        borderRadius: BorderRadius.circular(10),
+                        color: kSurfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        'New',
-                        style: GoogleFonts.jetBrainsMono(
-                          fontSize: 10,
+                        'Clear All',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: kOlive,
+                          color: kTextPrimary,
                         ),
                       ),
                     ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
-              ..._displayNotifications.map((n) {
+              if (_displayNotifications.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.notifications_off_outlined,
+                          color: kTextMuted,
+                          size: 36,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'No new notifications',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: kTextMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                ..._displayNotifications.map((n) {
                 return Container(
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.all(12),

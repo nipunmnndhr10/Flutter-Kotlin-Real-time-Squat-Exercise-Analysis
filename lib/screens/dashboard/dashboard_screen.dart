@@ -67,6 +67,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (_) {}
   }
 
+  Future<void> _clearNotifications() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      if (token == null || token.isEmpty) return;
+
+      final dio = Dio(
+        BaseOptions(
+          baseUrl: kApiBaseUrl,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      await dio.delete('/notifications/clear-all');
+      setState(() {
+        _backendNotifications.clear();
+      });
+    } catch (_) {}
+  }
+
   @override
   void initState() {
     super.initState();
@@ -393,6 +416,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           weeklySquats: weeklySquats,
           backendNotifications: _backendNotifications,
           onMarkNotificationsRead: _markNotificationsRead,
+          onClearNotifications: _clearNotifications,
           onLogout: _logout,
           onOpenCamera: _openCamera,
           dateRangeText: _getDateRangeText(),
