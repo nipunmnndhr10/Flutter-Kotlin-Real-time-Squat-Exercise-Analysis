@@ -73,7 +73,7 @@ class SquatHeuristicEngineTest {
     }
 
     private fun prime(target: PoseFramePayload) {
-        repeat(5) { engine.analyze(target) }
+        repeat(15) { engine.analyze(target) }
     }
 
     private fun standing() = frame(
