@@ -33,6 +33,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int topForm = 0;
   List<int> weeklySquats = List.filled(7, 0);
   List<Map<String, dynamic>> _workouts = [];
+  List<Map<String, dynamic>> _backendNotifications = [];
   bool _isLoading = true;
   String? _error;
   String _currentUserName = '';
@@ -40,6 +41,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _profilePictureUrl = '';
   bool _hasLoggedInBefore = false;
   int _weeksAgo = 0;
+
+  Future<void> _markNotificationsRead() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      if (token == null || token.isEmpty) return;
+
+      final dio = Dio(
+        BaseOptions(
+          baseUrl: kApiBaseUrl,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      await dio.put('/notifications/mark-read');
+      setState(() {
+        for (var n in _backendNotifications) {
+          n['is_read'] = true;
+        }
+      });
+    } catch (_) {}
+  }
 
   @override
   void initState() {
@@ -182,6 +208,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // Fallback to local storage if profile fetch fails (e.g., network error).
         // 401 Unauthorized is caught by the outer catch block.
       }
+
+      try {
+        final notifResponse = await dio.get('/notifications/my-notifications');
+        if (notifResponse.data is List) {
+          _backendNotifications = (notifResponse.data as List).cast<Map<String, dynamic>>();
+        }
+      } catch (_) {}
 
       final response = await dio.get('/workouts/');
       final workouts = (response.data as List).cast<Map<String, dynamic>>();
@@ -358,6 +391,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           weeklyForm: weeklyForm,
           allTimeForm: allTimeForm,
           weeklySquats: weeklySquats,
+          backendNotifications: _backendNotifications,
+          onMarkNotificationsRead: _markNotificationsRead,
           onLogout: _logout,
           onOpenCamera: _openCamera,
           dateRangeText: _getDateRangeText(),

@@ -1,4 +1,3 @@
-import 'package:flt_kotlin_pose/screens/dashboard/dashboard_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -26,6 +25,8 @@ class HomeScreen extends StatelessWidget {
   final int weeklyForm;
   final int allTimeForm;
   final List<int> weeklySquats;
+  final List<Map<String, dynamic>> backendNotifications;
+  final VoidCallback? onMarkNotificationsRead;
   final VoidCallback onLogout;
   final VoidCallback onOpenCamera;
 
@@ -45,6 +46,8 @@ class HomeScreen extends StatelessWidget {
     required this.weeklyForm,
     required this.allTimeForm,
     required this.weeklySquats,
+    this.backendNotifications = const [],
+    this.onMarkNotificationsRead,
     required this.onLogout,
     required this.onOpenCamera,
     required this.dateRangeText,
@@ -65,6 +68,11 @@ class HomeScreen extends StatelessWidget {
             userName: userName,
             greeting: greeting,
             profilePictureUrl: profilePictureUrl,
+            weeklySquatsTotal: weeklySquatsTotal,
+            weeklyForm: weeklyForm,
+            totalSquats: totalSquats,
+            backendNotifications: backendNotifications,
+            onMarkNotificationsRead: onMarkNotificationsRead,
             onLogout: onLogout,
           ),
           const SizedBox(height: 24),
@@ -89,12 +97,22 @@ class _Header extends StatelessWidget {
   final String userName;
   final String greeting;
   final String profilePictureUrl;
+  final int weeklySquatsTotal;
+  final int weeklyForm;
+  final int totalSquats;
+  final List<Map<String, dynamic>> backendNotifications;
+  final VoidCallback? onMarkNotificationsRead;
   final VoidCallback onLogout;
 
   const _Header({
     required this.userName,
     required this.greeting,
     this.profilePictureUrl = '',
+    required this.weeklySquatsTotal,
+    required this.weeklyForm,
+    required this.totalSquats,
+    this.backendNotifications = const [],
+    this.onMarkNotificationsRead,
     required this.onLogout,
   });
 
@@ -145,14 +163,32 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
-        const _NotificationButton(),
+        _NotificationButton(
+          weeklySquatsTotal: weeklySquatsTotal,
+          weeklyForm: weeklyForm,
+          totalSquats: totalSquats,
+          backendNotifications: backendNotifications,
+          onMarkNotificationsRead: onMarkNotificationsRead,
+        ),
       ],
     );
   }
 }
 
 class _NotificationButton extends StatefulWidget {
-  const _NotificationButton();
+  final int weeklySquatsTotal;
+  final int weeklyForm;
+  final int totalSquats;
+  final List<Map<String, dynamic>> backendNotifications;
+  final VoidCallback? onMarkNotificationsRead;
+
+  const _NotificationButton({
+    required this.weeklySquatsTotal,
+    required this.weeklyForm,
+    required this.totalSquats,
+    this.backendNotifications = const [],
+    this.onMarkNotificationsRead,
+  });
 
   @override
   State<_NotificationButton> createState() => _NotificationButtonState();
@@ -161,191 +197,260 @@ class _NotificationButton extends StatefulWidget {
 class _NotificationButtonState extends State<_NotificationButton> {
   bool _hasUnread = true;
 
-  final List<Map<String, String>> _notifications = [
-    {
-      'title': 'Daily Goal Achieved!',
-      'body': 'You completed 30 squats today with a 94% form score.',
-      'time': '10m ago',
-      'icon': 'fitness',
-    },
-    {
-      'title': 'Form Tip: Knee Alignment',
-      'body': 'Keep your knees tracking over your toes for optimal depth.',
-      'time': '2h ago',
-      'icon': 'tip',
-    },
-    {
-      'title': 'Streak Maintained!',
-      'body': 'Great job keeping your workout streak active.',
-      'time': 'Yesterday',
-      'icon': 'streak',
-    },
-  ];
+  List<Map<String, String>> get _displayNotifications {
+    if (widget.backendNotifications.isNotEmpty) {
+      return widget.backendNotifications.map((n) {
+        return {
+          'title': n['title']?.toString() ?? 'Notification',
+          'body': n['body']?.toString() ?? '',
+          'time': 'Just now',
+          'icon': n['notification_type']?.toString() ?? 'fitness',
+        };
+      }).toList();
+    }
 
-  void _showNotificationsSheet(BuildContext context) {
-    setState(() => _hasUnread = false);
+    final List<Map<String, String>> list = [];
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: kBackground,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    if (widget.weeklySquatsTotal > 0) {
+      list.add({
+        'title': 'Weekly Goal Progress',
+        'body': 'You completed ${widget.weeklySquatsTotal} squats this week with ${widget.weeklyForm}% avg form!',
+        'time': 'Recent',
+        'icon': 'fitness',
+      });
+    } else {
+      list.add({
+        'title': 'Ready for your workout?',
+        'body': 'Start a squat session today to build your weekly streak!',
+        'time': 'Just now',
+        'icon': 'fitness',
+      });
+    }
+
+    if (widget.weeklyForm >= 90) {
+      list.add({
+        'title': 'Excellent Posture!',
+        'body': 'Your average form score is ${widget.weeklyForm}%. Depth and knee stability look great.',
+        'time': 'Form AI',
+        'icon': 'tip',
+      });
+    } else {
+      list.add({
+        'title': 'Form Coach Tip',
+        'body': 'Focus on keeping knees aligned with toes during descent to improve score.',
+        'time': 'Form AI',
+        'icon': 'tip',
+      });
+    }
+
+    if (widget.totalSquats > 0) {
+      list.add({
+        'title': 'Total Rep Milestone',
+        'body': 'You have completed ${widget.totalSquats} total squats in SquatMate.',
+        'time': 'All-Time',
+        'icon': 'streak',
+      });
+    } else {
+      list.add({
+        'title': 'Welcome to SquatMate',
+        'body': 'Position your camera in full view to begin real-time posture analysis.',
+        'time': 'Getting Started',
+        'icon': 'streak',
+      });
+    }
+
+    return list;
+  }
+
+  @override
+  void didUpdateWidget(covariant _NotificationButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.weeklySquatsTotal != oldWidget.weeklySquatsTotal ||
+        widget.weeklyForm != oldWidget.weeklyForm ||
+        widget.totalSquats != oldWidget.totalSquats) {
+      setState(() {
+        _hasUnread = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MenuAnchor(
+      alignmentOffset: const Offset(-240, 6),
+      style: MenuStyle(
+        backgroundColor: WidgetStateProperty.all(kBackground),
+        elevation: WidgetStateProperty.all(8),
+        shadowColor: WidgetStateProperty.all(Colors.black.withAlpha(60)),
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: kSurfaceContainerHighest, width: 1),
+          ),
+        ),
+        padding: WidgetStateProperty.all(const EdgeInsets.all(16)),
+        maximumSize: WidgetStateProperty.all(const Size(320, 420)),
       ),
-      builder: (sheetContext) {
-        return SafeArea(
+      builder: (context, controller, child) {
+        return InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            setState(() => _hasUnread = false);
+            widget.onMarkNotificationsRead?.call();
+            if (controller.isOpen) {
+              controller.close();
+            } else {
+              controller.open();
+            }
+          },
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.all(6),
+            child: Stack(
               children: [
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: kSurfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(2),
+                const Icon(
+                  Icons.notifications_none_rounded,
+                  color: kTextPrimary,
+                  size: 26,
+                ),
+                if (_hasUnread)
+                  Positioned(
+                    right: 2,
+                    top: 2,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0.5, end: 1.0),
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.elasticOut,
+                      builder: (context, scale, child) {
+                        return Transform.scale(
+                          scale: scale,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: kOlive,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Notifications',
-                      style: GoogleFonts.hankenGrotesk(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: kTextPrimary,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(sheetContext).pop();
-                      },
-                      child: Text(
-                        'Close',
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: kOlive,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                ..._notifications.map((n) {
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: kSurface,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: kSurfaceContainerHighest, width: 1),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: kOlive.withAlpha(25),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            n['icon'] == 'fitness'
-                                ? Icons.fitness_center_rounded
-                                : n['icon'] == 'tip'
-                                    ? Icons.lightbulb_outline_rounded
-                                    : Icons.local_fire_department_rounded,
-                            size: 18,
-                            color: kOlive,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      n['title']!,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: kTextPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    n['time']!,
-                                    style: GoogleFonts.jetBrainsMono(
-                                      fontSize: 11,
-                                      color: kTextMuted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                n['body']!,
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  color: kTextMuted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
               ],
             ),
           ),
         );
       },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => _showNotificationsSheet(context),
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.all(6),
-        child: Stack(
-          children: [
-            const Icon(
-              Icons.notifications_none_rounded,
-              color: kTextPrimary,
-              size: 26,
-            ),
-            if (_hasUnread)
-              Positioned(
-                right: 2,
-                top: 2,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: kOlive,
-                    shape: BoxShape.circle,
+      menuChildren: [
+        SizedBox(
+          width: 280,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Notifications',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: kTextPrimary,
+                    ),
                   ),
-                ),
+                  if (_hasUnread)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: kOlive.withAlpha(25),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        'New',
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: kOlive,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-          ],
+              const SizedBox(height: 12),
+              ..._displayNotifications.map((n) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: kSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: kSurfaceContainerHighest, width: 1),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: kOlive.withAlpha(25),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          n['icon'] == 'fitness'
+                              ? Icons.fitness_center_rounded
+                              : n['icon'] == 'tip'
+                                  ? Icons.lightbulb_outline_rounded
+                                  : Icons.local_fire_department_rounded,
+                          size: 16,
+                          color: kOlive,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    n['title']!,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: kTextPrimary,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  n['time']!,
+                                  style: GoogleFonts.jetBrainsMono(
+                                    fontSize: 10,
+                                    color: kTextMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              n['body']!,
+                              style: GoogleFonts.inter(
+                                fontSize: 11.5,
+                                color: kTextMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

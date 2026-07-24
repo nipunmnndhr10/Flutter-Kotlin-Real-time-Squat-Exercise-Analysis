@@ -1,6 +1,6 @@
 import os
 from app.core.database import Base, engine
-from app.routers import workout, auth
+from app.routers import workout, auth, notification
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -26,9 +26,8 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(workout.router)
+app.include_router(notification.router)
 
 @app.get("/")
 async def root():
    return {"message":"Fast API is running!"}
-
-
