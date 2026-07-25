@@ -8,6 +8,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqladmin import Admin, ModelView
+from sqladmin.authentication import AuthenticationBackend
+from starlette.requests import Request
+from app.core.security import SECRET_KEY
+from app.core.database import Base, engine, SessionLocal
+from app.routers.auth import verify_password
 
 # Ensure uploads directory exists
 os.makedirs("uploads/profiles", exist_ok=True)
@@ -17,21 +22,59 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Capstone Backend")
 
-# Setup Web Admin Portal at /admin
-admin = Admin(app, engine, title="SquatMate Admin Portal")
+
+class AdminAuth(AuthenticationBackend):
+    async def login(self, request: Request) -> bool:
+        form = await request.form()
+        username = form.get("username")
+        password = form.get("password")
+
+        if not username or not password:
+            return False
+
+        # Authenticate strictly using environment-configured admin credentials
+        admin_user = os.getenv("ADMIN_USERNAME", "admin@squatmate.com")
+        admin_pass = os.getenv("ADMIN_PASSWORD", "AdminSecurePassword123!")
+
+        if username == admin_user and password == admin_pass:
+            request.session.update({"token": "admin_session_token", "user": username})
+            return True
+
+        return False
+
+    async def logout(self, request: Request) -> bool:
+        request.session.clear()
+        return True
+
+    async def authenticate(self, request: Request) -> bool:
+        token = request.session.get("token")
+        if not token:
+            return False
+        return True
+
+
+authentication_backend = AdminAuth(secret_key=SECRET_KEY)
+
+# Setup Web Admin Portal at /admin with authentication
+admin = Admin(app, engine, title="SquatMate Admin Portal", authentication_backend=authentication_backend)
+
 
 class UserAdmin(ModelView, model=User):
-    column_list = [User.id, User.email, User.full_name, User.created_at, User.is_active]
+    column_list = [User.id, User.email, User.full_name, User.is_active, User.created_at]
     column_searchable_list = [User.email, User.full_name]
+    form_excluded_columns = ["workouts", "notifications", "hashed_password"]
     icon = "fa-solid fa-user"
+
 
 class WorkoutAdmin(ModelView, model=WorkoutSession):
     column_list = [WorkoutSession.id, WorkoutSession.user_id, WorkoutSession.total_reps, WorkoutSession.duration_seconds, WorkoutSession.created_at]
     icon = "fa-solid fa-person-running"
 
+
 class NotificationAdmin(ModelView, model=Notification):
     column_list = [Notification.id, Notification.user_id, Notification.title, Notification.is_read, Notification.created_at]
     icon = "fa-solid fa-bell"
+
 
 admin.add_view(UserAdmin)
 admin.add_view(WorkoutAdmin)

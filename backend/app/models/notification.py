@@ -15,3 +15,6 @@ class Notification(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="notifications")
+
+    def __str__(self):
+        return f"Notification #{self.id}: {self.title}"

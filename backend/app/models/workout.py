@@ -30,4 +30,5 @@ class WorkoutSession(Base):
    # Relationship with user: An SQL Alchemy relationship that tells SQLAlchemy that a WorkoutSession belongs to a User.
    user = relationship("User", back_populates="workouts")
 
-   
+   def __str__(self):
+       return f"Workout #{self.id} ({self.workout_type or 'squat'} - {self.total_reps or 0} reps)"
