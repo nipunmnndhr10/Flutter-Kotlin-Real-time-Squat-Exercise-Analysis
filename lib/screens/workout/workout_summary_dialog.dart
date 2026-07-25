@@ -173,15 +173,19 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                           child: AnimatedBuilder(
                             animation: _scoreAnimation,
                             builder: (context, _) {
-                              final animatedProgress =
+                              final rawProgress =
                                   (_scoreAnimation.value * formScore) / 100.0;
+                              // Scale indicator slightly when < 100% so StrokeCap.round leaves a crisp visible gap
+                              final displayProgress = formScore < 100
+                                  ? (rawProgress * 0.96)
+                                  : rawProgress;
                               final animatedScore =
                                   (_scoreAnimation.value * formScore).round();
                               return Stack(
                                 fit: StackFit.expand,
                                 children: [
                                   CircularProgressIndicator(
-                                    value: animatedProgress,
+                                    value: displayProgress,
                                     strokeWidth: 10,
                                     backgroundColor: const Color(0xFFE5E2E1),
                                     color: scoreColor,
