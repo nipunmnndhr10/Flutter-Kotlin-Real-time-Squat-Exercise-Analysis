@@ -29,3 +29,6 @@ class PasswordReset(Base):
     email = Column(String, index=True, nullable=False)
     otp = Column(String, nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
+
+    def __str__(self):
+        return f"PasswordReset #{self.id} ({self.email})"
