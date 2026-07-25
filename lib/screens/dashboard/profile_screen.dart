@@ -274,9 +274,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final currentPicUrl = _localPicUrl ?? widget.profilePictureUrl;
-    final totalWorkoutsCount = widget.workouts.isNotEmpty
-        ? widget.workouts.length
-        : widget.totalWorkouts;
 
     return SafeArea(
       child: Scaffold(
@@ -335,58 +332,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
 
               const SizedBox(height: 28),
-
-              // Summary Stats Row (Total Workouts & Current Streak)
-              Row(
-                children: [
-                  Expanded(
-                    child: _StatCard(
-                      label: 'TOTAL WORKOUTS',
-                      valueWidget: Text(
-                        '$totalWorkoutsCount',
-                        style: GoogleFonts.hankenGrotesk(
-                          fontSize: 34,
-                          fontWeight: FontWeight.w800,
-                          color: kTextPrimary,
-                          height: 1.0,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _StatCard(
-                      label: 'CURRENT STREAK',
-                      valueWidget: Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            '${widget.streakDays}',
-                            style: GoogleFonts.hankenGrotesk(
-                              fontSize: 34,
-                              fontWeight: FontWeight.w800,
-                              color: kPrimary,
-                              height: 1.0,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'days',
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: kTextPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 24),
 
               // Settings & Options Menu Group
               Container(
@@ -454,44 +399,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String label;
-  final Widget valueWidget;
-
-  const _StatCard({
-    required this.label,
-    required this.valueWidget,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: kSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kSurfaceContainerHighest, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.jetBrainsMono(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: kTextMuted,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: 14),
-          valueWidget,
-        ],
       ),
     );
   }

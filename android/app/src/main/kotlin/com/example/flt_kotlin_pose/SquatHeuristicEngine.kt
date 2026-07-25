@@ -297,8 +297,8 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         rawHistIndex = (rawHistIndex + 1) % rawAngleHistory.size
         rawAngleHistory[rawHistIndex] = clampedKneeAngle
 
-        val kneeAngle = clampedKneeAngle
-        val smoothedHipAngle = clampedHipAngle
+        val kneeAngle = kneeAngleFilter.filter(clampedKneeAngle, timestampMs)
+        val smoothedHipAngle = hipAngleFilter.filter(clampedHipAngle, timestampMs)
 
         val tooLowFault = updatePhaseAndReps(kneeAngle, hipY)
         val faults = detectFaults(kneeAngle, smoothedHipAngle, landmarkArray, isFrontView, w, h)
@@ -324,7 +324,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         if (lS != null && lH != null) {
             val dx = lS.x - lH.x
             val dy = lS.y - lH.y
-            val dz = lS.z - lH.z
+            val dz = (lS.z ?: 0f) - (lH.z ?: 0f)
             lastFilteredTorsoLength = kotlin.math.sqrt((dx * dx + dy * dy + dz * dz).toDouble()).toFloat()
         }
 

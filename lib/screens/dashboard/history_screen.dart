@@ -15,7 +15,9 @@ const kSecondary = Color(0xFF006970);
 const kSecondaryContainer = Color(0xFF00EEFC);
 const kOutlineVariant = Color(0xFFC4C9AC);
 
-class HistoryScreen extends StatelessWidget {
+enum _HistoryFilter { all, thisWeek, thisMonth, highForm }
+
+class HistoryScreen extends StatefulWidget {
   final String userName;
   final String greeting;
   final String profilePictureUrl;
@@ -33,44 +35,61 @@ class HistoryScreen extends StatelessWidget {
     required this.onDeleteWorkout,
   });
 
-  Map<String, int> _getThisWeekStats(List<Map<String, dynamic>> workouts) {
-    final now = DateTime.now();
-    final mondayThisWeek = DateTime(
-      now.year,
-      now.month,
-      now.day,
-    ).subtract(Duration(days: now.weekday - 1));
+  @override
+  State<HistoryScreen> createState() => _HistoryScreenState();
+}
 
-    int sessionsCount = 0;
-    int totalSeconds = 0;
+class _HistoryScreenState extends State<HistoryScreen> {
+  _HistoryFilter _selectedFilter = _HistoryFilter.all;
 
-    for (final w in workouts) {
-      final startedAtStr = w['started_at']?.toString();
-      if (startedAtStr != null && startedAtStr.isNotEmpty) {
-        final dt = DateTime.tryParse(startedAtStr)?.toLocal();
-        if (dt != null && !dt.isBefore(mondayThisWeek)) {
-          sessionsCount++;
-          final dur = w['duration_seconds'];
-          final seconds = dur is num
-              ? dur.toInt()
-              : (int.tryParse(dur?.toString() ?? '0') ?? 0);
-          totalSeconds += seconds;
-        }
-      }
+  List<Map<String, dynamic>> _memoizedWorkouts = [];
+  List<Map<String, dynamic>>? _lastWorkouts;
+  _HistoryFilter? _lastFilter;
+
+  List<Map<String, dynamic>> get _filteredWorkouts {
+    if (identical(widget.workouts, _lastWorkouts) && _selectedFilter == _lastFilter) {
+      return _memoizedWorkouts;
     }
 
-    final totalMinutes = (totalSeconds / 60).round();
-    return {
-      'sessions': sessionsCount,
-      'minutes': totalMinutes,
-    };
+    final sorted = List<Map<String, dynamic>>.from(widget.workouts)..sort((a, b) {
+      final dtA = DateTime.tryParse(a['started_at']?.toString() ?? '') ?? DateTime(1970);
+      final dtB = DateTime.tryParse(b['started_at']?.toString() ?? '') ?? DateTime(1970);
+      return dtB.compareTo(dtA);
+    });
+
+    if (_selectedFilter == _HistoryFilter.all) {
+      _memoizedWorkouts = sorted;
+    } else {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final mondayThisWeek = today.subtract(Duration(days: now.weekday - 1));
+
+      _memoizedWorkouts = sorted.where((w) {
+        final startedAtStr = w['started_at']?.toString();
+        final dt = startedAtStr != null ? DateTime.tryParse(startedAtStr)?.toLocal() : null;
+
+        if (_selectedFilter == _HistoryFilter.thisWeek) {
+          if (dt == null) return false;
+          return !dt.isBefore(mondayThisWeek);
+        } else if (_selectedFilter == _HistoryFilter.thisMonth) {
+          if (dt == null) return false;
+          return dt.year == now.year && dt.month == now.month;
+        } else if (_selectedFilter == _HistoryFilter.highForm) {
+          final formVal = (w['form_score'] ?? w['formScore'] as num?)?.toDouble() ?? 100.0;
+          return formVal >= 90.0;
+        }
+        return true;
+      }).toList();
+    }
+
+    _lastWorkouts = widget.workouts;
+    _lastFilter = _selectedFilter;
+    return _memoizedWorkouts;
   }
 
   @override
   Widget build(BuildContext context) {
-    final stats = _getThisWeekStats(workouts);
-    final thisWeekSessions = stats['sessions'] ?? 0;
-    final thisWeekMinutes = stats['minutes'] ?? 0;
+    final displayWorkouts = _filteredWorkouts;
 
     return SafeArea(
       child: Scaffold(
@@ -101,56 +120,204 @@ class HistoryScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
+              _HistorySummaryRow(workouts: widget.workouts),
+              const SizedBox(height: 28),
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(
-                    child: _SummaryCard(
-                      title: 'THIS WEEK',
-                      value: '$thisWeekSessions',
-                      unit: 'Sessions',
-                      icon: Icons.calendar_today_outlined,
-                      iconColor: kSecondary,
+                  Text(
+                    'Past Workouts',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: kTextPrimary,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _SummaryCard(
-                      title: 'TOTAL MINUTES',
-                      value: '$thisWeekMinutes',
-                      unit: 'min',
-                      icon: Icons.timer_outlined,
-                      iconColor: kPrimary,
+                  PopupMenuButton<_HistoryFilter>(
+                    borderRadius: BorderRadius.circular(12),
+                    clipBehavior: Clip.antiAlias,
+                    menuPadding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 140, maxWidth: 165),
+                    position: PopupMenuPosition.under,
+                    popUpAnimationStyle: AnimationStyle(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.fastOutSlowIn,
+                      reverseDuration: const Duration(milliseconds: 140),
+                      reverseCurve: Curves.easeInCubic,
+                    ),
+                    initialValue: _selectedFilter,
+                    onSelected: (_HistoryFilter newFilter) {
+                      setState(() => _selectedFilter = newFilter);
+                    },
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: const BorderSide(color: kSurfaceContainerHighest, width: 1),
+                    ),
+                    color: kSurface,
+                    elevation: 6,
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: _HistoryFilter.all,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.clear_all_rounded,
+                              size: 16,
+                              color: _selectedFilter == _HistoryFilter.all ? kPrimary : kTextMuted,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'All Workouts',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: _selectedFilter == _HistoryFilter.all ? FontWeight.w700 : FontWeight.w500,
+                                color: _selectedFilter == _HistoryFilter.all ? kPrimary : kTextPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: _HistoryFilter.thisWeek,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.date_range_rounded,
+                              size: 16,
+                              color: _selectedFilter == _HistoryFilter.thisWeek ? kPrimary : kTextMuted,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'This Week',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: _selectedFilter == _HistoryFilter.thisWeek ? FontWeight.w700 : FontWeight.w500,
+                                color: _selectedFilter == _HistoryFilter.thisWeek ? kPrimary : kTextPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: _HistoryFilter.thisMonth,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_month_rounded,
+                              size: 16,
+                              color: _selectedFilter == _HistoryFilter.thisMonth ? kPrimary : kTextMuted,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'This Month',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: _selectedFilter == _HistoryFilter.thisMonth ? FontWeight.w700 : FontWeight.w500,
+                                color: _selectedFilter == _HistoryFilter.thisMonth ? kPrimary : kTextPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: _HistoryFilter.highForm,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.stars_rounded,
+                              size: 16,
+                              color: _selectedFilter == _HistoryFilter.highForm ? kPrimary : kTextMuted,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'High Form (≥90%)',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: _selectedFilter == _HistoryFilter.highForm ? FontWeight.w700 : FontWeight.w500,
+                                color: _selectedFilter == _HistoryFilter.highForm ? kPrimary : kTextPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _selectedFilter != _HistoryFilter.all ? kPrimary.withAlpha(25) : kSurfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _selectedFilter != _HistoryFilter.all ? kPrimary.withAlpha(100) : Colors.transparent,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.tune_rounded,
+                            size: 14,
+                            color: _selectedFilter != _HistoryFilter.all ? kPrimary : kTextMuted,
+                          ),
+                          const SizedBox(width: 5),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 150),
+                            child: Text(
+                              _selectedFilter == _HistoryFilter.all
+                                  ? 'Filter'
+                                  : _selectedFilter == _HistoryFilter.thisWeek
+                                      ? 'Week'
+                                      : _selectedFilter == _HistoryFilter.thisMonth
+                                          ? 'Month'
+                                          : 'High Form',
+                              key: ValueKey(_selectedFilter),
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: _selectedFilter != _HistoryFilter.all ? kPrimary : kTextPrimary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 3),
+                          Icon(
+                            Icons.arrow_drop_down_rounded,
+                            size: 16,
+                            color: _selectedFilter != _HistoryFilter.all ? kPrimary : kTextMuted,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 28),
-              Text(
-                'Past Workouts',
-                style: GoogleFonts.hankenGrotesk(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
-                  color: kTextPrimary,
-                  height: 1.33,
+              const SizedBox(height: 14),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                child: KeyedSubtree(
+                  key: ValueKey(_selectedFilter),
+                  child: displayWorkouts.isEmpty
+                      ? _buildEmptyState()
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: displayWorkouts.length,
+                          itemBuilder: (context, index) {
+                            final workout = displayWorkouts[index];
+                            return _WorkoutHistoryCard(
+                              workout: workout,
+                              onTap: () => _showWorkoutDetails(context, workout),
+                              onLongPress: () => _showLongPressOptions(context, workout),
+                            );
+                          },
+                        ),
                 ),
               ),
-              const SizedBox(height: 14),
-              if (workouts.isEmpty)
-                _buildEmptyState()
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: workouts.length,
-                  itemBuilder: (context, index) {
-                    final workout = workouts[index];
-                    return _WorkoutHistoryCard(
-                      workout: workout,
-                      onTap: () => _showWorkoutDetails(context, workout),
-                      onLongPress: () => _showLongPressOptions(context, workout),
-                    );
-                  },
-                ),
             ],
           ),
         ),
@@ -330,6 +497,7 @@ class HistoryScreen extends StatelessWidget {
 
         return Dialog(
           backgroundColor: kBackground,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -446,20 +614,27 @@ class HistoryScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Camera: ${workout['camera'] ?? '-'}',
-                        style: GoogleFonts.jetBrainsMono(
-                          fontSize: 11,
-                          color: kTextMuted,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          'Camera: ${workout['camera'] ?? '-'}',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 11,
+                            color: kTextMuted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      Text(
-                        'Target Angle: ${(workout['target_angle_threshold'] as num?)?.toStringAsFixed(1) ?? '-'}°',
-                        style: GoogleFonts.jetBrainsMono(
-                          fontSize: 11,
-                          color: kTextMuted,
-                          fontWeight: FontWeight.w600,
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          'Target Angle: ${(workout['target_angle_threshold'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 11,
+                            color: kTextMuted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -512,7 +687,7 @@ class HistoryScreen extends StatelessWidget {
     required IconData icon,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: kSurface,
         borderRadius: BorderRadius.circular(12),
@@ -524,13 +699,17 @@ class HistoryScreen extends StatelessWidget {
           Row(
             children: [
               Icon(icon, size: 14, color: kPrimary),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  color: kTextMuted,
-                  fontWeight: FontWeight.w500,
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    color: kTextMuted,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
@@ -593,7 +772,7 @@ class HistoryScreen extends StatelessWidget {
                           });
                           final messenger = ScaffoldMessenger.of(context);
                           try {
-                            await onDeleteWorkout(workout['id']);
+                            await widget.onDeleteWorkout(workout['id']);
                             if (!dialogContext.mounted) return;
                             Navigator.of(dialogContext).pop();
                             messenger.showSnackBar(
@@ -632,12 +811,112 @@ class HistoryScreen extends StatelessWidget {
   }
 }
 
+class _HistorySummaryRow extends StatefulWidget {
+  final List<Map<String, dynamic>> workouts;
+  const _HistorySummaryRow({required this.workouts});
+
+  @override
+  State<_HistorySummaryRow> createState() => _HistorySummaryRowState();
+}
+
+class _HistorySummaryRowState extends State<_HistorySummaryRow> {
+  bool _isWeekly = true; // Default: THIS WEEK
+
+  Map<String, int> _getThisWeekStats(List<Map<String, dynamic>> workouts) {
+    final now = DateTime.now();
+    final mondayThisWeek = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: now.weekday - 1));
+
+    int sessionsCount = 0;
+    int totalSeconds = 0;
+
+    for (final w in workouts) {
+      final startedAtStr = w['started_at']?.toString();
+      if (startedAtStr != null && startedAtStr.isNotEmpty) {
+        final dt = DateTime.tryParse(startedAtStr)?.toLocal();
+        if (dt != null && !dt.isBefore(mondayThisWeek)) {
+          sessionsCount++;
+          final dur = w['duration_seconds'];
+          final seconds = dur is num
+              ? dur.toInt()
+              : (int.tryParse(dur?.toString() ?? '0') ?? 0);
+          totalSeconds += seconds;
+        }
+      }
+    }
+
+    final totalMinutes = (totalSeconds / 60).round();
+    return {
+      'sessions': sessionsCount,
+      'minutes': totalMinutes,
+    };
+  }
+
+  Map<String, int> _getAllTimeStats(List<Map<String, dynamic>> workouts) {
+    int totalSeconds = 0;
+    for (final w in workouts) {
+      final dur = w['duration_seconds'];
+      final seconds = dur is num
+          ? dur.toInt()
+          : (int.tryParse(dur?.toString() ?? '0') ?? 0);
+      totalSeconds += seconds;
+    }
+    final totalMinutes = (totalSeconds / 60).round();
+    return {
+      'sessions': workouts.length,
+      'minutes': totalMinutes,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final weekStats = _getThisWeekStats(widget.workouts);
+    final allTimeStats = _getAllTimeStats(widget.workouts);
+
+    final sessionsVal = _isWeekly ? weekStats['sessions'] ?? 0 : allTimeStats['sessions'] ?? 0;
+    final sessionsTitle = _isWeekly ? 'THIS WEEK' : 'ALL TIME';
+
+    final minutesVal = _isWeekly ? weekStats['minutes'] ?? 0 : allTimeStats['minutes'] ?? 0;
+
+    void toggle() => setState(() => _isWeekly = !_isWeekly);
+
+    return Row(
+      children: [
+        Expanded(
+          child: _SummaryCard(
+            title: sessionsTitle,
+            value: '$sessionsVal',
+            unit: 'Sessions',
+            icon: Icons.calendar_today_outlined,
+            iconColor: kSecondary,
+            onTap: toggle,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _SummaryCard(
+            title: 'TOTAL MINUTES',
+            value: '$minutesVal',
+            unit: 'min',
+            icon: Icons.timer_outlined,
+            iconColor: kPrimary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _SummaryCard extends StatelessWidget {
   final String title;
   final String value;
   final String unit;
   final IconData icon;
   final Color iconColor;
+  final VoidCallback? onTap;
 
   const _SummaryCard({
     required this.title,
@@ -645,60 +924,69 @@ class _SummaryCard extends StatelessWidget {
     required this.unit,
     required this.icon,
     required this.iconColor,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: kSurface,
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kSurfaceContainerHighest, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        onTap: onTap,
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: kSurface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: kSurfaceContainerHighest, width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: kTextMuted,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  Icon(
+                    icon,
+                    size: 16,
+                    color: iconColor,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
               Text(
-                title,
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: kTextMuted,
-                  letterSpacing: 0.5,
+                value,
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w800,
+                  color: kTextPrimary,
+                  height: 1.0,
+                  letterSpacing: -0.36,
                 ),
               ),
-              Icon(
-                icon,
-                size: 16,
-                color: iconColor,
+              const SizedBox(height: 4),
+              Text(
+                unit,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: kTextMuted,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: GoogleFonts.hankenGrotesk(
-              fontSize: 36,
-              fontWeight: FontWeight.w800,
-              color: kTextPrimary,
-              height: 1.0,
-              letterSpacing: -0.36,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            unit,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: kTextMuted,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

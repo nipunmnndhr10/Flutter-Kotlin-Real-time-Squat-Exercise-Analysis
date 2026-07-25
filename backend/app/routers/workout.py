@@ -6,6 +6,8 @@ from app.schemas.workout import WorkoutSessionCreate, WorkoutSessionResponse
 from app.core.security import get_current_user
 from app.models.user import User
 
+from app.models.notification import Notification
+
 router = APIRouter(prefix="/workouts", tags=["Workouts"])
 
 
@@ -48,7 +50,18 @@ def save_session_summary(
     db.add(new_session)
     db.commit()
     db.refresh(new_session)
-    
+
+    # Automatically trigger in-app notification for recorded session
+    notif = Notification(
+        user_id=current_user.id,
+        title="Workout Recorded!",
+        body=f"Great set! You completed {session.total_reps} reps in {session.duration_seconds}s.",
+        notification_type="workout",
+        is_read=False,
+    )
+    db.add(notif)
+    db.commit()
+
     return new_session
 
 

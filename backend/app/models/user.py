@@ -16,6 +16,10 @@ class User(Base):
 
 
     workouts = relationship("WorkoutSession", back_populates="user")
+    notifications = relationship("Notification", back_populates="user")
+
+    def __str__(self):
+        return f"{self.full_name or self.email} (ID: {self.id})"
 
 
 class PasswordReset(Base):
