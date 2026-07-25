@@ -67,7 +67,15 @@ class UserAdmin(ModelView, model=User):
 
 
 class WorkoutAdmin(ModelView, model=WorkoutSession):
-    column_list = [WorkoutSession.id, WorkoutSession.user_id, WorkoutSession.total_reps, WorkoutSession.duration_seconds, WorkoutSession.created_at]
+    column_list = [
+        WorkoutSession.id,
+        WorkoutSession.user_id,
+        WorkoutSession.session_name,
+        WorkoutSession.total_reps,
+        WorkoutSession.duration_seconds,
+        WorkoutSession.created_at,
+    ]
+    column_searchable_list = [WorkoutSession.session_name]
     icon = "fa-solid fa-person-running"
 
 
