@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class PoseScreen extends StatefulWidget {
   const PoseScreen({super.key, this.enableNativePreview = true});
@@ -312,18 +313,35 @@ class _PoseScreenState extends State<PoseScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Exit workout?'),
-        content: const Text(
+        backgroundColor: const Color(0xFFFCF8F8), // kBackground
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          'Exit workout?',
+          style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
           'Are you sure you want to end this workout session?',
+          style: GoogleFonts.inter(fontSize: 14),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('No'),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.inter(color: const Color(0xFF696A6D)), // kTextMuted
+            ),
           ),
-          ElevatedButton(
+          TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Yes, exit'),
+            child: Text(
+              'Exit',
+              style: GoogleFonts.inter(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
