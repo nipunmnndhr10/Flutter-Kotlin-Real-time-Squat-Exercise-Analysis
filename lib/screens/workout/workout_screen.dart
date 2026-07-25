@@ -202,14 +202,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 value: summary['id']?.toString() ?? 'Pending save',
               ),
               _SummaryRow(
-                label: 'User',
-                value: summary['userId']?.toString() ?? 'Authenticated user',
-              ),
-              _SummaryRow(
-                label: 'Workout Type',
-                value: summary['workoutType']?.toString() ?? '-',
-              ),
-              _SummaryRow(
                 label: 'Started At',
                 value: summary['startedAt']?.toString() ?? '-',
               ),
