@@ -94,12 +94,13 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
+          maxHeight: MediaQuery.of(context).size.height * 0.88,
           maxWidth: 400,
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
+            Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -108,14 +109,14 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog> {
                     // Form Score Circle
                     Center(
                       child: SizedBox(
-                        width: 100,
-                        height: 100,
+                        width: 124,
+                        height: 124,
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
                             CircularProgressIndicator(
                               value: formScore / 100,
-                              strokeWidth: 8,
+                              strokeWidth: 10,
                               backgroundColor: const Color(
                                 0xFFE5E2E1,
                               ), // surface-container-highest
@@ -126,7 +127,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog> {
                               child: Text(
                                 '$formScore%',
                                 style: GoogleFonts.hankenGrotesk(
-                                  fontSize: 28,
+                                  fontSize: 34,
                                   fontWeight: FontWeight.w800,
                                   color: kTextPrimary,
                                 ),
@@ -136,7 +137,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
 
                     // Title and Date
                     Text(
@@ -192,7 +193,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog> {
                       if (_nameController.text.isNotEmpty)
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                           decoration: BoxDecoration(
                             color: kSurfaceContainer,
                             borderRadius: BorderRadius.circular(12),
@@ -209,7 +210,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog> {
                         ),
                     ],
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 18),
 
                     // Top Stats Row
                     Row(
@@ -231,7 +232,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog> {
                     ),
 
                     if (faultMap.isNotEmpty) ...[
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
                       Text(
                         'FAULTS DETECTED',
                         style: GoogleFonts.jetBrainsMono(
@@ -241,7 +242,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog> {
                           color: kTextMuted,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       ...faultMap.entries.map((e) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8),
@@ -251,9 +252,10 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog> {
                           ),
                         );
                       }),
+                      const SizedBox(height: 12),
+                    ] else ...[
+                      const SizedBox(height: 20),
                     ],
-
-                    const SizedBox(height: 24),
 
                     // Kinematic Data Header
                     Row(
@@ -288,7 +290,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
 
                     // Kinematic Stats
                     Row(
