@@ -9,6 +9,7 @@ import 'package:flt_kotlin_pose/screens/workout/workout_screen.dart';
 import 'package:flt_kotlin_pose/screens/dashboard/home_screen.dart';
 import 'package:flt_kotlin_pose/screens/dashboard/history_screen.dart';
 import 'package:flt_kotlin_pose/screens/dashboard/profile_screen.dart';
+import 'package:flt_kotlin_pose/services/notification_service.dart';
 
 const kPrimary = Color(0xFFC5F014);
 const kSecondary = Color(0xFF81C784);
@@ -35,6 +36,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<int> weeklySquats = List.filled(7, 0);
   List<Map<String, dynamic>> _workouts = [];
   List<Map<String, dynamic>> _backendNotifications = [];
+  final Set<int> _shownNotificationIds = {};
   bool _isLoading = true;
   String? _error;
   String _currentUserName = '';
@@ -96,6 +98,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _currentUserName = widget.userName;
+    LocalNotificationService().init();
     _loadWorkouts();
     // Auto-refresh notifications every 30 seconds
     _notificationTimer = Timer.periodic(
@@ -128,9 +131,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       final notifResponse = await dio.get('/notifications/my-notifications');
       if (notifResponse.data is List && mounted) {
+        final newNotifs = (notifResponse.data as List).cast<Map<String, dynamic>>();
+
+        // Trigger system notification banner for newly arrived notifications
+        for (var n in newNotifs) {
+          final id = n['id'] as int? ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
+          final isRead = n['is_read'] == true || n['is_read'] == 1;
+
+          if (!_shownNotificationIds.contains(id)) {
+            _shownNotificationIds.add(id);
+            if (!isRead && _shownNotificationIds.length > newNotifs.length) {
+              LocalNotificationService().showNotification(
+                id: id,
+                title: n['title']?.toString() ?? 'SquatMate Notification',
+                body: n['message']?.toString() ?? 'You have a new alert.',
+              );
+            }
+          }
+        }
+
         setState(() {
-          _backendNotifications = (notifResponse.data as List)
-              .cast<Map<String, dynamic>>();
+          _backendNotifications = newNotifs;
         });
       }
     } catch (_) {}
@@ -506,6 +527,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onWorkoutSaved: () {
             _loadWorkouts();
             _fetchNotifications(); // Instantly refresh notifications after workout save
+            LocalNotificationService().showNotification(
+              id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+              title: 'Workout Recorded! 🏋️',
+              body: 'Your squat session has been saved successfully.',
+            );
             setState(() => _currentIndex = 0);
           },
         ),
