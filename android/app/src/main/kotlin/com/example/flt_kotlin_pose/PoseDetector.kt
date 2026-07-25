@@ -62,6 +62,7 @@ class PoseLandmarkerProcessor(
     private val isProcessingFrame = AtomicBoolean(false)
     @Volatile private var lastFrameProcessingTime = 0L
     @Volatile var isPaused: Boolean = false
+    @Volatile private var activeDelegate: String = "CPU"
     private var poseLandmarker: PoseLandmarker = createPoseLandmarker(context)
 
     // PERFORMANCE METRICS 
@@ -164,11 +165,13 @@ class PoseLandmarkerProcessor(
         val baseOptionsBuilder = BaseOptions.builder()
             .setModelAssetPath("pose_landmarker_lite.task")
 
+        var requestedDelegate = "GPU"
         try {
             baseOptionsBuilder.setDelegate(Delegate.GPU)
         } catch (e: Exception) {
             Log.w(TAG, "GPU Delegate unavailable, falling back to CPU", e)
             baseOptionsBuilder.setDelegate(Delegate.CPU)
+            requestedDelegate = "CPU"
         }
 
         val optionsBuilder = PoseLandmarker.PoseLandmarkerOptions.builder()
@@ -181,9 +184,13 @@ class PoseLandmarkerProcessor(
             .setErrorListener(this::onError)
 
         return try {
-            PoseLandmarker.createFromOptions(context, optionsBuilder.build())
+            val landmarker = PoseLandmarker.createFromOptions(context, optionsBuilder.build())
+            activeDelegate = requestedDelegate
+            Log.i(TAG, "Successfully initialized PoseLandmarker using $activeDelegate delegate")
+            landmarker
         } catch (gpuError: Exception) {
             Log.w(TAG, "Failed to create PoseLandmarker with GPU delegate, falling back to CPU", gpuError)
+            activeDelegate = "CPU"
             val fallbackBaseOptions = BaseOptions.builder()
                 .setModelAssetPath("pose_landmarker_lite.task")
                 .setDelegate(Delegate.CPU)
@@ -211,7 +218,7 @@ class PoseLandmarkerProcessor(
         val elapsed = System.currentTimeMillis() - fpsStartTime
 
         if (processedFrames == 1) {
-            val devMsg = "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} | Android: ${android.os.Build.VERSION.RELEASE}"
+            val devMsg = "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} | Android: ${android.os.Build.VERSION.RELEASE} | Delegate: $activeDelegate"
             Log.i(TAG, devMsg)
             Log.i("Performance", devMsg)
         }
@@ -220,7 +227,8 @@ class PoseLandmarkerProcessor(
             val currentFps = fpsFrameCount * 1000f / elapsed
             val averageInference = totalInferenceTime / processedFrames
 
-            val singleLinePerf = "PERFORMANCE | Inference: %.2f ms | AverageInference: %.2f ms | FPS: %.1f | Frames: %d".format(
+            val singleLinePerf = "PERFORMANCE | Delegate: %s | Inference: %.2f ms | AverageInference: %.2f ms | FPS: %.1f | Frames: %d".format(
+                activeDelegate,
                 inferenceTime,
                 averageInference,
                 currentFps,
@@ -234,12 +242,14 @@ class PoseLandmarkerProcessor(
             // Log formatted multi-line summary
             val multiLinePerf = """
                 ================ PERFORMANCE =================
+                Delegate         : %s
                 Inference        : %.2f ms
                 AverageInference : %.2f ms
                 FPS              : %.1f
                 Frames           : %d
                 =============================================
                 """.trimIndent().format(
+                activeDelegate,
                 inferenceTime,
                 averageInference,
                 currentFps,
