@@ -73,8 +73,22 @@ class WorkoutAdmin(ModelView, model=WorkoutSession):
         WorkoutSession.session_name,
         WorkoutSession.total_reps,
         WorkoutSession.duration_seconds,
+        WorkoutSession.fault_summary_json,
         WorkoutSession.created_at,
     ]
+    column_labels = {
+        "fault_summary_json": "Fault Summary",
+        "session_name": "Session Name",
+        "duration_seconds": "Duration (sec)",
+        "total_reps": "Total Reps",
+    }
+    column_formatters = {
+        WorkoutSession.fault_summary_json: lambda m, a: (
+            ", ".join([f"{k.replace('_', ' ').title()}: {v}" for k, v in (m.fault_summary_json or {}).items() if v > 0])
+            if (m.fault_summary_json and any(v > 0 for v in (m.fault_summary_json or {}).values()))
+            else "Clean Form (No Faults)"
+        )
+    }
     column_searchable_list = [WorkoutSession.session_name]
     icon = "fa-solid fa-person-running"
 

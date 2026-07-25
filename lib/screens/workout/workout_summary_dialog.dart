@@ -512,6 +512,12 @@ class _FaultCard extends StatelessWidget {
 
   const _FaultCard({required this.faultName, required this.count});
 
+  String get formattedFaultName {
+    final clean = faultName.replaceAll('_', ' ').trim();
+    if (clean.isEmpty) return 'Fault Detected';
+    return clean.split(' ').map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '').join(' ');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -543,7 +549,7 @@ class _FaultCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  faultName,
+                  formattedFaultName,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
