@@ -62,17 +62,19 @@ admin = Admin(app, engine, title="SquatMate Admin Portal", authentication_backen
 class UserAdmin(ModelView, model=User):
     column_list = [User.id, User.email, User.full_name, User.is_active, User.created_at]
     column_searchable_list = [User.email, User.full_name]
+    form_excluded_columns = ["workouts", "notifications", "hashed_password"]
     icon = "fa-solid fa-user"
-
 
 
 class WorkoutAdmin(ModelView, model=WorkoutSession):
     column_list = [WorkoutSession.id, WorkoutSession.user_id, WorkoutSession.total_reps, WorkoutSession.duration_seconds, WorkoutSession.created_at]
     icon = "fa-solid fa-person-running"
 
+
 class NotificationAdmin(ModelView, model=Notification):
     column_list = [Notification.id, Notification.user_id, Notification.title, Notification.is_read, Notification.created_at]
     icon = "fa-solid fa-bell"
+
 
 admin.add_view(UserAdmin)
 admin.add_view(WorkoutAdmin)
