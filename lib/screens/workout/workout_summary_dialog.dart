@@ -120,10 +120,11 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
     final faultMap = rawFaults as Map? ?? {};
 
     // Dynamic Form Score Calculation
+    final computedScore = _calculateFormScore(totalReps as int, faultMap);
     final rawFormScore = widget.summary['form_score'] ?? widget.summary['formScore'];
-    final formScore = rawFormScore != null
+    final formScore = (rawFormScore != null && (rawFormScore != 100 || faultMap.isEmpty))
         ? (rawFormScore as num).toInt()
-        : _calculateFormScore(totalReps as int, faultMap);
+        : computedScore;
 
     final scoreColor = _getScoreColor(formScore);
 

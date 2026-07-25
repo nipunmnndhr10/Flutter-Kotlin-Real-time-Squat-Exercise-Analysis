@@ -26,12 +26,34 @@ def get_user_workouts(
     )
 
 
+def calculate_form_score(reps: int, fault_json: dict | None) -> int:
+    if not reps or reps <= 0:
+        return 100 if not fault_json else 0
+    if not fault_json:
+        return 100
+    weights = {
+        'knee_valgus': 2.5, 'knee_cave': 2.5, 'left_knee_cave': 2.5, 'right_knee_cave': 2.5,
+        'chest_up': 2.2, 'lean_forward': 2.2, 'go_deeper': 1.5, 'shallow_depth': 1.5, 'too_low': 1.0,
+    }
+    pts = 0.0
+    for k, v in fault_json.items():
+        if isinstance(v, (int, float)) and v > 0:
+            w = weights.get(str(k).lower(), 1.5)
+            eff = v * 0.5 if v <= 2 else float(v)
+            pts += eff * w
+    penalty = (pts / reps) * 15
+    return max(0, min(100, round(100 - penalty)))
+
+
 @router.post("/", response_model=WorkoutSessionResponse)
 def save_session_summary(
     session: WorkoutSessionCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    computed_score = calculate_form_score(session.total_reps, session.fault_summary_json)
+    final_score = session.form_score if (session.form_score is not None and session.form_score != 100) else computed_score
+
     new_session = WorkoutSession(
         user_id=current_user.id,
         session_name=session.session_name,
@@ -45,7 +67,7 @@ def save_session_summary(
         min_hip_angle=session.min_hip_angle,
         avg_hip_angle=session.avg_hip_angle,
         total_reps=session.total_reps,
-        form_score=session.form_score if session.form_score is not None else 100,
+        form_score=final_score,
         fault_summary_json=session.fault_summary_json,
     )
 
