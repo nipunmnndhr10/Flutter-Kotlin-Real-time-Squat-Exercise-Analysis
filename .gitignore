@@ -55,4 +55,7 @@ backend/backend-capstone/
 **/ephemeral/
 **/.plugin_symlinks/
 **/Flutter/Generated.xcconfig
-**/Runner/GeneratedPluginRegistrant.*
+**/Runner/GeneratedPluginRegistrant.*
+
+# image upload by user
+backend/uploads/
