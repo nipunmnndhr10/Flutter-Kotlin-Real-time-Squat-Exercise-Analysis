@@ -17,8 +17,17 @@ from app.routers.auth import verify_password
 # Ensure uploads directory exists
 os.makedirs("uploads/profiles", exist_ok=True)
 
+from sqlalchemy import text
+
 # Create database tables automatically from SQLAlchemy models
 Base.metadata.create_all(bind=engine)
+
+# Auto-migrate missing columns directly on startup
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE workout_sessions ADD COLUMN IF NOT EXISTS form_score INTEGER DEFAULT 100;"))
+except Exception as e:
+    print(f"Startup schema migration check: {e}")
 
 app = FastAPI(title="Capstone Backend")
 
