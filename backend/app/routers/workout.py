@@ -35,7 +35,6 @@ def save_session_summary(
     new_session = WorkoutSession(
         user_id=current_user.id,
         session_name=session.session_name,
-        workout_type=session.workout_type,
         started_at=session.started_at,
         ended_at=session.ended_at,
         duration_seconds=session.duration_seconds,

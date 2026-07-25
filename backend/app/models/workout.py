@@ -10,7 +10,6 @@ class WorkoutSession(Base):
    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
    session_name = Column(String, nullable=True)
    
-   workout_type = Column(String, default='squat')
    started_at = Column(DateTime(timezone=True), nullable=False)
    ended_at = Column(DateTime(timezone=True), nullable=False)
    duration_seconds = Column(Integer, default=0)
@@ -32,4 +31,4 @@ class WorkoutSession(Base):
    user = relationship("User", back_populates="workouts")
 
    def __str__(self):
-       return f"Workout #{self.id} ({self.workout_type or 'squat'} - {self.total_reps or 0} reps)"
+       return f"Workout #{self.id} ({self.session_name or 'Squat Session'} - {self.total_reps or 0} reps)"

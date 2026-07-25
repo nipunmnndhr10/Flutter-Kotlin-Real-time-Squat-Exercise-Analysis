@@ -267,7 +267,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
     final payload = <String, dynamic>{
       'session_name': sessionName,
-      'workout_type': summary['workoutType'],
       'started_at': summary['startedAt'],
       'ended_at': summary['endedAt'],
       'duration_seconds': summary['durationSeconds'] ?? 0,
