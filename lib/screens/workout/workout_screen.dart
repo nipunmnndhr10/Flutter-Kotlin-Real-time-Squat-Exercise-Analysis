@@ -186,10 +186,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       builder: (dialogContext) {
         return WorkoutSummaryDialog(
           summary: summary,
-          onSave: () async {
+          onSave: (sessionName) async {
             final messenger = ScaffoldMessenger.of(context);
             try {
-              await _saveWorkoutSummary(summary);
+              await _saveWorkoutSummary(summary, sessionName);
               if (!dialogContext.mounted) return;
               Navigator.of(dialogContext).pop();
               messenger.showSnackBar(
@@ -244,7 +244,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
-  Future<void> _saveWorkoutSummary(Map<String, dynamic> summary) async {
+  Future<void> _saveWorkoutSummary(
+    Map<String, dynamic> summary,
+    String? sessionName,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('access_token');
 
@@ -263,6 +266,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
 
     final payload = <String, dynamic>{
+      'session_name': sessionName,
       'workout_type': summary['workoutType'],
       'started_at': summary['startedAt'],
       'ended_at': summary['endedAt'],

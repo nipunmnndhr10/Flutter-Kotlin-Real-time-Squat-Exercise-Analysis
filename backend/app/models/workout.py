@@ -8,6 +8,7 @@ class WorkoutSession(Base):
 
    id = Column(Integer, primary_key=True, index=True)
    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+   session_name = Column(String, nullable=True)
    
    workout_type = Column(String, default='squat')
    started_at = Column(DateTime(timezone=True), nullable=False)

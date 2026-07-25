@@ -352,6 +352,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  Future<void> _renameWorkout(int sessionId, String newName) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+
+    if (token == null || token.isEmpty) {
+      _redirectToLogin();
+      return;
+    }
+
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: kApiBaseUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ),
+    );
+
+    await dio.patch(
+      '/workouts/$sessionId/name',
+      data: {'session_name': newName},
+    );
+
+    setState(() {
+      final index = _workouts.indexWhere((w) => w['id'] == sessionId);
+      if (index != -1) {
+        _workouts[index]['session_name'] = newName;
+      }
+    });
+  }
+
   void _redirectToLogin() {
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -484,6 +516,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onLogout: _logout,
           workouts: _workouts,
           onDeleteWorkout: _deleteWorkout,
+          onRenameWorkout: _renameWorkout,
         ),
         ProfileScreen(
           userName: _currentUserName,

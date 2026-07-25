@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.workout import WorkoutSession
@@ -33,6 +34,7 @@ def save_session_summary(
 ):
     new_session = WorkoutSession(
         user_id=current_user.id,
+        session_name=session.session_name,
         workout_type=session.workout_type,
         started_at=session.started_at,
         ended_at=session.ended_at,
@@ -65,21 +67,45 @@ def save_session_summary(
     return new_session
 
 
-@router.delete("/{session_id}")
+@router.delete("/{workout_id}")
 def delete_workout_session(
-    session_id: int,
+    workout_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete a specific workout session for the authenticated user."""
-    session = (
-        db.query(WorkoutSession)
-        .filter(WorkoutSession.id == session_id, WorkoutSession.user_id == current_user.id)
-        .first()
-    )
+    session = db.query(WorkoutSession).filter(
+        WorkoutSession.id == workout_id,
+        WorkoutSession.user_id == current_user.id
+    ).first()
+
     if not session:
         raise HTTPException(status_code=404, detail="Workout session not found")
-    
+
     db.delete(session)
     db.commit()
-    return {"detail": "Workout session deleted successfully"}
+
+    return {"message": "Workout session deleted successfully"}
+
+class WorkoutSessionRename(BaseModel):
+    session_name: str
+
+@router.patch("/{workout_id}/name", response_model=WorkoutSessionResponse)
+def rename_workout_session(
+    workout_id: int,
+    rename_data: WorkoutSessionRename,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    session = db.query(WorkoutSession).filter(
+        WorkoutSession.id == workout_id,
+        WorkoutSession.user_id == current_user.id
+    ).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Workout session not found")
+
+    session.session_name = rename_data.session_name
+    db.commit()
+    db.refresh(session)
+    
+    return session

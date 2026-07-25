@@ -25,6 +25,7 @@ class HistoryScreen extends StatefulWidget {
   final VoidCallback onLogout;
   final List<Map<String, dynamic>> workouts;
   final Future<void> Function(int sessionId) onDeleteWorkout;
+  final Future<void> Function(int sessionId, String newName)? onRenameWorkout;
 
   const HistoryScreen({
     super.key,
@@ -34,6 +35,7 @@ class HistoryScreen extends StatefulWidget {
     required this.onLogout,
     required this.workouts,
     required this.onDeleteWorkout,
+    this.onRenameWorkout,
   });
 
   @override
@@ -461,6 +463,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   },
                 ),
                 ListTile(
+                  leading: const Icon(Icons.edit_outlined, color: kTextPrimary),
+                  title: Text(
+                    'Rename Workout Session',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w500,
+                      color: kTextPrimary,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _showRenameDialog(context, workout);
+                  },
+                ),
+                ListTile(
                   leading: const Icon(Icons.delete_outline, color: Colors.red),
                   title: Text(
                     'Delete Workout Session',
@@ -479,6 +495,75 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
         );
       },
+    );
+  }
+
+  void _showRenameDialog(BuildContext context, Map<String, dynamic> workout) {
+    if (widget.onRenameWorkout == null) return;
+    
+    final TextEditingController controller = TextEditingController(
+      text: workout['session_name'] ?? '',
+    );
+    
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: kBackground,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            'Rename Session',
+            style: GoogleFonts.hankenGrotesk(
+              fontWeight: FontWeight.w700,
+              color: kTextPrimary,
+            ),
+          ),
+          content: TextField(
+            controller: controller,
+            style: GoogleFonts.inter(color: kTextPrimary),
+            decoration: InputDecoration(
+              hintText: 'e.g., Leg Day',
+              filled: true,
+              fillColor: kSurfaceContainerHighest,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w600,
+                  color: kTextMuted,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kPrimaryContainer,
+                foregroundColor: kOnPrimaryContainer,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () {
+                final newName = controller.text.trim();
+                widget.onRenameWorkout!(workout['id'], newName);
+                Navigator.of(dialogContext).pop();
+              },
+              child: Text(
+                'Rename',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        );
+      }
     );
   }
 
@@ -810,7 +895,8 @@ class _WorkoutHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const String workoutTitle = 'Squats';
+    final String sessionName = workout['session_name']?.toString() ?? '';
+    final String workoutTitle = sessionName.isNotEmpty ? sessionName : 'Squat Session';
 
     final durationSec = workout['duration_seconds'];
     final seconds = durationSec is num

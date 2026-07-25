@@ -13,9 +13,9 @@ const kErrorContainer = Color(0xFFFFDAD6);
 const kOnErrorContainer = Color(0xFF93000A);
 const kError = Color(0xFFBA1A1A);
 
-class WorkoutSummaryDialog extends StatelessWidget {
+class WorkoutSummaryDialog extends StatefulWidget {
   final Map<String, dynamic> summary;
-  final VoidCallback? onSave;
+  final Function(String)? onSave;
   final VoidCallback? onDiscard;
   final VoidCallback onClose;
   final bool isHistoryView;
@@ -30,17 +30,40 @@ class WorkoutSummaryDialog extends StatelessWidget {
   });
 
   @override
+  State<WorkoutSummaryDialog> createState() => _WorkoutSummaryDialogState();
+}
+
+class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog> {
+  final TextEditingController _nameController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.text = widget.summary['session_name'] ?? '';
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     // Extract and parse data
-    final totalReps = summary['totalReps'] ?? summary['total_reps'] ?? 0;
+    final totalReps =
+        widget.summary['totalReps'] ?? widget.summary['total_reps'] ?? 0;
     final duration =
-        summary['durationSeconds'] ?? summary['duration_seconds'] ?? 0;
+        widget.summary['durationSeconds'] ??
+        widget.summary['duration_seconds'] ??
+        0;
 
     // Hardcoded form score for now
     int formScore = 95;
 
     var rawFaults =
-        summary['faultSummaryJson'] ?? summary['fault_summary_json'];
+        widget.summary['faultSummaryJson'] ??
+        widget.summary['fault_summary_json'];
     if (rawFaults is String) {
       try {
         rawFaults = jsonDecode(rawFaults);
@@ -52,7 +75,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
 
     // Date formatting
     String dateStr = '';
-    final endDateStr = summary['endedAt'] ?? summary['ended_at'];
+    final endDateStr = widget.summary['endedAt'] ?? widget.summary['ended_at'];
     if (endDateStr != null) {
       try {
         final dt = DateTime.parse(endDateStr.toString()).toLocal();
@@ -62,7 +85,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
       }
     }
 
-    final cameraMode = (summary['camera']?.toString() ?? 'UNKNOWN')
+    final cameraMode = (widget.summary['camera']?.toString() ?? 'UNKNOWN')
         .toUpperCase();
 
     return Dialog(
@@ -137,6 +160,55 @@ class WorkoutSummaryDialog extends StatelessWidget {
                         ),
                       ),
                     ],
+                    const SizedBox(height: 16),
+
+                    if (!widget.isHistoryView) ...[
+                      TextField(
+                        controller: _nameController,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: kTextPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Name this workout (e.g., Leg Day)',
+                          hintStyle: GoogleFonts.inter(
+                            color: kTextMuted,
+                            fontWeight: FontWeight.normal,
+                          ),
+                          filled: true,
+                          fillColor: kSurfaceContainer,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      if (_nameController.text.isNotEmpty)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color: kSurfaceContainer,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            _nameController.text,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: kTextPrimary,
+                            ),
+                          ),
+                        ),
+                    ],
+
                     const SizedBox(height: 24),
 
                     // Top Stats Row
@@ -225,7 +297,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
                           child: _StatCard(
                             label: 'AVG KNEE ANGLE',
                             value:
-                                '${(summary['avgKneeAngle'] ?? summary['avg_knee_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+                                '${(widget.summary['avgKneeAngle'] ?? widget.summary['avg_knee_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -233,7 +305,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
                           child: _StatCard(
                             label: 'AVG HIP ANGLE',
                             value:
-                                '${(summary['avgHipAngle'] ?? summary['avg_hip_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+                                '${(widget.summary['avgHipAngle'] ?? widget.summary['avg_hip_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
                           ),
                         ),
                       ],
@@ -245,7 +317,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
                           child: _StatCard(
                             label: 'MIN KNEE ANGLE',
                             value:
-                                '${(summary['minKneeAngle'] ?? summary['min_knee_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+                                '${(widget.summary['minKneeAngle'] ?? widget.summary['min_knee_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -253,7 +325,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
                           child: _StatCard(
                             label: 'MIN HIP ANGLE',
                             value:
-                                '${(summary['minHipAngle'] ?? summary['min_hip_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+                                '${(widget.summary['minHipAngle'] ?? widget.summary['min_hip_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
                           ),
                         ),
                       ],
@@ -275,12 +347,12 @@ class WorkoutSummaryDialog extends StatelessWidget {
                   bottom: Radius.circular(24),
                 ),
               ),
-              child: isHistoryView
+              child: widget.isHistoryView
                   ? SizedBox(
                       width: double.infinity,
                       height: 54,
                       child: ElevatedButton(
-                        onPressed: onClose,
+                        onPressed: widget.onClose,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: kPrimaryLime,
                           foregroundColor: kTextPrimary,
@@ -305,7 +377,11 @@ class WorkoutSummaryDialog extends StatelessWidget {
                           width: double.infinity,
                           height: 54,
                           child: ElevatedButton(
-                            onPressed: onSave,
+                            onPressed: () {
+                              if (widget.onSave != null) {
+                                widget.onSave!(_nameController.text.trim());
+                              }
+                            },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: kPrimaryLime,
                               foregroundColor: kTextPrimary,
@@ -330,7 +406,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
                               child: SizedBox(
                                 height: 48,
                                 child: OutlinedButton(
-                                  onPressed: onDiscard,
+                                  onPressed: widget.onDiscard,
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: kTextMuted,
                                     side: const BorderSide(
@@ -356,7 +432,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
                               child: SizedBox(
                                 height: 48,
                                 child: OutlinedButton(
-                                  onPressed: onClose,
+                                  onPressed: widget.onClose,
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: kTextPrimary,
                                     side: const BorderSide(
