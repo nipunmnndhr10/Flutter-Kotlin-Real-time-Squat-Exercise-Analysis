@@ -45,11 +45,11 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
     _nameController.text = widget.summary['session_name'] ?? '';
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1600),
     );
     _scoreAnimation = CurvedAnimation(
       parent: _animController,
-      curve: Curves.easeOutCubic,
+      curve: const Cubic(0.1, 0.85, 0.15, 1.0),
     );
     _animController.forward();
   }
