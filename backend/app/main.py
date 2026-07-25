@@ -8,6 +8,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqladmin import Admin, ModelView
+from sqladmin.authentication import AuthenticationBackend
+from starlette.requests import Request
+from app.core.security import SECRET_KEY
+from app.core.database import Base, engine, SessionLocal
+from app.routers.auth import verify_password
 
 # Ensure uploads directory exists
 os.makedirs("uploads/profiles", exist_ok=True)
@@ -17,8 +22,51 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Capstone Backend")
 
-# Setup Web Admin Portal at /admin
-admin = Admin(app, engine, title="SquatMate Admin Portal")
+
+class AdminAuth(AuthenticationBackend):
+    async def login(self, request: Request) -> bool:
+        form = await request.form()
+        username = form.get("username")
+        password = form.get("password")
+
+        if not username or not password:
+            return False
+
+        # 1. Allow login with configured admin environment credentials (default: admin / admin123)
+        admin_user = os.getenv("ADMIN_USERNAME", "admin")
+        admin_pass = os.getenv("ADMIN_PASSWORD", "admin123")
+        if username == admin_user and password == admin_pass:
+            request.session.update({"token": "admin_session_token", "user": username})
+            return True
+
+        # 2. Allow active registered users from database
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.email == username).first()
+            if user and verify_password(password, user.hashed_password) and user.is_active:
+                request.session.update({"token": f"user_session_{user.id}", "user": user.email})
+                return True
+        finally:
+            db.close()
+
+        return False
+
+    async def logout(self, request: Request) -> bool:
+        request.session.clear()
+        return True
+
+    async def authenticate(self, request: Request) -> bool:
+        token = request.session.get("token")
+        if not token:
+            return False
+        return True
+
+
+authentication_backend = AdminAuth(secret_key=SECRET_KEY)
+
+# Setup Web Admin Portal at /admin with authentication
+admin = Admin(app, engine, title="SquatMate Admin Portal", authentication_backend=authentication_backend)
+
 
 class UserAdmin(ModelView, model=User):
     column_list = [User.id, User.email, User.full_name, User.created_at, User.is_active]
