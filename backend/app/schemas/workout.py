@@ -15,6 +15,7 @@ class WorkoutSessionCreate(BaseModel):
     min_hip_angle: float
     avg_hip_angle: float
     total_reps: int
+    form_score: Optional[int] = 100
     fault_summary_json: Optional[Dict[str, Any]] = None
 
 
@@ -32,6 +33,7 @@ class WorkoutSessionResponse(BaseModel):
     min_hip_angle: float
     avg_hip_angle: float
     total_reps: int
+    form_score: Optional[int] = 100
     fault_summary_json: Optional[Dict[str, Any]]
 
     class Config:

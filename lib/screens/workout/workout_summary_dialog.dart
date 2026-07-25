@@ -33,19 +33,68 @@ class WorkoutSummaryDialog extends StatefulWidget {
   State<WorkoutSummaryDialog> createState() => _WorkoutSummaryDialogState();
 }
 
-class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog> {
+class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _nameController = TextEditingController();
+  late AnimationController _animController;
+  late Animation<double> _scoreAnimation;
 
   @override
   void initState() {
     super.initState();
     _nameController.text = widget.summary['session_name'] ?? '';
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _scoreAnimation = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutCubic,
+    );
+    _animController.forward();
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _animController.dispose();
     super.dispose();
+  }
+
+  int _calculateFormScore(int reps, Map faultMap) {
+    if (reps <= 0) return faultMap.isEmpty ? 100 : 0;
+
+    const weights = <String, double>{
+      'knee_valgus': 2.5,
+      'knee_cave': 2.5,
+      'left_knee_cave': 2.5,
+      'right_knee_cave': 2.5,
+      'chest_up': 2.2,
+      'lean_forward': 2.2,
+      'go_deeper': 1.5,
+      'shallow_depth': 1.5,
+      'too_low': 1.0,
+    };
+
+    double weightedPoints = 0.0;
+    faultMap.forEach((key, count) {
+      if (count is num && count > 0) {
+        final normKey = key.toString().toLowerCase();
+        final w = weights[normKey] ?? 1.5;
+        // False-positive noise reduction: discount <= 2 occurrences by 50%
+        final effectiveCount = count <= 2 ? count * 0.5 : count.toDouble();
+        weightedPoints += effectiveCount * w;
+      }
+    });
+
+    final penalty = (weightedPoints / reps) * 15;
+    return (100 - penalty).clamp(0, 100).round();
+  }
+
+  Color _getScoreColor(int score) {
+    if (score >= 80) return kPrimaryLime; // Lime Green (>= 80%)
+    if (score >= 65) return const Color(0xFFF1C40F); // Dark Yellow (65% - 79%)
+    return const Color(0xFFFF5252); // Coral Red (< 65%)
   }
 
   @override
@@ -58,9 +107,6 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog> {
         widget.summary['duration_seconds'] ??
         0;
 
-    // Hardcoded form score for now
-    int formScore = 95;
-
     var rawFaults =
         widget.summary['faultSummaryJson'] ??
         widget.summary['fault_summary_json'];
@@ -72,6 +118,14 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog> {
       }
     }
     final faultMap = rawFaults as Map? ?? {};
+
+    // Dynamic Form Score Calculation
+    final rawFormScore = widget.summary['form_score'] ?? widget.summary['formScore'];
+    final formScore = rawFormScore != null
+        ? (rawFormScore as num).toInt()
+        : _calculateFormScore(totalReps as int, faultMap);
+
+    final scoreColor = _getScoreColor(formScore);
 
     // Date formatting
     String dateStr = '';
@@ -106,34 +160,46 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Form Score Circle
+                    // Form Score Circle with Sweeping Progress & Counter Animation
                     Center(
-                      child: SizedBox(
-                        width: 124,
-                        height: 124,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            CircularProgressIndicator(
-                              value: formScore / 100,
-                              strokeWidth: 10,
-                              backgroundColor: const Color(
-                                0xFFE5E2E1,
-                              ), // surface-container-highest
-                              color: kPrimaryLime,
-                              strokeCap: StrokeCap.round,
-                            ),
-                            Center(
-                              child: Text(
-                                '$formScore%',
-                                style: GoogleFonts.hankenGrotesk(
-                                  fontSize: 34,
-                                  fontWeight: FontWeight.w800,
-                                  color: kTextPrimary,
-                                ),
-                              ),
-                            ),
-                          ],
+                      child: GestureDetector(
+                        onTap: () {
+                          _animController.forward(from: 0.0);
+                        },
+                        child: SizedBox(
+                          width: 124,
+                          height: 124,
+                          child: AnimatedBuilder(
+                            animation: _scoreAnimation,
+                            builder: (context, _) {
+                              final animatedProgress =
+                                  (_scoreAnimation.value * formScore) / 100.0;
+                              final animatedScore =
+                                  (_scoreAnimation.value * formScore).round();
+                              return Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  CircularProgressIndicator(
+                                    value: animatedProgress,
+                                    strokeWidth: 10,
+                                    backgroundColor: const Color(0xFFE5E2E1),
+                                    color: scoreColor,
+                                    strokeCap: StrokeCap.round,
+                                  ),
+                                  Center(
+                                    child: Text(
+                                      '$animatedScore%',
+                                      style: GoogleFonts.hankenGrotesk(
+                                        fontSize: 34,
+                                        fontWeight: FontWeight.w800,
+                                        color: kTextPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ),

@@ -265,6 +265,35 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       ),
     );
 
+    final totalReps = (summary['totalReps'] as num?)?.toInt() ?? 0;
+    final faultMap = summary['faultSummaryJson'] as Map? ?? {};
+
+    int formScore = 100;
+    if (totalReps > 0) {
+      const weights = <String, double>{
+        'knee_valgus': 2.5,
+        'knee_cave': 2.5,
+        'left_knee_cave': 2.5,
+        'right_knee_cave': 2.5,
+        'chest_up': 2.2,
+        'lean_forward': 2.2,
+        'go_deeper': 1.5,
+        'shallow_depth': 1.5,
+        'too_low': 1.0,
+      };
+      double weightedPoints = 0.0;
+      faultMap.forEach((key, count) {
+        if (count is num && count > 0) {
+          final normKey = key.toString().toLowerCase();
+          final w = weights[normKey] ?? 1.5;
+          final effectiveCount = count <= 2 ? count * 0.5 : count.toDouble();
+          weightedPoints += effectiveCount * w;
+        }
+      });
+      final penalty = (weightedPoints / totalReps) * 15;
+      formScore = (100 - penalty).clamp(0, 100).round();
+    }
+
     final payload = <String, dynamic>{
       'session_name': sessionName,
       'started_at': summary['startedAt'],
@@ -276,7 +305,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       'avg_knee_angle': summary['avgKneeAngle'] ?? 0.0,
       'min_hip_angle': summary['minHipAngle'] ?? 0.0,
       'avg_hip_angle': summary['avgHipAngle'] ?? 0.0,
-      'total_reps': summary['totalReps'] ?? 0,
+      'total_reps': totalReps,
+      'form_score': formScore,
       'fault_summary_json': summary['faultSummaryJson'] ?? {},
     };
 

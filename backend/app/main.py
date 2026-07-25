@@ -72,6 +72,7 @@ class WorkoutAdmin(ModelView, model=WorkoutSession):
         WorkoutSession.user_id,
         WorkoutSession.session_name,
         WorkoutSession.total_reps,
+        WorkoutSession.form_score,
         WorkoutSession.duration_seconds,
         WorkoutSession.fault_summary_json,
         WorkoutSession.created_at,
@@ -81,6 +82,7 @@ class WorkoutAdmin(ModelView, model=WorkoutSession):
         "session_name": "Session Name",
         "duration_seconds": "Duration (sec)",
         "total_reps": "Total Reps",
+        "form_score": "Form Score (%)",
     }
     column_formatters = {
         WorkoutSession.fault_summary_json: lambda m, a: (

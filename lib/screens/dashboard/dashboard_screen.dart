@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -184,8 +185,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final reps = int.tryParse(repsStr) ?? 0;
       allTimeTotal += reps;
 
-      final formVal =
-          (w['form_score'] ?? w['formScore'] as num?)?.toDouble() ?? 100.0;
+      double formVal = 100.0;
+      if (w['form_score'] != null || w['formScore'] != null) {
+        formVal = ((w['form_score'] ?? w['formScore']) as num).toDouble();
+      } else if (reps > 0) {
+        var rawFaults = w['fault_summary_json'] ?? w['faultSummaryJson'];
+        if (rawFaults is String) {
+          try {
+            rawFaults = jsonDecode(rawFaults);
+          } catch (_) {
+            rawFaults = {};
+          }
+        }
+        final fMap = rawFaults as Map? ?? {};
+        const weights = <String, double>{
+          'knee_valgus': 2.5,
+          'knee_cave': 2.5,
+          'left_knee_cave': 2.5,
+          'right_knee_cave': 2.5,
+          'chest_up': 2.2,
+          'lean_forward': 2.2,
+          'go_deeper': 1.5,
+          'shallow_depth': 1.5,
+          'too_low': 1.0,
+        };
+        double pts = 0.0;
+        fMap.forEach((k, c) {
+          if (c is num && c > 0) {
+            final w = weights[k.toString().toLowerCase()] ?? 1.5;
+            final eff = c <= 2 ? c * 0.5 : c.toDouble();
+            pts += eff * w;
+          }
+        });
+        formVal = (100.0 - (pts / reps) * 15).clamp(0.0, 100.0);
+      }
       allTimeFormSum += formVal;
       allTimeFormCount++;
 
