@@ -3,8 +3,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flt_kotlin_pose/screens/auth/loginscreen.dart';
 import 'package:flt_kotlin_pose/screens/dashboard/dashboard_screen.dart';
 
-void main() {
+final ValueNotifier<ThemeMode> themeModeNotifier =
+    ValueNotifier<ThemeMode>(ThemeMode.light);
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final isDark = prefs.getBool('is_dark_mode') ?? false;
+  themeModeNotifier.value = isDark ? ThemeMode.dark : ThemeMode.light;
   runApp(const MyApp());
 }
 
@@ -15,18 +21,37 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'SquatMate',
-      theme: ThemeData.light(useMaterial3: true).copyWith(
-        pageTransitionsTheme: const PageTransitionsTheme(
-          builders: {
-            TargetPlatform.android: SmoothPageTransitionsBuilder(),
-            TargetPlatform.iOS: SmoothPageTransitionsBuilder(),
-          },
-        ),
-      ),
-      home: const _StartupGate(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeModeNotifier,
+      builder: (context, currentMode, child) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'SquatMate',
+          themeMode: currentMode,
+          theme: ThemeData.light(useMaterial3: true).copyWith(
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android: SmoothPageTransitionsBuilder(),
+                TargetPlatform.iOS: SmoothPageTransitionsBuilder(),
+              },
+            ),
+          ),
+          darkTheme: ThemeData.dark(useMaterial3: true).copyWith(
+            scaffoldBackgroundColor: const Color(0xFF111710),
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF82D616),
+              brightness: Brightness.dark,
+            ),
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android: SmoothPageTransitionsBuilder(),
+                TargetPlatform.iOS: SmoothPageTransitionsBuilder(),
+              },
+            ),
+          ),
+          home: const _StartupGate(),
+        );
+      },
     );
   }
 }

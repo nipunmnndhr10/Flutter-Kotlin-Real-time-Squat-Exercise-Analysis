@@ -313,7 +313,6 @@ class _SignupScreenState extends State<SignupScreen> {
     } catch (e, stackTrace) {
       debugPrint('Error during Google signup: $e');
       debugPrintStack(stackTrace: stackTrace);
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: $e")),
       );
@@ -324,8 +323,22 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF111710) : _kBg;
+    final backBtnBg = isDark ? const Color(0xFF1B2319) : const Color(0xFFEDEEF0);
+    final backBtnIcon = isDark ? Colors.white : const Color(0xFF555D6A);
+    final titleColor = isDark ? Colors.white : _kDark;
+    final subtitleColor = isDark ? const Color(0xFF889684) : _kTextMuted;
+    final buttonBg = isDark ? const Color(0xFF82D616) : _kDark;
+    final buttonText = isDark ? const Color(0xFF111710) : Colors.white;
+    final dividerColor = isDark ? const Color(0xFF222B1F) : const Color(0xFFEAEDF0);
+    final googleBg = isDark ? const Color(0xFF1B2319) : _kCard;
+    final googleBorder = isDark ? const Color(0xFF222B1F) : _kBorder;
+    final googleText = isDark ? Colors.white : _kDark;
+    final primaryAccent = isDark ? const Color(0xFF82D616) : _kPrimary;
+
     return Scaffold(
-      backgroundColor: _kBg,
+      backgroundColor: scaffoldBg,
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.opaque,
@@ -345,13 +358,13 @@ class _SignupScreenState extends State<SignupScreen> {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEDEEF0),
+                      color: backBtnBg,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 16,
-                      color: Color(0xFF555D6A),
+                      color: backBtnIcon,
                     ),
                   ),
                 ),
@@ -366,22 +379,22 @@ class _SignupScreenState extends State<SignupScreen> {
                       const SizedBox(height: 8),
 
                       // Header
-                      const Text(
+                      Text(
                         'Create your\naccount',
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
-                          color: _kDark,
+                          color: titleColor,
                           height: 1.15,
                           letterSpacing: -0.6,
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
+                      Text(
                         'Join thousands improving their squat form',
                         style: TextStyle(
                           fontSize: 13,
-                          color: _kTextMuted,
+                          color: subtitleColor,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -426,7 +439,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             _obscurePassword
                                 ? Icons.visibility_off_outlined
                                 : Icons.remove_red_eye_outlined,
-                            color: _kIconColor,
+                            color: subtitleColor,
                             size: 18,
                           ),
                         ),
@@ -459,7 +472,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             _obscureConfirm
                                 ? Icons.visibility_off_outlined
                                 : Icons.remove_red_eye_outlined,
-                            color: _kIconColor,
+                            color: subtitleColor,
                             size: 18,
                           ),
                         ),
@@ -481,18 +494,18 @@ class _SignupScreenState extends State<SignupScreen> {
                               width: 22,
                               height: 22,
                               decoration: BoxDecoration(
-                                color: _agree ? _kPrimary : _kCard,
+                                color: _agree ? primaryAccent : (isDark ? const Color(0xFF1B2319) : _kCard),
                                 borderRadius: BorderRadius.circular(7),
                                 border: Border.all(
-                                  color: _agree ? _kPrimary : _kBorder,
+                                  color: _agree ? primaryAccent : (isDark ? const Color(0xFF222B1F) : _kBorder),
                                   width: 1.8,
                                 ),
                               ),
                               child: _agree
-                                  ? const Icon(
+                                  ? Icon(
                                       Icons.check_rounded,
                                       size: 14,
-                                      color: Colors.white,
+                                      color: isDark ? const Color(0xFF111710) : Colors.white,
                                     )
                                   : null,
                             ),
@@ -507,24 +520,24 @@ class _SignupScreenState extends State<SignupScreen> {
                               child: RichText(
                                 text: TextSpan(
                                   text: 'I agree to the ',
-                                  style: const TextStyle(
-                                    color: _kTextMuted,
+                                  style: TextStyle(
+                                    color: subtitleColor,
                                     fontSize: 12.5,
                                     height: 1.5,
                                   ),
                                   children: [
                                     TextSpan(
                                       text: 'Terms of Service',
-                                      style: const TextStyle(
-                                        color: _kPrimary,
+                                      style: TextStyle(
+                                        color: primaryAccent,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                     const TextSpan(text: ' and '),
                                     TextSpan(
                                       text: 'Privacy Policy',
-                                      style: const TextStyle(
-                                        color: _kPrimary,
+                                      style: TextStyle(
+                                        color: primaryAccent,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
@@ -543,32 +556,40 @@ class _SignupScreenState extends State<SignupScreen> {
                         width: double.infinity,
                         height: 55,
                         child: ElevatedButton(
-                          onPressed: (_isEmailLoading || !_formValid)
-                              ? null
-                              : _handleSignup,
+                          onPressed: (_formValid && !_isEmailLoading && !_isGoogleLoading)
+                              ? _handleSignup
+                              : null,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: _kDark,
-                            disabledBackgroundColor: const Color(0xFFD1D5DB),
-                            foregroundColor: Colors.white,
+                            backgroundColor: buttonBg,
+                            disabledBackgroundColor: isDark
+                                ? const Color(0xFF222B1F)
+                                : const Color(0xFFD1D5DB),
+                            disabledForegroundColor: isDark
+                                ? const Color(0xFF889684)
+                                : const Color(0xFF9CA3AF),
+                            foregroundColor: buttonText,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30),
                             ),
                           ),
                           child: _isEmailLoading
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(
-                                    color: Colors.white,
+                                    color: buttonText,
                                     strokeWidth: 2.5,
                                   ),
                                 )
-                              : const Text(
+                              : Text(
                                   'Join SquatMate',
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
+                                    color: (_formValid && !_isEmailLoading && !_isGoogleLoading)
+                                        ? buttonText
+                                        : (isDark ? const Color(0xFF889684) : const Color(0xFF9CA3AF)),
                                   ),
                                 ),
                         ),
@@ -579,9 +600,9 @@ class _SignupScreenState extends State<SignupScreen> {
                       // OR divider
                       Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Divider(
-                              color: Color(0xFFEAEDF0),
+                              color: dividerColor,
                               thickness: 1,
                             ),
                           ),
@@ -590,16 +611,16 @@ class _SignupScreenState extends State<SignupScreen> {
                             child: Text(
                               'OR',
                               style: TextStyle(
-                                color: const Color.fromRGBO(138, 149, 163, 1),
+                                color: subtitleColor,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.6,
                               ),
                             ),
                           ),
-                          const Expanded(
+                          Expanded(
                             child: Divider(
-                              color: Color(0xFFEAEDF0),
+                              color: dividerColor,
                               thickness: 1,
                             ),
                           ),
@@ -623,15 +644,15 @@ class _SignupScreenState extends State<SignupScreen> {
                               : const GoogleLogo(),
                           label: Text(
                             _isGoogleLoading ? 'Signing up...' : 'Sign up with Google',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: _kDark,
+                              color: googleText,
                             ),
                           ),
                           style: OutlinedButton.styleFrom(
-                            backgroundColor: _kCard,
-                            side: const BorderSide(color: _kBorder, width: 1.5),
+                            backgroundColor: googleBg,
+                            side: BorderSide(color: googleBorder, width: 1.5),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30),
                             ),
@@ -645,17 +666,17 @@ class _SignupScreenState extends State<SignupScreen> {
                         child: GestureDetector(
                           onTap: () => Navigator.of(context).maybePop(),
                           child: RichText(
-                            text: const TextSpan(
+                            text: TextSpan(
                               text: 'Already a member? ',
                               style: TextStyle(
-                                color: _kTextMuted,
+                                color: subtitleColor,
                                 fontSize: 13,
                               ),
                               children: [
                                 TextSpan(
                                   text: 'Log in',
                                   style: TextStyle(
-                                    color: _kPrimary,
+                                    color: primaryAccent,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -703,24 +724,33 @@ class _StyledInputField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasError = errorText != null;
+    final cardBg = isDark ? const Color(0xFF1B2319) : _kCard;
+    final borderColor = hasError
+        ? _kBorderError
+        : (isDark ? const Color(0xFF222B1F) : _kBorder);
+    final iconColor = isDark ? const Color(0xFF889684) : _kIconColor;
+    final textColor = isDark ? Colors.white : _kDark;
+    final hintColor = isDark ? const Color(0xFF889684) : const Color(0xFFBEC5CF);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           decoration: BoxDecoration(
-            color: _kCard,
+            color: cardBg,
             borderRadius: BorderRadius.circular(_kRadius),
             border: Border.all(
-              color: hasError ? _kBorderError : _kBorder,
+              color: borderColor,
               width: 1.5,
             ),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           child: Row(
             children: [
-              Icon(icon, size: 18, color: _kIconColor),
+              Icon(icon, size: 18, color: iconColor),
               const SizedBox(width: 10),
               Expanded(
                 child: TextField(
@@ -728,15 +758,15 @@ class _StyledInputField extends StatelessWidget {
                   obscureText: obscureText,
                   keyboardType: keyboardType,
                   onChanged: onChanged,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: _kDark,
+                    color: textColor,
                     fontWeight: FontWeight.w500,
                   ),
                   decoration: InputDecoration(
                     hintText: hint,
-                    hintStyle: const TextStyle(
-                      color: Color(0xFFBEC5CF),
+                    hintStyle: TextStyle(
+                      color: hintColor,
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
                     ),
@@ -787,7 +817,9 @@ class _PasswordStrengthIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const inactive = Color(0xFFEAEDF0);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final inactive = isDark ? const Color(0xFF222B1F) : const Color(0xFFEAEDF0);
+    final mutedLabel = isDark ? const Color(0xFF889684) : const Color(0xFFBEC5CF);
 
     return Row(
       children: [
@@ -815,7 +847,7 @@ class _PasswordStrengthIndicator extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            color: score > 0 ? color : const Color(0xFFBEC5CF),
+            color: score > 0 ? color : mutedLabel,
             fontSize: 11,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.5,

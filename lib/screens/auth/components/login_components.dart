@@ -65,29 +65,36 @@ class InputField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1B2319) : inputBg;
+    final border = isDark ? Border.all(color: const Color(0xFF222B1F), width: 1) : null;
+    final textColor = isDark ? Colors.white : textDark;
+    final mutedColor = isDark ? const Color(0xFF889684) : textGray;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           height: 56,
           decoration: BoxDecoration(
-            color: inputBg,
+            color: bg,
             borderRadius: BorderRadius.circular(14),
+            border: border,
           ),
           child: TextField(
             controller: controller,
             obscureText: obscureText,
             keyboardType: keyboardType,
             onChanged: onChanged,
-            style: const TextStyle(
-              color: textDark,
+            style: TextStyle(
+              color: textColor,
               fontSize: 15,
               fontWeight: FontWeight.w500,
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: const TextStyle(color: textGray, fontSize: 15),
-              prefixIcon: Icon(icon, color: textGray, size: 20),
+              hintStyle: TextStyle(color: mutedColor, fontSize: 15),
+              prefixIcon: Icon(icon, color: mutedColor, size: 20),
               suffixIcon: suffixIcon != null
                   ? Padding(
                       padding: const EdgeInsets.only(right: 14),
@@ -121,22 +128,26 @@ class OrDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dividerColor = isDark ? const Color(0xFF222B1F) : const Color(0xFFDDDDDD);
+    final mutedColor = isDark ? const Color(0xFF889684) : textGray;
+
     return Row(
       children: [
-        const Expanded(child: Divider(color: Color(0xFFDDDDDD), thickness: 1)),
+        Expanded(child: Divider(color: dividerColor, thickness: 1)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'OR',
             style: TextStyle(
-              color: textGray.withAlpha(222),
+              color: mutedColor.withValues(alpha: 0.8),
               fontSize: 12,
               fontWeight: FontWeight.w600,
               letterSpacing: 1.2,
             ),
           ),
         ),
-        const Expanded(child: Divider(color: Color(0xFFDDDDDD), thickness: 1)),
+        Expanded(child: Divider(color: dividerColor, thickness: 1)),
       ],
     );
   }

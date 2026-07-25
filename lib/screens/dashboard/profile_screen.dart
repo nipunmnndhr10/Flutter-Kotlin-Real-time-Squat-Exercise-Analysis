@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flt_kotlin_pose/core/constants/app_constants.dart';
+import 'package:flt_kotlin_pose/main.dart';
 
 // Kinetic Noir Color System (from profile-screen.md)
 const kBackground = Color(0xFFFCF8F8);
@@ -139,9 +140,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showPersonalInfoBottomSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? const Color(0xFF1B2319) : kBackground;
+    final handleColor = isDark ? const Color(0xFF222B1F) : kSurfaceContainerHigh;
+    final titleColor = isDark ? Colors.white : kTextPrimary;
+
+    final primaryAccent = isDark ? const Color(0xFF82D616) : kPrimary;
+    final primaryBtnText = isDark ? const Color(0xFF111710) : Colors.white;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: kBackground,
+      backgroundColor: sheetBg,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -162,7 +171,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       height: 4,
                       margin: const EdgeInsets.only(bottom: 20),
                       decoration: BoxDecoration(
-                        color: kSurfaceContainerHigh,
+                        color: handleColor,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -171,7 +180,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: kTextPrimary,
+                        color: titleColor,
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -182,9 +191,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           width: 96,
                           height: 96,
                           decoration: BoxDecoration(
-                            color: kSurface,
+                            color: isDark ? const Color(0xFF222B1F) : kSurface,
                             shape: BoxShape.circle,
-                            border: Border.all(color: kPrimary, width: 2),
+                            border: Border.all(color: primaryAccent, width: 2),
                             image: currentPicUrl.isNotEmpty
                                 ? DecorationImage(
                                     image: NetworkImage(currentPicUrl),
@@ -194,9 +203,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 : null,
                           ),
                           child: currentPicUrl.isEmpty
-                              ? const Icon(
+                              ? Icon(
                                   Icons.person,
-                                  color: kPrimary,
+                                  color: primaryAccent,
                                   size: 48,
                                 )
                               : null,
@@ -226,22 +235,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               await _pickAndUploadImage();
                               setSheetState(() {});
                             },
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.camera_alt_outlined,
-                        color: kPrimary,
+                        color: primaryAccent,
                         size: 18,
                       ),
                       label: Text(
                         'Change Profile Picture',
                         style: GoogleFonts.inter(
-                          color: kPrimary,
+                          color: primaryAccent,
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                         ),
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Divider(color: Colors.black12, height: 1),
+                    Divider(
+                      color: isDark ? const Color(0xFF222B1F) : Colors.black12,
+                      height: 1,
+                    ),
                     const SizedBox(height: 16),
                     _InfoRow(label: 'Full Name', value: widget.userName),
                     const SizedBox(height: 12),
@@ -252,8 +264,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       height: 48,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: kPrimary,
-                          foregroundColor: Colors.white,
+                          backgroundColor: primaryAccent,
+                          foregroundColor: primaryBtnText,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
@@ -265,6 +277,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
+                            color: primaryBtnText,
                           ),
                         ),
                       ),
@@ -282,10 +295,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final currentPicUrl = _localPicUrl ?? widget.profilePictureUrl;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF111710) : kBackground;
+    final cardBg = isDark ? const Color(0xFF1B2319) : kSurface;
+    final cardBorder = isDark ? const Color(0xFF222B1F) : kSurfaceContainerHighest;
+    final userNameColor = isDark ? Colors.white : kTextPrimary;
+    final joinedColor = isDark ? const Color(0xFF889684) : kTextMuted;
 
     return SafeArea(
       child: Scaffold(
-        backgroundColor: kBackground,
+        backgroundColor: bg,
         body: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -303,9 +322,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         width: 96,
                         height: 96,
                         decoration: BoxDecoration(
-                          color: kSurface,
+                          color: cardBg,
                           shape: BoxShape.circle,
-                          border: Border.all(color: kPrimary, width: 2),
+                          border: Border.all(color: const Color(0xFF82D616), width: 2),
                           image: currentPicUrl.isNotEmpty
                               ? DecorationImage(
                                   image: NetworkImage(currentPicUrl),
@@ -316,7 +335,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: currentPicUrl.isEmpty
                             ? const Icon(
                                 Icons.person,
-                                color: kPrimary,
+                                color: Color(0xFF82D616),
                                 size: 48,
                               )
                             : null,
@@ -328,13 +347,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: kTextPrimary,
+                        color: userNameColor,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Joined ${widget.joinedDate}',
-                      style: GoogleFonts.inter(fontSize: 14, color: kTextMuted),
+                      style: GoogleFonts.inter(fontSize: 14, color: joinedColor),
                     ),
                   ],
                 ),
@@ -345,9 +364,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // Settings & Options Menu Group
               Container(
                 decoration: BoxDecoration(
-                  color: kSurface,
+                  color: cardBg,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: kSurfaceContainerHighest, width: 1),
+                  border: Border.all(color: cardBorder, width: 1),
                 ),
                 child: Column(
                   children: [
@@ -357,10 +376,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onTap: _showPersonalInfoBottomSheet,
                     ),
                     const Divider(height: 1, color: kSurfaceContainerHighest),
-                    _MenuItemRow(
-                      icon: Icons.settings_outlined,
-                      title: 'Preferences',
-                      onTap: () {},
+                    ValueListenableBuilder<ThemeMode>(
+                      valueListenable: themeModeNotifier,
+                      builder: (context, currentMode, _) {
+                        final isDark = currentMode == ThemeMode.dark;
+                        return _MenuItemSwitchRow(
+                          icon: isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                          title: 'Dark Mode',
+                          value: isDark,
+                          onChanged: (val) async {
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setBool('is_dark_mode', val);
+                            themeModeNotifier.value = val ? ThemeMode.dark : ThemeMode.light;
+                          },
+                        );
+                      },
                     ),
                     const Divider(height: 1, color: kSurfaceContainerHighest),
                     _MenuItemRow(
@@ -387,9 +417,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: OutlinedButton.icon(
                   onPressed: widget.onLogout,
                   style: OutlinedButton.styleFrom(
-                    backgroundColor: kBackground,
-                    foregroundColor: kError,
-                    side: const BorderSide(color: kError, width: 1.5),
+                    backgroundColor: isDark ? const Color(0xFF1B2319) : kBackground,
+                    foregroundColor: const Color(0xFFFF5252),
+                    side: const BorderSide(color: Color(0xFFFF5252), width: 1.5),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -397,14 +427,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   icon: const Icon(
                     Icons.logout_rounded,
                     size: 20,
-                    color: kError,
+                    color: Color(0xFFFF5252),
                   ),
                   label: Text(
                     'Logout',
                     style: GoogleFonts.inter(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: kError,
+                      color: const Color(0xFFFF5252),
                     ),
                   ),
                 ),
@@ -430,6 +460,10 @@ class _MenuItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final iconBg = isDark ? const Color(0xFF222B1F) : kSurfaceContainerHigh;
+    final textColor = isDark ? Colors.white : kTextPrimary;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -443,10 +477,10 @@ class _MenuItemRow extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: kSurfaceContainerHigh,
+                  color: iconBg,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: kTextPrimary, size: 20),
+                child: Icon(icon, color: textColor, size: 20),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -455,13 +489,13 @@ class _MenuItemRow extends StatelessWidget {
                   style: GoogleFonts.inter(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: kTextPrimary,
+                    color: textColor,
                   ),
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
-                color: kTextMuted,
+                color: isDark ? const Color(0xFF889684) : kTextMuted,
                 size: 22,
               ),
             ],
@@ -480,19 +514,77 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final labelColor = isDark ? const Color(0xFF889684) : kTextMuted;
+    final valColor = isDark ? Colors.white : kTextPrimary;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: GoogleFonts.inter(fontSize: 14, color: kTextMuted)),
+        Text(label, style: GoogleFonts.inter(fontSize: 14, color: labelColor)),
         Text(
           value,
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: kTextPrimary,
+            color: valColor,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _MenuItemSwitchRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _MenuItemSwitchRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final iconBg = isDark ? const Color(0xFF222B1F) : kSurfaceContainerHigh;
+    final textColor = isDark ? Colors.white : kTextPrimary;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: textColor, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              title,
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: textColor,
+              ),
+            ),
+          ),
+          Switch(
+            value: value,
+            activeThumbColor: const Color(0xFF82D616),
+            onChanged: onChanged,
+          ),
+        ],
+      ),
     );
   }
 }
