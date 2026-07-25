@@ -444,9 +444,16 @@ class _PoseScreenState extends State<PoseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(child: _buildBody()),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _promptEndWorkoutSession();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(child: _buildBody()),
+      ),
     );
   }
 

@@ -6,7 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flt_kotlin_pose/core/constants/app_constants.dart';
 import 'package:flt_kotlin_pose/screens/auth/loginscreen.dart';
-import 'package:flt_kotlin_pose/screens/workout/pose_screen.dart';
+import 'package:flt_kotlin_pose/screens/workout/workout_loading_screen.dart';
 
 // Kinetic Noir Color System (from start workout screen.md)
 const kBackground = Color(0xFFFCF8F8);
@@ -95,7 +95,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         onPressed: () async {
                           final result = await Navigator.push<Map<String, dynamic>>(
                             context,
-                            MaterialPageRoute(builder: (_) => const PoseScreen()),
+                            MaterialPageRoute(builder: (_) => const WorkoutLoadingScreen()),
                           );
                           if (!mounted || result == null) return;
                           await _showWorkoutSummaryDialog(result);

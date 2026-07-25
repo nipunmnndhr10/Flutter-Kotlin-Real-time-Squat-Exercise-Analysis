@@ -63,7 +63,16 @@ class PoseLandmarkerProcessor(
     @Volatile private var lastFrameProcessingTime = 0L
     @Volatile var isPaused: Boolean = false
     @Volatile private var activeDelegate: String = "CPU"
-    private var poseLandmarker: PoseLandmarker = createPoseLandmarker(context)
+    @Volatile private var poseLandmarker: PoseLandmarker? = null
+
+    init {
+        java.util.concurrent.Executors.newSingleThreadExecutor().execute {
+            val landmarker = createPoseLandmarker(context)
+            synchronized(lock) {
+                poseLandmarker = landmarker
+            }
+        }
+    }
 
     // Reusable bitmaps — double-buffered to prevent Mali GPU gralloc buffer locking collisions
     private var bufferBitmap: Bitmap? = null
@@ -124,7 +133,19 @@ class PoseLandmarkerProcessor(
 
             val mpImage: MPImage = BitmapImageBuilder(rot).build()
 
+<<<<<<< HEAD
             synchronized(lock) { poseLandmarker }.detectAsync(mpImage, SystemClock.uptimeMillis())
+=======
+            // Start inference timer
+            inferenceStartTime = System.nanoTime()
+
+            val landmarker = synchronized(lock) { poseLandmarker }
+            if (landmarker != null) {
+                landmarker.detectAsync(mpImage, SystemClock.uptimeMillis())
+            } else {
+                isProcessingFrame.set(false)
+            }
+>>>>>>> c5964ae (fix: glitch/hang in loading Pose Screen after clicking on "Start Workout" btn, feat: introduced loading screen before starting a workout session)
 
         } catch (error: Throwable) {
             imageProxy.close()
@@ -134,7 +155,7 @@ class PoseLandmarkerProcessor(
     }
 
     fun close() {
-        synchronized(lock) { poseLandmarker.close() }
+        synchronized(lock) { poseLandmarker?.close() }
         isProcessingFrame.set(false)
         bufferBitmap?.recycle(); bufferBitmap = null
         rotatedBitmaps[0]?.recycle(); rotatedBitmaps[0] = null
