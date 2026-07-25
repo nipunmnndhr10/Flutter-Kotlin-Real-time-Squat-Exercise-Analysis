@@ -1,4 +1,5 @@
 import os
+from typing import Any
 from app.core.database import Base, engine
 from app.routers import workout, auth, notification
 from app.models.user import User
