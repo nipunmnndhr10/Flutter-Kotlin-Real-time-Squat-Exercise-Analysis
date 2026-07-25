@@ -76,6 +76,7 @@ class WorkoutAdmin(ModelView, model=WorkoutSession):
         WorkoutSession.created_at,
     ]
     column_searchable_list = [WorkoutSession.session_name]
+    form_excluded_columns = ["workout_type"]
     icon = "fa-solid fa-person-running"
 
 
