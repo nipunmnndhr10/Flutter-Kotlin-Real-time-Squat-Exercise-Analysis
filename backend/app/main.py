@@ -112,6 +112,35 @@ class UserAdmin(ModelView, model=User):
     icon = "fa-solid fa-user"
 
 
+from sqlalchemy.event import listens_for
+
+@listens_for(WorkoutSession, 'before_insert')
+@listens_for(WorkoutSession, 'before_update')
+def auto_calculate_workout_form_score(mapper, connection, target):
+    weights = {
+        'knee_valgus': 2.5, 'knee_cave': 2.5, 'left_knee_cave': 2.5, 'right_knee_cave': 2.5,
+        'chest_up': 2.2, 'lean_forward': 2.2, 'go_deeper': 1.5, 'shallow_depth': 1.5, 'too_low': 1.0,
+    }
+    f_json = target.fault_summary_json
+    if isinstance(f_json, str):
+        try:
+            f_json = json.loads(f_json)
+        except Exception:
+            f_json = {}
+    reps = target.total_reps or 0
+    if reps > 0 and f_json and isinstance(f_json, dict) and any(v > 0 for v in f_json.values() if isinstance(v, (int, float))):
+        pts = 0.0
+        for k, v in f_json.items():
+            if isinstance(v, (int, float)) and v > 0:
+                w = weights.get(str(k).lower(), 1.5)
+                eff = v * 0.5 if v <= 2 else float(v)
+                pts += eff * w
+        penalty = (pts / reps) * 15
+        target.form_score = max(0, min(100, round(100 - penalty)))
+    else:
+        target.form_score = 100
+
+
 class WorkoutAdmin(ModelView, model=WorkoutSession):
     column_list = [
         WorkoutSession.id,
@@ -139,6 +168,30 @@ class WorkoutAdmin(ModelView, model=WorkoutSession):
     }
     column_searchable_list = [WorkoutSession.session_name]
     icon = "fa-solid fa-person-running"
+
+    async def on_model_change(self, data: dict, model: Any, is_created: bool, request: Request) -> None:
+        reps = data.get("total_reps") or (model.total_reps if model else 0) or 0
+        f_json = data.get("fault_summary_json") or (model.fault_summary_json if model else None)
+        if isinstance(f_json, str):
+            try:
+                f_json = json.loads(f_json)
+            except Exception:
+                f_json = {}
+        if reps > 0 and f_json and isinstance(f_json, dict) and any(v > 0 for v in f_json.values() if isinstance(v, (int, float))):
+            weights = {
+                'knee_valgus': 2.5, 'knee_cave': 2.5, 'left_knee_cave': 2.5, 'right_knee_cave': 2.5,
+                'chest_up': 2.2, 'lean_forward': 2.2, 'go_deeper': 1.5, 'shallow_depth': 1.5, 'too_low': 1.0,
+            }
+            pts = 0.0
+            for k, v in f_json.items():
+                if isinstance(v, (int, float)) and v > 0:
+                    w = weights.get(str(k).lower(), 1.5)
+                    eff = v * 0.5 if v <= 2 else float(v)
+                    pts += eff * w
+            penalty = (pts / reps) * 15
+            data["form_score"] = max(0, min(100, round(100 - penalty)))
+        else:
+            data["form_score"] = 100
 
 
 class NotificationAdmin(ModelView, model=Notification):
