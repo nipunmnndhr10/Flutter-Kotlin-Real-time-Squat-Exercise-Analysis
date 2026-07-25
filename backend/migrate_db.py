@@ -5,7 +5,7 @@ from app.core.database import engine
 def migrate():
     with engine.connect() as conn:
         try:
-            conn.execute(text("ALTER TABLE workout_sessions ADD COLUMN session_name VARCHAR;"))
+            conn.execute(text("ALTER TABLE workout_sessions ADD COLUMN IF NOT EXISTS session_name VARCHAR;"))
             conn.commit()
             print("Successfully added session_name column to workout_sessions table.")
         except Exception as e:
