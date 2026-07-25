@@ -17,30 +17,23 @@ SESSION_NAMES = [
     "Side-View Depth Session",
     "Morning Squat Routine",
     "Strength & Depth Focus",
-    "High-Volume Squats",
     "Evening Leg Session",
     "Form & Alignment Test",
     "Hypertrophy Squats",
     "Power Squat Workout",
-    "Endurance Squat Set",
 ]
 
 # Real faults detected by SquatMate engine:
-# - go_deeper (shallow squat depth)
-# - chest_up (excessive forward torso lean)
-# - too_low (excessive squat depth)
 FAULT_PRESETS = [
-    {},  # Perfect Form (Clean - No faults)
-    {},
+    {},  # Clean form
     {},
     {"go_deeper": 1},
-    {"go_deeper": 2},
     {"chest_up": 1},
     {"too_low": 1},
     {"go_deeper": 1, "chest_up": 1},
 ]
 
-def seed_data(user_id: int = 3, count: int = 120, days_span: int = 6):
+def seed_data(user_id: int = 3, target_total_squats: int = 120, days_span: int = 6):
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.id == user_id).first()
@@ -51,26 +44,35 @@ def seed_data(user_id: int = 3, count: int = 120, days_span: int = 6):
                 return
             user_id = user.id
 
-        print(f"Seeding {count} workout sessions AND {count} UNREAD notifications for User ID {user_id} across {days_span} days...")
+        # 1. Clear existing workout sessions and notifications for this user to get a clean dataset
+        print(f"Clearing old sessions and notifications for User ID {user_id}...")
+        db.query(WorkoutSession).filter(WorkoutSession.user_id == user_id).delete()
+        db.query(Notification).filter(Notification.user_id == user_id).delete()
+        db.commit()
+
+        print(f"Seeding {target_total_squats} TOTAL SQUATS across {days_span} days for User ID {user_id}...")
 
         nepal_tz = timezone(timedelta(hours=5, minutes=45))
         now = datetime.now(nepal_tz)
         start_time = now - timedelta(days=days_span)
-        interval_seconds = (days_span * 24 * 3600) / count
+
+        # Distribute 120 squats into ~10 sessions across 6 days (~12 reps per session)
+        session_reps_list = [12, 10, 15, 12, 14, 10, 12, 15, 10, 10]  # Sum = 120 squats
+        num_sessions = len(session_reps_list)
+        interval_seconds = (days_span * 24 * 3600) / num_sessions
 
         new_sessions = []
         new_notifications = []
 
-        for i in range(count):
-            session_time = start_time + timedelta(seconds=i * interval_seconds + random.randint(-300, 300))
-            duration = random.randint(45, 180)
+        for i, reps in enumerate(session_reps_list):
+            session_time = start_time + timedelta(seconds=i * interval_seconds + random.randint(-600, 600))
+            duration = random.randint(45, 90)
             ended_time = session_time + timedelta(seconds=duration)
 
-            reps = random.randint(10, 30)
-            avg_knee = round(random.uniform(88.0, 112.0), 1)
-            min_knee = round(avg_knee - random.uniform(15.0, 25.0), 1)
-            avg_hip = round(random.uniform(82.0, 105.0), 1)
-            min_hip = round(avg_hip - random.uniform(12.0, 22.0), 1)
+            avg_knee = round(random.uniform(92.0, 108.0), 1)
+            min_knee = round(avg_knee - random.uniform(15.0, 22.0), 1)
+            avg_hip = round(random.uniform(85.0, 102.0), 1)
+            min_hip = round(avg_hip - random.uniform(12.0, 18.0), 1)
             session_name = random.choice(SESSION_NAMES)
 
             session = WorkoutSession(
@@ -91,13 +93,13 @@ def seed_data(user_id: int = 3, count: int = 120, days_span: int = 6):
             )
             new_sessions.append(session)
 
-            # Create UNREAD notification (is_read=False) for testing notification banner & count badge
+            # Create unread notification for testing
             notification = Notification(
                 user_id=user_id,
                 title="Workout Recorded!",
                 body=f"Session '{session_name}' saved with {reps} reps.",
                 notification_type="workout",
-                is_read=False,  # Unread for testing multiple banners/badge
+                is_read=False,
                 created_at=ended_time,
             )
             new_notifications.append(notification)
@@ -105,7 +107,7 @@ def seed_data(user_id: int = 3, count: int = 120, days_span: int = 6):
         db.bulk_save_objects(new_sessions)
         db.bulk_save_objects(new_notifications)
         db.commit()
-        print(f"Successfully seeded {count} workout sessions AND {count} UNREAD notifications for User ID {user_id} into database!")
+        print(f"Successfully seeded exactly {sum(session_reps_list)} total squats across {num_sessions} sessions for User ID {user_id}!")
 
     except Exception as e:
         db.rollback()
@@ -114,4 +116,4 @@ def seed_data(user_id: int = 3, count: int = 120, days_span: int = 6):
         db.close()
 
 if __name__ == "__main__":
-    seed_data(user_id=3, count=120, days_span=6)
+    seed_data(user_id=3, target_total_squats=120, days_span=6)
