@@ -22,12 +22,49 @@ from sqlalchemy import text
 # Create database tables automatically from SQLAlchemy models
 Base.metadata.create_all(bind=engine)
 
+import json
+
 # Auto-migrate missing columns directly on startup
 try:
     with engine.begin() as conn:
         conn.execute(text("ALTER TABLE workout_sessions ADD COLUMN IF NOT EXISTS form_score INTEGER DEFAULT 100;"))
 except Exception as e:
     print(f"Startup schema migration check: {e}")
+
+# Recalculate form_score for existing historical records in database
+def recalculate_existing_form_scores():
+    try:
+        db = SessionLocal()
+        sessions = db.query(WorkoutSession).all()
+        weights = {
+            'knee_valgus': 2.5, 'knee_cave': 2.5, 'left_knee_cave': 2.5, 'right_knee_cave': 2.5,
+            'chest_up': 2.2, 'lean_forward': 2.2, 'go_deeper': 1.5, 'shallow_depth': 1.5, 'too_low': 1.0,
+        }
+        for s in sessions:
+            f_json = s.fault_summary_json
+            if isinstance(f_json, str):
+                try:
+                    f_json = json.loads(f_json)
+                except Exception:
+                    f_json = {}
+            reps = s.total_reps or 0
+            if reps > 0 and f_json and isinstance(f_json, dict) and any(v > 0 for v in f_json.values() if isinstance(v, (int, float))):
+                pts = 0.0
+                for k, v in f_json.items():
+                    if isinstance(v, (int, float)) and v > 0:
+                        w = weights.get(str(k).lower(), 1.5)
+                        eff = v * 0.5 if v <= 2 else float(v)
+                        pts += eff * w
+                penalty = (pts / reps) * 15
+                s.form_score = max(0, min(100, round(100 - penalty)))
+            else:
+                s.form_score = 100
+        db.commit()
+        db.close()
+    except Exception as e:
+        print(f"Form score recalculation note: {e}")
+
+recalculate_existing_form_scores()
 
 app = FastAPI(title="Capstone Backend")
 
