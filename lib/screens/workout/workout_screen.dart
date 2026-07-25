@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flt_kotlin_pose/core/constants/app_constants.dart';
 import 'package:flt_kotlin_pose/screens/auth/loginscreen.dart';
 import 'package:flt_kotlin_pose/screens/workout/workout_loading_screen.dart';
+import 'package:flt_kotlin_pose/screens/workout/workout_summary_dialog.dart';
 
 // Kinetic Noir Color System (from start workout screen.md)
 const kBackground = Color(0xFFFCF8F8);
@@ -179,154 +180,64 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     await showDialog<void>(
       context: context,
       barrierDismissible: true,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: kBackground,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: Text(
-          'Workout Summary',
-          style: GoogleFonts.hankenGrotesk(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: kTextPrimary,
-          ),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SummaryRow(
-                label: 'Record ID',
-                value: summary['id']?.toString() ?? 'Pending save',
-              ),
-              _SummaryRow(
-                label: 'Started At',
-                value: summary['startedAt']?.toString() ?? '-',
-              ),
-              _SummaryRow(
-                label: 'Ended At',
-                value: summary['endedAt']?.toString() ?? '-',
-              ),
-              _SummaryRow(
-                label: 'Target Angle Threshold',
-                value:
-                    '${(summary['targetAngleThreshold'] as num?)?.toStringAsFixed(1) ?? '-'}°',
-              ),
-              _SummaryRow(
-                label: 'Camera',
-                value: summary['camera']?.toString() ?? '-',
-              ),
-              _SummaryRow(
-                label: 'Fault Summary JSON',
-                value: _formatFaultSummary(summary['faultSummaryJson']),
-              ),
-              const SizedBox(height: 4),
-              _SummaryRow(
-                label: 'Duration',
-                value: '${summary['durationSeconds'] ?? '-'}s',
-              ),
-              _SummaryRow(
-                label: 'Total Reps',
-                value: summary['totalReps']?.toString() ?? '-',
-              ),
-              _SummaryRow(
-                label: 'Avg Knee Angle',
-                value:
-                    '${(summary['avgKneeAngle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
-              ),
-              _SummaryRow(
-                label: 'Avg Hip Angle',
-                value:
-                    '${(summary['avgHipAngle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
-              ),
-              _SummaryRow(
-                label: 'Min Knee Angle',
-                value:
-                    '${(summary['minKneeAngle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
-              ),
-              _SummaryRow(
-                label: 'Min Hip Angle',
-                value:
-                    '${(summary['minHipAngle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              final messenger = ScaffoldMessenger.of(context);
-              try {
-                await _saveWorkoutSummary(summary);
-                if (!dialogContext.mounted) return;
+      builder: (dialogContext) {
+        return WorkoutSummaryDialog(
+          summary: summary,
+          onSave: () async {
+            final messenger = ScaffoldMessenger.of(context);
+            try {
+              await _saveWorkoutSummary(summary);
+              if (!dialogContext.mounted) return;
+              Navigator.of(dialogContext).pop();
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Text('Workout saved successfully'),
+                  backgroundColor: kPrimary,
+                ),
+              );
+              if (widget.onWorkoutSaved != null) {
+                widget.onWorkoutSaved!();
+              }
+            } on DioException catch (e) {
+              if (!dialogContext.mounted) return;
+              if (e.response?.statusCode == 401) {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.remove('access_token');
                 Navigator.of(dialogContext).pop();
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
                 messenger.showSnackBar(
                   const SnackBar(
-                    content: Text('Workout saved successfully'),
-                    backgroundColor: kPrimary,
+                    content: Text('Session expired. Please log in again.'),
+                    backgroundColor: Colors.orange,
                   ),
                 );
-                if (widget.onWorkoutSaved != null) {
-                  widget.onWorkoutSaved!();
-                }
-              } on DioException catch (e) {
-                if (!dialogContext.mounted) return;
-                if (e.response?.statusCode == 401) {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.remove('access_token');
-                  Navigator.of(dialogContext).pop();
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (route) => false,
-                  );
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('Session expired. Please log in again.'),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                } else {
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Failed to save workout: ${e.response?.data?['detail'] ?? e.message}',
-                      ),
-                    ),
-                  );
-                }
-              } catch (error) {
-                if (!dialogContext.mounted) return;
+              } else {
                 messenger.showSnackBar(
-                  SnackBar(content: Text('Failed to save workout: $error')),
+                  SnackBar(
+                    content: Text(
+                      'Failed to save workout: ${e.response?.data?['detail'] ?? e.message}',
+                    ),
+                  ),
                 );
               }
-            },
-            child: Text(
-              'Save Workout',
-              style: GoogleFonts.inter(
-                color: kPrimary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(
-              "Don't Save",
-              style: GoogleFonts.inter(color: kTextMuted),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(
-              'Close',
-              style: GoogleFonts.inter(color: kTextMuted),
-            ),
-          ),
-        ],
-      ),
+            } catch (error) {
+              if (!dialogContext.mounted) return;
+              messenger.showSnackBar(
+                SnackBar(content: Text('Failed to save workout: $error')),
+              );
+            }
+          },
+          onDiscard: () {
+            Navigator.of(dialogContext).pop();
+          },
+          onClose: () {
+            Navigator.of(dialogContext).pop();
+          },
+        );
+      },
     );
   }
 
@@ -366,22 +277,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     await authedDio.post('/workouts/', data: payload);
   }
 
-  String _formatFaultSummary(dynamic faultSummary) {
-    if (faultSummary is! Map || faultSummary.isEmpty) {
-      return '{}';
-    }
 
-    final entries = faultSummary.entries.toList()
-      ..sort((a, b) => a.key.toString().compareTo(b.key.toString()));
-    final buffer = StringBuffer('{');
-    for (var i = 0; i < entries.length; i++) {
-      final entry = entries[i];
-      buffer.write('"${entry.key}": ${entry.value}');
-      if (i < entries.length - 1) buffer.write(', ');
-    }
-    buffer.write('}');
-    return buffer.toString();
-  }
 }
 
 class _InfoCard extends StatelessWidget {
@@ -465,42 +361,6 @@ class _InfoCard extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.jetBrainsMono(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: kTextMuted,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: GoogleFonts.inter(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: kTextPrimary,
             ),
           ),
         ],
