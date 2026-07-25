@@ -32,22 +32,13 @@ class AdminAuth(AuthenticationBackend):
         if not username or not password:
             return False
 
-        # 1. Check environment-configured admin credentials
+        # Authenticate strictly using environment-configured admin credentials
         admin_user = os.getenv("ADMIN_USERNAME", "admin@squatmate.com")
         admin_pass = os.getenv("ADMIN_PASSWORD", "AdminSecurePassword123!")
+
         if username == admin_user and password == admin_pass:
             request.session.update({"token": "admin_session_token", "user": username})
             return True
-
-        # 2. Allow database users ONLY if they have administrative privileges (is_admin=True)
-        db = SessionLocal()
-        try:
-            user = db.query(User).filter(User.email == username, User.is_admin == True).first()
-            if user and verify_password(password, user.hashed_password) and user.is_active:
-                request.session.update({"token": f"admin_user_session_{user.id}", "user": user.email})
-                return True
-        finally:
-            db.close()
 
         return False
 
@@ -69,9 +60,10 @@ admin = Admin(app, engine, title="SquatMate Admin Portal", authentication_backen
 
 
 class UserAdmin(ModelView, model=User):
-    column_list = [User.id, User.email, User.full_name, User.is_admin, User.is_active, User.created_at]
+    column_list = [User.id, User.email, User.full_name, User.is_active, User.created_at]
     column_searchable_list = [User.email, User.full_name]
     icon = "fa-solid fa-user"
+
 
 
 class WorkoutAdmin(ModelView, model=WorkoutSession):
