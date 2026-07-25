@@ -246,7 +246,8 @@ class _NotificationButtonState extends State<_NotificationButton> {
   @override
   void didUpdateWidget(covariant _NotificationButton oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.backendNotifications.length != oldWidget.backendNotifications.length) {
+    if (widget.backendNotifications.length !=
+        oldWidget.backendNotifications.length) {
       _localReadState = false;
     }
   }
@@ -341,7 +342,10 @@ class _NotificationButtonState extends State<_NotificationButton> {
                       if (_hasUnread) ...[
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: kOlive.withAlpha(25),
                             borderRadius: BorderRadius.circular(8),
@@ -365,7 +369,10 @@ class _NotificationButtonState extends State<_NotificationButton> {
                     },
                     borderRadius: BorderRadius.circular(6),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: kSurfaceContainerHighest,
                         borderRadius: BorderRadius.circular(6),
@@ -408,75 +415,79 @@ class _NotificationButtonState extends State<_NotificationButton> {
                 )
               else
                 ..._displayNotifications.map((n) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: kSurface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: kSurfaceContainerHighest, width: 1),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: kOlive.withAlpha(25),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          n['icon'] == 'fitness'
-                              ? Icons.fitness_center_rounded
-                              : n['icon'] == 'tip'
-                                  ? Icons.lightbulb_outline_rounded
-                                  : Icons.local_fire_department_rounded,
-                          size: 16,
-                          color: kOlive,
-                        ),
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: kSurface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: kSurfaceContainerHighest,
+                        width: 1,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    n['title']!,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.bold,
-                                      color: kTextPrimary,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: kOlive.withAlpha(25),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            n['icon'] == 'fitness'
+                                ? Icons.fitness_center_rounded
+                                : n['icon'] == 'tip'
+                                ? Icons.lightbulb_outline_rounded
+                                : Icons.local_fire_department_rounded,
+                            size: 16,
+                            color: kOlive,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      n['title']!,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: kTextPrimary,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                Text(
-                                  n['time']!,
-                                  style: GoogleFonts.jetBrainsMono(
-                                    fontSize: 10,
-                                    color: kTextMuted,
+                                  Text(
+                                    n['time']!,
+                                    style: GoogleFonts.jetBrainsMono(
+                                      fontSize: 10,
+                                      color: kTextMuted,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              n['body']!,
-                              style: GoogleFonts.inter(
-                                fontSize: 11.5,
-                                color: kTextMuted,
+                                ],
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 3),
+                              Text(
+                                n['body']!,
+                                style: GoogleFonts.inter(
+                                  fontSize: 11.5,
+                                  color: kTextMuted,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
+                      ],
+                    ),
+                  );
+                }),
             ],
           ),
         ),
@@ -588,7 +599,7 @@ class _StatRow extends StatefulWidget {
 
 class _StatRowState extends State<_StatRow> {
   bool _totalSquatsIsWeekly = true; // Default to LAST 7 DAYS
-  bool _formScoreIsWeekly = true;   // Default to LAST 7 DAYS
+  bool _formScoreIsWeekly = true; // Default to LAST 7 DAYS
 
   String _fmt(int n) {
     if (n >= 1000) {
@@ -600,10 +611,14 @@ class _StatRowState extends State<_StatRow> {
 
   @override
   Widget build(BuildContext context) {
-    final squatsValue = _totalSquatsIsWeekly ? widget.weeklySquatsTotal : widget.totalSquats;
+    final squatsValue = _totalSquatsIsWeekly
+        ? widget.weeklySquatsTotal
+        : widget.totalSquats;
     final squatsBadge = _totalSquatsIsWeekly ? 'LAST 7 DAYS' : 'ALL TIME';
 
-    final formValue = _formScoreIsWeekly ? widget.weeklyForm : widget.allTimeForm;
+    final formValue = _formScoreIsWeekly
+        ? widget.weeklyForm
+        : widget.allTimeForm;
     final formBadge = _formScoreIsWeekly ? 'LAST 7 DAYS' : 'ALL TIME';
 
     return Row(
@@ -613,7 +628,8 @@ class _StatRowState extends State<_StatRow> {
             label: 'Total Squats',
             value: _fmt(squatsValue),
             badgeText: squatsBadge,
-            onTap: () => setState(() => _totalSquatsIsWeekly = !_totalSquatsIsWeekly),
+            onTap: () =>
+                setState(() => _totalSquatsIsWeekly = !_totalSquatsIsWeekly),
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -628,7 +644,8 @@ class _StatRowState extends State<_StatRow> {
             value: '$formValue',
             suffix: ' %',
             badgeText: formBadge,
-            onTap: () => setState(() => _formScoreIsWeekly = !_formScoreIsWeekly),
+            onTap: () =>
+                setState(() => _formScoreIsWeekly = !_formScoreIsWeekly),
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -678,7 +695,10 @@ class _StatCard extends StatelessWidget {
               Align(
                 alignment: Alignment.topRight,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withAlpha(179),
                     borderRadius: BorderRadius.circular(12),

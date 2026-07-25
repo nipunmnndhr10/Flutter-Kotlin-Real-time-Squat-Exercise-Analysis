@@ -129,8 +129,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final notifResponse = await dio.get('/notifications/my-notifications');
       if (notifResponse.data is List && mounted) {
         setState(() {
-          _backendNotifications =
-              (notifResponse.data as List).cast<Map<String, dynamic>>();
+          _backendNotifications = (notifResponse.data as List)
+              .cast<Map<String, dynamic>>();
         });
       }
     } catch (_) {}
@@ -163,7 +163,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final reps = int.tryParse(repsStr) ?? 0;
       allTimeTotal += reps;
 
-      final formVal = (w['form_score'] ?? w['formScore'] as num?)?.toDouble() ?? 100.0;
+      final formVal =
+          (w['form_score'] ?? w['formScore'] as num?)?.toDouble() ?? 100.0;
       allTimeFormSum += formVal;
       allTimeFormCount++;
 
@@ -187,8 +188,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     weeklySquatsTotal = weekTotal;
     weeklySquats = weekData;
 
-    weeklyForm = weekFormCount > 0 ? (weekFormSum / weekFormCount).round() : 100;
-    allTimeForm = allTimeFormCount > 0 ? (allTimeFormSum / allTimeFormCount).round() : 100;
+    weeklyForm = weekFormCount > 0
+        ? (weekFormSum / weekFormCount).round()
+        : 100;
+    allTimeForm = allTimeFormCount > 0
+        ? (allTimeFormSum / allTimeFormCount).round()
+        : 100;
     topForm = weeklyForm;
   }
 
@@ -274,7 +279,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       try {
         final notifResponse = await dio.get('/notifications/my-notifications');
         if (notifResponse.data is List) {
-          _backendNotifications = (notifResponse.data as List).cast<Map<String, dynamic>>();
+          _backendNotifications = (notifResponse.data as List)
+              .cast<Map<String, dynamic>>();
         }
       } catch (_) {}
 
@@ -573,7 +579,9 @@ class _BottomNav extends StatelessWidget {
                         width: 5,
                         height: 5,
                         decoration: BoxDecoration(
-                          color: isSelected ? selectedColor : Colors.transparent,
+                          color: isSelected
+                              ? selectedColor
+                              : Colors.transparent,
                           shape: BoxShape.circle,
                         ),
                       ),

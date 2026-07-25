@@ -48,15 +48,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
   _HistoryFilter? _lastFilter;
 
   List<Map<String, dynamic>> get _filteredWorkouts {
-    if (identical(widget.workouts, _lastWorkouts) && _selectedFilter == _lastFilter) {
+    if (identical(widget.workouts, _lastWorkouts) &&
+        _selectedFilter == _lastFilter) {
       return _memoizedWorkouts;
     }
 
-    final sorted = List<Map<String, dynamic>>.from(widget.workouts)..sort((a, b) {
-      final dtA = DateTime.tryParse(a['started_at']?.toString() ?? '') ?? DateTime(1970);
-      final dtB = DateTime.tryParse(b['started_at']?.toString() ?? '') ?? DateTime(1970);
-      return dtB.compareTo(dtA);
-    });
+    final sorted = List<Map<String, dynamic>>.from(widget.workouts)
+      ..sort((a, b) {
+        final dtA =
+            DateTime.tryParse(a['started_at']?.toString() ?? '') ??
+            DateTime(1970);
+        final dtB =
+            DateTime.tryParse(b['started_at']?.toString() ?? '') ??
+            DateTime(1970);
+        return dtB.compareTo(dtA);
+      });
 
     if (_selectedFilter == _HistoryFilter.all) {
       _memoizedWorkouts = sorted;
@@ -67,7 +73,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
       _memoizedWorkouts = sorted.where((w) {
         final startedAtStr = w['started_at']?.toString();
-        final dt = startedAtStr != null ? DateTime.tryParse(startedAtStr)?.toLocal() : null;
+        final dt = startedAtStr != null
+            ? DateTime.tryParse(startedAtStr)?.toLocal()
+            : null;
 
         if (_selectedFilter == _HistoryFilter.thisWeek) {
           if (dt == null) return false;
@@ -76,7 +84,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
           if (dt == null) return false;
           return dt.year == now.year && dt.month == now.month;
         } else if (_selectedFilter == _HistoryFilter.highForm) {
-          final formVal = (w['form_score'] ?? w['formScore'] as num?)?.toDouble() ?? 100.0;
+          final formVal =
+              (w['form_score'] ?? w['formScore'] as num?)?.toDouble() ?? 100.0;
           return formVal >= 90.0;
         }
         return true;
@@ -138,7 +147,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     borderRadius: BorderRadius.circular(12),
                     clipBehavior: Clip.antiAlias,
                     menuPadding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 140, maxWidth: 165),
+                    constraints: const BoxConstraints(
+                      minWidth: 140,
+                      maxWidth: 165,
+                    ),
                     position: PopupMenuPosition.under,
                     popUpAnimationStyle: AnimationStyle(
                       duration: const Duration(milliseconds: 180),
@@ -152,7 +164,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     },
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
-                      side: const BorderSide(color: kSurfaceContainerHighest, width: 1),
+                      side: const BorderSide(
+                        color: kSurfaceContainerHighest,
+                        width: 1,
+                      ),
                     ),
                     color: kSurface,
                     elevation: 6,
@@ -165,15 +180,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             Icon(
                               Icons.clear_all_rounded,
                               size: 16,
-                              color: _selectedFilter == _HistoryFilter.all ? kPrimary : kTextMuted,
+                              color: _selectedFilter == _HistoryFilter.all
+                                  ? kPrimary
+                                  : kTextMuted,
                             ),
                             const SizedBox(width: 8),
                             Text(
                               'All Workouts',
                               style: GoogleFonts.inter(
                                 fontSize: 12,
-                                fontWeight: _selectedFilter == _HistoryFilter.all ? FontWeight.w700 : FontWeight.w500,
-                                color: _selectedFilter == _HistoryFilter.all ? kPrimary : kTextPrimary,
+                                fontWeight:
+                                    _selectedFilter == _HistoryFilter.all
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: _selectedFilter == _HistoryFilter.all
+                                    ? kPrimary
+                                    : kTextPrimary,
                               ),
                             ),
                           ],
@@ -187,15 +209,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             Icon(
                               Icons.date_range_rounded,
                               size: 16,
-                              color: _selectedFilter == _HistoryFilter.thisWeek ? kPrimary : kTextMuted,
+                              color: _selectedFilter == _HistoryFilter.thisWeek
+                                  ? kPrimary
+                                  : kTextMuted,
                             ),
                             const SizedBox(width: 8),
                             Text(
                               'This Week',
                               style: GoogleFonts.inter(
                                 fontSize: 12,
-                                fontWeight: _selectedFilter == _HistoryFilter.thisWeek ? FontWeight.w700 : FontWeight.w500,
-                                color: _selectedFilter == _HistoryFilter.thisWeek ? kPrimary : kTextPrimary,
+                                fontWeight:
+                                    _selectedFilter == _HistoryFilter.thisWeek
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color:
+                                    _selectedFilter == _HistoryFilter.thisWeek
+                                    ? kPrimary
+                                    : kTextPrimary,
                               ),
                             ),
                           ],
@@ -209,15 +239,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             Icon(
                               Icons.calendar_month_rounded,
                               size: 16,
-                              color: _selectedFilter == _HistoryFilter.thisMonth ? kPrimary : kTextMuted,
+                              color: _selectedFilter == _HistoryFilter.thisMonth
+                                  ? kPrimary
+                                  : kTextMuted,
                             ),
                             const SizedBox(width: 8),
                             Text(
                               'This Month',
                               style: GoogleFonts.inter(
                                 fontSize: 12,
-                                fontWeight: _selectedFilter == _HistoryFilter.thisMonth ? FontWeight.w700 : FontWeight.w500,
-                                color: _selectedFilter == _HistoryFilter.thisMonth ? kPrimary : kTextPrimary,
+                                fontWeight:
+                                    _selectedFilter == _HistoryFilter.thisMonth
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color:
+                                    _selectedFilter == _HistoryFilter.thisMonth
+                                    ? kPrimary
+                                    : kTextPrimary,
                               ),
                             ),
                           ],
@@ -231,15 +269,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             Icon(
                               Icons.stars_rounded,
                               size: 16,
-                              color: _selectedFilter == _HistoryFilter.highForm ? kPrimary : kTextMuted,
+                              color: _selectedFilter == _HistoryFilter.highForm
+                                  ? kPrimary
+                                  : kTextMuted,
                             ),
                             const SizedBox(width: 8),
                             Text(
                               'High Form (≥90%)',
                               style: GoogleFonts.inter(
                                 fontSize: 12,
-                                fontWeight: _selectedFilter == _HistoryFilter.highForm ? FontWeight.w700 : FontWeight.w500,
-                                color: _selectedFilter == _HistoryFilter.highForm ? kPrimary : kTextPrimary,
+                                fontWeight:
+                                    _selectedFilter == _HistoryFilter.highForm
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color:
+                                    _selectedFilter == _HistoryFilter.highForm
+                                    ? kPrimary
+                                    : kTextPrimary,
                               ),
                             ),
                           ],
@@ -248,12 +294,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ],
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: _selectedFilter != _HistoryFilter.all ? kPrimary.withAlpha(25) : kSurfaceContainerHigh,
+                        color: _selectedFilter != _HistoryFilter.all
+                            ? kPrimary.withAlpha(25)
+                            : kSurfaceContainerHigh,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: _selectedFilter != _HistoryFilter.all ? kPrimary.withAlpha(100) : Colors.transparent,
+                          color: _selectedFilter != _HistoryFilter.all
+                              ? kPrimary.withAlpha(100)
+                              : Colors.transparent,
                         ),
                       ),
                       child: Row(
@@ -262,7 +315,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           Icon(
                             Icons.tune_rounded,
                             size: 14,
-                            color: _selectedFilter != _HistoryFilter.all ? kPrimary : kTextMuted,
+                            color: _selectedFilter != _HistoryFilter.all
+                                ? kPrimary
+                                : kTextMuted,
                           ),
                           const SizedBox(width: 5),
                           AnimatedSwitcher(
@@ -271,15 +326,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               _selectedFilter == _HistoryFilter.all
                                   ? 'Filter'
                                   : _selectedFilter == _HistoryFilter.thisWeek
-                                      ? 'Week'
-                                      : _selectedFilter == _HistoryFilter.thisMonth
-                                          ? 'Month'
-                                          : 'High Form',
+                                  ? 'Week'
+                                  : _selectedFilter == _HistoryFilter.thisMonth
+                                  ? 'Month'
+                                  : 'High Form',
                               key: ValueKey(_selectedFilter),
                               style: GoogleFonts.jetBrainsMono(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: _selectedFilter != _HistoryFilter.all ? kPrimary : kTextPrimary,
+                                color: _selectedFilter != _HistoryFilter.all
+                                    ? kPrimary
+                                    : kTextPrimary,
                               ),
                             ),
                           ),
@@ -287,7 +344,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           Icon(
                             Icons.arrow_drop_down_rounded,
                             size: 16,
-                            color: _selectedFilter != _HistoryFilter.all ? kPrimary : kTextMuted,
+                            color: _selectedFilter != _HistoryFilter.all
+                                ? kPrimary
+                                : kTextMuted,
                           ),
                         ],
                       ),
@@ -312,8 +371,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             final workout = displayWorkouts[index];
                             return _WorkoutHistoryCard(
                               workout: workout,
-                              onTap: () => _showWorkoutDetails(context, workout),
-                              onLongPress: () => _showLongPressOptions(context, workout),
+                              onTap: () =>
+                                  _showWorkoutDetails(context, workout),
+                              onLongPress: () =>
+                                  _showLongPressOptions(context, workout),
                             );
                           },
                         ),
@@ -338,11 +399,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.history_toggle_off_rounded,
-            size: 56,
-            color: kTextMuted,
-          ),
+          Icon(Icons.history_toggle_off_rounded, size: 56, color: kTextMuted),
           const SizedBox(height: 14),
           Text(
             'No Workouts Yet',
@@ -363,7 +420,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  void _showLongPressOptions(BuildContext context, Map<String, dynamic> workout) {
+  void _showLongPressOptions(
+    BuildContext context,
+    Map<String, dynamic> workout,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: kBackground,
@@ -433,7 +493,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, Map<String, dynamic> workout) {
+  void _showDeleteConfirmation(
+    BuildContext context,
+    Map<String, dynamic> workout,
+  ) {
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -482,7 +545,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             Navigator.of(dialogContext).pop();
                             messenger.showSnackBar(
                               const SnackBar(
-                                content: Text('Workout session deleted successfully'),
+                                content: Text(
+                                  'Workout session deleted successfully',
+                                ),
                                 backgroundColor: kPrimary,
                               ),
                             );
@@ -493,7 +558,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             });
                             messenger.showSnackBar(
                               const SnackBar(
-                                content: Text('Failed to delete workout session'),
+                                content: Text(
+                                  'Failed to delete workout session',
+                                ),
                                 backgroundColor: Colors.red,
                               ),
                             );
@@ -554,10 +621,7 @@ class _HistorySummaryRowState extends State<_HistorySummaryRow> {
     }
 
     final totalMinutes = (totalSeconds / 60).round();
-    return {
-      'sessions': sessionsCount,
-      'minutes': totalMinutes,
-    };
+    return {'sessions': sessionsCount, 'minutes': totalMinutes};
   }
 
   Map<String, int> _getAllTimeStats(List<Map<String, dynamic>> workouts) {
@@ -570,10 +634,7 @@ class _HistorySummaryRowState extends State<_HistorySummaryRow> {
       totalSeconds += seconds;
     }
     final totalMinutes = (totalSeconds / 60).round();
-    return {
-      'sessions': workouts.length,
-      'minutes': totalMinutes,
-    };
+    return {'sessions': workouts.length, 'minutes': totalMinutes};
   }
 
   @override
@@ -581,10 +642,14 @@ class _HistorySummaryRowState extends State<_HistorySummaryRow> {
     final weekStats = _getThisWeekStats(widget.workouts);
     final allTimeStats = _getAllTimeStats(widget.workouts);
 
-    final sessionsVal = _isWeekly ? weekStats['sessions'] ?? 0 : allTimeStats['sessions'] ?? 0;
+    final sessionsVal = _isWeekly
+        ? weekStats['sessions'] ?? 0
+        : allTimeStats['sessions'] ?? 0;
     final sessionsTitle = _isWeekly ? 'THIS WEEK' : 'ALL TIME';
 
-    final minutesVal = _isWeekly ? weekStats['minutes'] ?? 0 : allTimeStats['minutes'] ?? 0;
+    final minutesVal = _isWeekly
+        ? weekStats['minutes'] ?? 0
+        : allTimeStats['minutes'] ?? 0;
 
     void toggle() => setState(() => _isWeekly = !_isWeekly);
 
@@ -662,11 +727,7 @@ class _SummaryCard extends StatelessWidget {
                       letterSpacing: 0.5,
                     ),
                   ),
-                  Icon(
-                    icon,
-                    size: 16,
-                    color: iconColor,
-                  ),
+                  Icon(icon, size: 16, color: iconColor),
                 ],
               ),
               const SizedBox(height: 12),
@@ -729,7 +790,18 @@ class _WorkoutHistoryCard extends StatelessWidget {
       return 'Yesterday, $timeStr';
     } else {
       final months = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ];
       final month = months[dt.month - 1];
       return '$month ${dt.day}, $timeStr';

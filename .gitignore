@@ -59,3 +59,5 @@ backend/backend-capstone/
 
 # image upload by user
 backend/uploads/
+
+devtools_options.yaml

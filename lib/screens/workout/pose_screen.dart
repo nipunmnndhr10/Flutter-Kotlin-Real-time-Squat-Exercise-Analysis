@@ -314,9 +314,7 @@ class _PoseScreenState extends State<PoseScreen> {
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFFFCF8F8), // kBackground
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Exit workout?',
           style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.bold),
@@ -330,7 +328,9 @@ class _PoseScreenState extends State<PoseScreen> {
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: Text(
               'Cancel',
-              style: GoogleFonts.inter(color: const Color(0xFF696A6D)), // kTextMuted
+              style: GoogleFonts.inter(
+                color: const Color(0xFF696A6D),
+              ), // kTextMuted
             ),
           ),
           TextButton(

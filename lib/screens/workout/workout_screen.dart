@@ -94,10 +94,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                       height: 54,
                       child: ElevatedButton(
                         onPressed: () async {
-                          final result = await Navigator.push<Map<String, dynamic>>(
-                            context,
-                            MaterialPageRoute(builder: (_) => const WorkoutLoadingScreen()),
-                          );
+                          final result =
+                              await Navigator.push<Map<String, dynamic>>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const WorkoutLoadingScreen(),
+                                ),
+                              );
                           if (!mounted || result == null) return;
                           await _showWorkoutSummaryDialog(result);
                         },
@@ -276,8 +279,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
     await authedDio.post('/workouts/', data: payload);
   }
-
-
 }
 
 class _InfoCard extends StatelessWidget {
@@ -313,11 +314,7 @@ class _InfoCard extends StatelessWidget {
                   color: kSecondaryContainer.withValues(alpha: 0.35),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  icon,
-                  color: kSecondary,
-                  size: 22,
-                ),
+                child: Icon(icon, color: kSecondary, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -368,4 +365,3 @@ class _InfoCard extends StatelessWidget {
     );
   }
 }
-

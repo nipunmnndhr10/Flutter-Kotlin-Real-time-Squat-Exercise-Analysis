@@ -33,12 +33,14 @@ class WorkoutSummaryDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     // Extract and parse data
     final totalReps = summary['totalReps'] ?? summary['total_reps'] ?? 0;
-    final duration = summary['durationSeconds'] ?? summary['duration_seconds'] ?? 0;
-    
+    final duration =
+        summary['durationSeconds'] ?? summary['duration_seconds'] ?? 0;
+
     // Hardcoded form score for now
     int formScore = 95;
-    
-    var rawFaults = summary['faultSummaryJson'] ?? summary['fault_summary_json'];
+
+    var rawFaults =
+        summary['faultSummaryJson'] ?? summary['fault_summary_json'];
     if (rawFaults is String) {
       try {
         rawFaults = jsonDecode(rawFaults);
@@ -60,7 +62,8 @@ class WorkoutSummaryDialog extends StatelessWidget {
       }
     }
 
-    final cameraMode = (summary['camera']?.toString() ?? 'UNKNOWN').toUpperCase();
+    final cameraMode = (summary['camera']?.toString() ?? 'UNKNOWN')
+        .toUpperCase();
 
     return Dialog(
       backgroundColor: kSurface,
@@ -90,7 +93,9 @@ class WorkoutSummaryDialog extends StatelessWidget {
                             CircularProgressIndicator(
                               value: formScore / 100,
                               strokeWidth: 8,
-                              backgroundColor: const Color(0xFFE5E2E1), // surface-container-highest
+                              backgroundColor: const Color(
+                                0xFFE5E2E1,
+                              ), // surface-container-highest
                               color: kPrimaryLime,
                               strokeCap: StrokeCap.round,
                             ),
@@ -109,7 +114,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Title and Date
                     Text(
                       'Form Score',
@@ -152,7 +157,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
                         ),
                       ],
                     ),
-                    
+
                     if (faultMap.isNotEmpty) ...[
                       const SizedBox(height: 24),
                       Text(
@@ -177,7 +182,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
                     ],
 
                     const SizedBox(height: 24),
-                    
+
                     // Kinematic Data Header
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -192,7 +197,10 @@ class WorkoutSummaryDialog extends StatelessWidget {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: kSurfaceContainer,
                             borderRadius: BorderRadius.circular(4),
@@ -209,21 +217,23 @@ class WorkoutSummaryDialog extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    
+
                     // Kinematic Stats
                     Row(
                       children: [
                         Expanded(
                           child: _StatCard(
                             label: 'AVG KNEE ANGLE',
-                            value: '${(summary['avgKneeAngle'] ?? summary['avg_knee_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+                            value:
+                                '${(summary['avgKneeAngle'] ?? summary['avg_knee_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: _StatCard(
                             label: 'AVG HIP ANGLE',
-                            value: '${(summary['avgHipAngle'] ?? summary['avg_hip_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+                            value:
+                                '${(summary['avgHipAngle'] ?? summary['avg_hip_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
                           ),
                         ),
                       ],
@@ -234,14 +244,16 @@ class WorkoutSummaryDialog extends StatelessWidget {
                         Expanded(
                           child: _StatCard(
                             label: 'MIN KNEE ANGLE',
-                            value: '${(summary['minKneeAngle'] ?? summary['min_knee_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+                            value:
+                                '${(summary['minKneeAngle'] ?? summary['min_knee_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: _StatCard(
                             label: 'MIN HIP ANGLE',
-                            value: '${(summary['minHipAngle'] ?? summary['min_hip_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+                            value:
+                                '${(summary['minHipAngle'] ?? summary['min_hip_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
                           ),
                         ),
                       ],
@@ -250,19 +262,18 @@ class WorkoutSummaryDialog extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             // Bottom Action Bar
             Container(
               padding: const EdgeInsets.all(16),
               decoration: const BoxDecoration(
                 color: kSurface,
                 border: Border(
-                  top: BorderSide(
-                    color: kSurfaceContainer,
-                    width: 1,
-                  ),
+                  top: BorderSide(color: kSurfaceContainer, width: 1),
                 ),
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(24),
+                ),
               ),
               child: isHistoryView
                   ? SizedBox(
@@ -322,7 +333,10 @@ class WorkoutSummaryDialog extends StatelessWidget {
                                   onPressed: onDiscard,
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: kTextMuted,
-                                    side: const BorderSide(color: kSurfaceContainer, width: 1.5),
+                                    side: const BorderSide(
+                                      color: kSurfaceContainer,
+                                      width: 1.5,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -345,7 +359,10 @@ class WorkoutSummaryDialog extends StatelessWidget {
                                   onPressed: onClose,
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: kTextPrimary,
-                                    side: const BorderSide(color: kSurfaceContainer, width: 1.5),
+                                    side: const BorderSide(
+                                      color: kSurfaceContainer,
+                                      width: 1.5,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
