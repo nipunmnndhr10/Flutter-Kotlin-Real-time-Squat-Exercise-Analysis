@@ -64,6 +64,20 @@ class PoseLandmarkerProcessor(
     @Volatile var isPaused: Boolean = false
     private var poseLandmarker: PoseLandmarker = createPoseLandmarker(context)
 
+    // PERFORMANCE METRICS 
+
+    // Inference timing
+    private var inferenceStartTime = 0L
+    private var totalInferenceTime = 0.0
+    private var processedFrames = 0
+
+    // FPS calculation
+    private var fpsFrameCount = 0
+    private var fpsStartTime = System.currentTimeMillis()
+
+    // Session timing
+    private val sessionStartTime = System.currentTimeMillis()
+
     // Reusable bitmaps — double-buffered to prevent Mali GPU gralloc buffer locking collisions
     private var bufferBitmap: Bitmap? = null
     private val rotatedBitmaps = arrayOfNulls<Bitmap>(2)
@@ -123,6 +137,9 @@ class PoseLandmarkerProcessor(
 
             val mpImage: MPImage = BitmapImageBuilder(rot).build()
 
+            // Start inference timer
+            inferenceStartTime = System.nanoTime()
+
             synchronized(lock) { poseLandmarker }.detectAsync(mpImage, SystemClock.uptimeMillis())
 
         } catch (error: Throwable) {
@@ -144,32 +161,105 @@ class PoseLandmarkerProcessor(
     }
 
     private fun createPoseLandmarker(context: Context): PoseLandmarker {
-        val baseOptions = BaseOptions.builder()
+        val baseOptionsBuilder = BaseOptions.builder()
             .setModelAssetPath("pose_landmarker_lite.task")
-            .setDelegate(Delegate.CPU)
-            .build()
 
-        val options = PoseLandmarker.PoseLandmarkerOptions.builder()
-            .setBaseOptions(baseOptions)
+        try {
+            baseOptionsBuilder.setDelegate(Delegate.GPU)
+        } catch (e: Exception) {
+            Log.w(TAG, "GPU Delegate unavailable, falling back to CPU", e)
+            baseOptionsBuilder.setDelegate(Delegate.CPU)
+        }
+
+        val optionsBuilder = PoseLandmarker.PoseLandmarkerOptions.builder()
+            .setBaseOptions(baseOptionsBuilder.build())
             .setRunningMode(RunningMode.LIVE_STREAM)
             .setMinPoseDetectionConfidence(SQUAT_CONFIG.detectionThreshold)
             .setMinTrackingConfidence(SQUAT_CONFIG.trackingThreshold)
             .setMinPosePresenceConfidence(SQUAT_CONFIG.presenceThreshold)
             .setResultListener(this::onResult)
             .setErrorListener(this::onError)
-            .build()
 
-        return PoseLandmarker.createFromOptions(context, options)
+        return try {
+            PoseLandmarker.createFromOptions(context, optionsBuilder.build())
+        } catch (gpuError: Exception) {
+            Log.w(TAG, "Failed to create PoseLandmarker with GPU delegate, falling back to CPU", gpuError)
+            val fallbackBaseOptions = BaseOptions.builder()
+                .setModelAssetPath("pose_landmarker_lite.task")
+                .setDelegate(Delegate.CPU)
+                .build()
+            val fallbackOptions = PoseLandmarker.PoseLandmarkerOptions.builder()
+                .setBaseOptions(fallbackBaseOptions)
+                .setRunningMode(RunningMode.LIVE_STREAM)
+                .setMinPoseDetectionConfidence(SQUAT_CONFIG.detectionThreshold)
+                .setMinTrackingConfidence(SQUAT_CONFIG.trackingThreshold)
+                .setMinPosePresenceConfidence(SQUAT_CONFIG.presenceThreshold)
+                .setResultListener(this::onResult)
+                .setErrorListener(this::onError)
+                .build()
+            PoseLandmarker.createFromOptions(context, fallbackOptions)
+        }
     }
 
     private fun onResult(result: PoseLandmarkerResult, input: MPImage) {
+        val inferenceTime = (System.nanoTime() - inferenceStartTime) / 1_000_000.0
+
+        processedFrames++
+        totalInferenceTime += inferenceTime
+        fpsFrameCount++
+
+        val elapsed = System.currentTimeMillis() - fpsStartTime
+
+        if (processedFrames == 1) {
+            val devMsg = "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} | Android: ${android.os.Build.VERSION.RELEASE}"
+            Log.i(TAG, devMsg)
+            Log.i("Performance", devMsg)
+        }
+
+        if (elapsed >= 1000) {
+            val currentFps = fpsFrameCount * 1000f / elapsed
+            val averageInference = totalInferenceTime / processedFrames
+
+            val singleLinePerf = "PERFORMANCE | Inference: %.2f ms | AverageInference: %.2f ms | FPS: %.1f | Frames: %d".format(
+                inferenceTime,
+                averageInference,
+                currentFps,
+                processedFrames
+            )
+
+            // Log single-line summary to both TAG ("PoseLandmarkerProcessor") and "Performance"
+            Log.i(TAG, singleLinePerf)
+            Log.i("Performance", singleLinePerf)
+
+            // Log formatted multi-line summary
+            val multiLinePerf = """
+                ================ PERFORMANCE =================
+                Inference        : %.2f ms
+                AverageInference : %.2f ms
+                FPS              : %.1f
+                Frames           : %d
+                =============================================
+                """.trimIndent().format(
+                inferenceTime,
+                averageInference,
+                currentFps,
+                processedFrames
+            )
+
+            Log.i(TAG, multiLinePerf)
+            Log.i("Performance", multiLinePerf)
+
+            fpsFrameCount = 0
+            fpsStartTime = System.currentTimeMillis()
+        }
+
         if (isPaused) {
             isProcessingFrame.set(false)
             return
         }
 
         val allLandmarks = result.landmarks().firstOrNull().orEmpty()
-        
+
         // Verify genuine human pose presence: if key joints (shoulders, hips, knees, ankles)
         // do not meet 0.55 average visibility, reject false-positive hallucinations on fans/furniture.
         val isHumanDetected = run {
