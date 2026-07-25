@@ -133,11 +133,7 @@ class PoseLandmarkerProcessor(
 
             val mpImage: MPImage = BitmapImageBuilder(rot).build()
 
-<<<<<<< HEAD
-            synchronized(lock) { poseLandmarker }.detectAsync(mpImage, SystemClock.uptimeMillis())
-=======
-            // Start inference timer
-            inferenceStartTime = System.nanoTime()
+
 
             val landmarker = synchronized(lock) { poseLandmarker }
             if (landmarker != null) {
@@ -145,7 +141,6 @@ class PoseLandmarkerProcessor(
             } else {
                 isProcessingFrame.set(false)
             }
->>>>>>> c5964ae (fix: glitch/hang in loading Pose Screen after clicking on "Start Workout" btn, feat: introduced loading screen before starting a workout session)
 
         } catch (error: Throwable) {
             imageProxy.close()
