@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -14,41 +15,52 @@ const kError = Color(0xFFBA1A1A);
 
 class WorkoutSummaryDialog extends StatelessWidget {
   final Map<String, dynamic> summary;
-  final VoidCallback onSave;
-  final VoidCallback onDiscard;
+  final VoidCallback? onSave;
+  final VoidCallback? onDiscard;
   final VoidCallback onClose;
+  final bool isHistoryView;
 
   const WorkoutSummaryDialog({
     super.key,
     required this.summary,
-    required this.onSave,
-    required this.onDiscard,
+    this.onSave,
+    this.onDiscard,
     required this.onClose,
+    this.isHistoryView = false,
   });
 
   @override
   Widget build(BuildContext context) {
     // Extract and parse data
-    final totalReps = summary['totalReps'] ?? 0;
-    final duration = summary['durationSeconds'] ?? 0;
+    final totalReps = summary['totalReps'] ?? summary['total_reps'] ?? 0;
+    final duration = summary['durationSeconds'] ?? summary['duration_seconds'] ?? 0;
     
     // Hardcoded form score for now
     int formScore = 95;
     
-    final faultMap = summary['faultSummaryJson'] as Map? ?? {};
+    var rawFaults = summary['faultSummaryJson'] ?? summary['fault_summary_json'];
+    if (rawFaults is String) {
+      try {
+        rawFaults = jsonDecode(rawFaults);
+      } catch (_) {
+        rawFaults = {};
+      }
+    }
+    final faultMap = rawFaults as Map? ?? {};
 
     // Date formatting
     String dateStr = '';
-    if (summary['endedAt'] != null) {
+    final endDateStr = summary['endedAt'] ?? summary['ended_at'];
+    if (endDateStr != null) {
       try {
-        final dt = DateTime.parse(summary['endedAt']);
+        final dt = DateTime.parse(endDateStr.toString()).toLocal();
         dateStr = DateFormat('MMM d, yyyy • h:mm a').format(dt);
       } catch (_) {
-        dateStr = summary['endedAt'].toString();
+        dateStr = endDateStr.toString();
       }
     }
 
-    final cameraMode = summary['camera']?.toString().toUpperCase() ?? 'UNKNOWN';
+    final cameraMode = (summary['camera']?.toString() ?? 'UNKNOWN').toUpperCase();
 
     return Dialog(
       backgroundColor: kSurface,
@@ -204,14 +216,14 @@ class WorkoutSummaryDialog extends StatelessWidget {
                         Expanded(
                           child: _StatCard(
                             label: 'AVG KNEE ANGLE',
-                            value: '${(summary['avgKneeAngle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+                            value: '${(summary['avgKneeAngle'] ?? summary['avg_knee_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: _StatCard(
                             label: 'AVG HIP ANGLE',
-                            value: '${(summary['avgHipAngle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+                            value: '${(summary['avgHipAngle'] ?? summary['avg_hip_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
                           ),
                         ),
                       ],
@@ -222,14 +234,14 @@ class WorkoutSummaryDialog extends StatelessWidget {
                         Expanded(
                           child: _StatCard(
                             label: 'MIN KNEE ANGLE',
-                            value: '${(summary['minKneeAngle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+                            value: '${(summary['minKneeAngle'] ?? summary['min_knee_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: _StatCard(
                             label: 'MIN HIP ANGLE',
-                            value: '${(summary['minHipAngle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
+                            value: '${(summary['minHipAngle'] ?? summary['min_hip_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
                           ),
                         ),
                       ],
@@ -242,7 +254,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
             // Bottom Action Bar
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: kSurface,
                 border: Border(
                   top: BorderSide(
@@ -250,85 +262,108 @@ class WorkoutSummaryDialog extends StatelessWidget {
                     width: 1,
                   ),
                 ),
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: ElevatedButton(
-                      onPressed: onSave,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: kPrimaryLime,
-                        foregroundColor: kTextPrimary,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+              child: isHistoryView
+                  ? SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton(
+                        onPressed: onClose,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: kPrimaryLime,
+                          foregroundColor: kTextPrimary,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        'Save Workout',
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: 48,
-                          child: OutlinedButton(
-                            onPressed: onDiscard,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: kTextMuted,
-                              side: BorderSide(color: kSurfaceContainer, width: 1.5),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Text(
-                              'Discard',
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                        child: Text(
+                          'Close',
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: SizedBox(
-                          height: 48,
-                          child: OutlinedButton(
-                            onPressed: onClose,
-                            style: OutlinedButton.styleFrom(
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          height: 54,
+                          child: ElevatedButton(
+                            onPressed: onSave,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: kPrimaryLime,
                               foregroundColor: kTextPrimary,
-                              side: BorderSide(color: kSurfaceContainer, width: 1.5),
+                              elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
                             child: Text(
-                              'Close',
+                              'Save Workout',
                               style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SizedBox(
+                                height: 48,
+                                child: OutlinedButton(
+                                  onPressed: onDiscard,
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: kTextMuted,
+                                    side: const BorderSide(color: kSurfaceContainer, width: 1.5),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Discard',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: SizedBox(
+                                height: 48,
+                                child: OutlinedButton(
+                                  onPressed: onClose,
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: kTextPrimary,
+                                    side: const BorderSide(color: kSurfaceContainer, width: 1.5),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Close',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
             ),
           ],
         ),
