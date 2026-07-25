@@ -41,14 +41,14 @@ class _WorkoutLoadingScreenState extends State<WorkoutLoadingScreen>
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
 
-    // Progress bar fills over 3.5 seconds
+    // Progress bar fills over 1.8 seconds
     _progressController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3500),
+      duration: const Duration(milliseconds: 1800),
     )..forward();
 
-    // Cycle text messages every 1000ms
-    _stepTimer = Timer.periodic(const Duration(milliseconds: 1000), (timer) {
+    // Cycle text messages every 600ms
+    _stepTimer = Timer.periodic(const Duration(milliseconds: 600), (timer) {
       if (_currentStep < 2) {
         if (mounted) {
           setState(() {
@@ -60,8 +60,8 @@ class _WorkoutLoadingScreenState extends State<WorkoutLoadingScreen>
       }
     });
 
-    // Navigate to PoseScreen after 4 seconds
-    Future.delayed(const Duration(milliseconds: 4000), () async {
+    // Navigate to PoseScreen after 2 seconds
+    Future.delayed(const Duration(milliseconds: 2000), () async {
       if (!mounted) return;
       
       final result = await Navigator.push<Map<String, dynamic>>(
