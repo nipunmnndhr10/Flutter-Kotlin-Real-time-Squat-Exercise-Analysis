@@ -4,6 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.core.database import SQLALCHEMY_DATABASE_URL
 from app.models.workout import WorkoutSession
+from app.models.notification import Notification
 from app.models.user import User
 
 engine = create_engine(
@@ -50,7 +51,7 @@ def seed_data(user_id: int = 3, count: int = 120, days_span: int = 6):
                 return
             user_id = user.id
 
-        print(f"Seeding {count} authentic workout sessions for User ID {user_id} across {days_span} days...")
+        print(f"Seeding {count} workout sessions AND {count} UNREAD notifications for User ID {user_id} across {days_span} days...")
 
         nepal_tz = timezone(timedelta(hours=5, minutes=45))
         now = datetime.now(nepal_tz)
@@ -58,6 +59,7 @@ def seed_data(user_id: int = 3, count: int = 120, days_span: int = 6):
         interval_seconds = (days_span * 24 * 3600) / count
 
         new_sessions = []
+        new_notifications = []
 
         for i in range(count):
             session_time = start_time + timedelta(seconds=i * interval_seconds + random.randint(-300, 300))
@@ -89,9 +91,21 @@ def seed_data(user_id: int = 3, count: int = 120, days_span: int = 6):
             )
             new_sessions.append(session)
 
+            # Create UNREAD notification (is_read=False) for testing notification banner & count badge
+            notification = Notification(
+                user_id=user_id,
+                title="Workout Recorded!",
+                body=f"Session '{session_name}' saved with {reps} reps.",
+                notification_type="workout",
+                is_read=False,  # Unread for testing multiple banners/badge
+                created_at=ended_time,
+            )
+            new_notifications.append(notification)
+
         db.bulk_save_objects(new_sessions)
+        db.bulk_save_objects(new_notifications)
         db.commit()
-        print(f"Successfully seeded {count} workout sessions for User ID {user_id} into database!")
+        print(f"Successfully seeded {count} workout sessions AND {count} UNREAD notifications for User ID {user_id} into database!")
 
     except Exception as e:
         db.rollback()
