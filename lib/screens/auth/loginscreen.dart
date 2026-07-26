@@ -33,13 +33,6 @@ class _LoginScreenState extends State<LoginScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
-  final double _heroHeight = 280.0;
-
-  // Brand colors
-  static const Color primaryGreen = Color(0xFF2ECC71);
-  static const Color textDark = Color(0xFF1A2332);
-  static const Color textGray = Color(0xFF8A95A3);
-  static const Color cardBg = Color(0xFFFFFFFF);
 
   @override
   void initState() {

@@ -1158,7 +1158,6 @@ class _LightingFeedbackBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool isTooDark = averageLuminance < 40;
     final bool isTooBright = averageLuminance > 230;
-    final bool isOptimal = !isTooDark && !isTooBright;
     
     final String message;
     final IconData icon;

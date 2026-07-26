@@ -162,7 +162,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   errorText: _emailError,
                   onChanged: _onEmailChanged,
                   hintStyle: GoogleFonts.inter(
-                    color: _kDark.withOpacity(0.5),
+                    color: _kDark.withValues(alpha: 0.5),
                     fontSize: 16,
                   ),
                   style: GoogleFonts.inter(

@@ -67,12 +67,12 @@ class InputField extends StatelessWidget {
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: hintStyle ?? GoogleFonts.inter(
-                color: textDark.withOpacity(0.5),
+                color: textDark.withValues(alpha: 0.5),
                 fontSize: 16,
               ),
               prefixIcon: Icon(
                 icon,
-                color: textDark.withOpacity(0.5),
+                color: textDark.withValues(alpha: 0.5),
                 size: 24,
               ),
               suffixIcon: suffixIcon != null

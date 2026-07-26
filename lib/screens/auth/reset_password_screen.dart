@@ -10,7 +10,6 @@ const _kDark = Color(0xFF1C1B1B);
 const _kTextMuted = Color(0xFF444933);
 const _kPrimary = Color(0xFF506600);
 const _kLime = Color(0xFFCCFF00);
-const _kRadius = 12.0;
 
 class ResetPasswordScreen extends StatefulWidget {
   final String email;
