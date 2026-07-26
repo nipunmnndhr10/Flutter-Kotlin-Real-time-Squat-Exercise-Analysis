@@ -63,21 +63,16 @@ class PoseLandmarkerProcessor(
     @Volatile private var lastFrameProcessingTime = 0L
     @Volatile var isPaused: Boolean = false
     @Volatile private var activeDelegate: String = "CPU"
-    private var poseLandmarker: PoseLandmarker = createPoseLandmarker(context)
+    @Volatile private var poseLandmarker: PoseLandmarker? = null
 
-    // PERFORMANCE METRICS 
-
-    // Inference timing
-    private var inferenceStartTime = 0L
-    private var totalInferenceTime = 0.0
-    private var processedFrames = 0
-
-    // FPS calculation
-    private var fpsFrameCount = 0
-    private var fpsStartTime = System.currentTimeMillis()
-
-    // Session timing
-    private val sessionStartTime = System.currentTimeMillis()
+    init {
+        java.util.concurrent.Executors.newSingleThreadExecutor().execute {
+            val landmarker = createPoseLandmarker(context)
+            synchronized(lock) {
+                poseLandmarker = landmarker
+            }
+        }
+    }
 
     // Reusable bitmaps — double-buffered to prevent Mali GPU gralloc buffer locking collisions
     private var bufferBitmap: Bitmap? = null
@@ -138,10 +133,14 @@ class PoseLandmarkerProcessor(
 
             val mpImage: MPImage = BitmapImageBuilder(rot).build()
 
-            // Start inference timer
-            inferenceStartTime = System.nanoTime()
 
-            synchronized(lock) { poseLandmarker }.detectAsync(mpImage, SystemClock.uptimeMillis())
+
+            val landmarker = synchronized(lock) { poseLandmarker }
+            if (landmarker != null) {
+                landmarker.detectAsync(mpImage, SystemClock.uptimeMillis())
+            } else {
+                isProcessingFrame.set(false)
+            }
 
         } catch (error: Throwable) {
             imageProxy.close()
@@ -151,7 +150,7 @@ class PoseLandmarkerProcessor(
     }
 
     fun close() {
-        synchronized(lock) { poseLandmarker.close() }
+        synchronized(lock) { poseLandmarker?.close() }
         isProcessingFrame.set(false)
         bufferBitmap?.recycle(); bufferBitmap = null
         rotatedBitmaps[0]?.recycle(); rotatedBitmaps[0] = null
@@ -209,60 +208,6 @@ class PoseLandmarkerProcessor(
     }
 
     private fun onResult(result: PoseLandmarkerResult, input: MPImage) {
-        val inferenceTime = (System.nanoTime() - inferenceStartTime) / 1_000_000.0
-
-        processedFrames++
-        totalInferenceTime += inferenceTime
-        fpsFrameCount++
-
-        val elapsed = System.currentTimeMillis() - fpsStartTime
-
-        if (processedFrames == 1) {
-            val devMsg = "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} | Android: ${android.os.Build.VERSION.RELEASE} | Delegate: $activeDelegate"
-            Log.i(TAG, devMsg)
-            Log.i("Performance", devMsg)
-        }
-
-        if (elapsed >= 1000) {
-            val currentFps = fpsFrameCount * 1000f / elapsed
-            val averageInference = totalInferenceTime / processedFrames
-
-            val singleLinePerf = "PERFORMANCE | Delegate: %s | Inference: %.2f ms | AverageInference: %.2f ms | FPS: %.1f | Frames: %d".format(
-                activeDelegate,
-                inferenceTime,
-                averageInference,
-                currentFps,
-                processedFrames
-            )
-
-            // Log single-line summary to both TAG ("PoseLandmarkerProcessor") and "Performance"
-            Log.i(TAG, singleLinePerf)
-            Log.i("Performance", singleLinePerf)
-
-            // Log formatted multi-line summary
-            val multiLinePerf = """
-                ================ PERFORMANCE =================
-                Delegate         : %s
-                Inference        : %.2f ms
-                AverageInference : %.2f ms
-                FPS              : %.1f
-                Frames           : %d
-                =============================================
-                """.trimIndent().format(
-                activeDelegate,
-                inferenceTime,
-                averageInference,
-                currentFps,
-                processedFrames
-            )
-
-            Log.i(TAG, multiLinePerf)
-            Log.i("Performance", multiLinePerf)
-
-            fpsFrameCount = 0
-            fpsStartTime = System.currentTimeMillis()
-        }
-
         if (isPaused) {
             isProcessingFrame.set(false)
             return

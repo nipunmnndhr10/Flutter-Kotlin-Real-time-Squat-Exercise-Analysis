@@ -18,8 +18,47 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'SquatMate',
-      theme: ThemeData.light(useMaterial3: true),
+      theme: ThemeData.light(useMaterial3: true).copyWith(
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: SmoothPageTransitionsBuilder(),
+            TargetPlatform.iOS: SmoothPageTransitionsBuilder(),
+          },
+        ),
+      ),
       home: const _StartupGate(),
+    );
+  }
+}
+
+class SmoothPageTransitionsBuilder extends PageTransitionsBuilder {
+  const SmoothPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final curveAnimation = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeInOutCubic,
+      reverseCurve: Curves.easeInOutCubic,
+    );
+
+    final slideAnimation = Tween<Offset>(
+      begin: const Offset(0.04, 0.0),
+      end: Offset.zero,
+    ).animate(curveAnimation);
+
+    return SlideTransition(
+      position: slideAnimation,
+      child: FadeTransition(
+        opacity: curveAnimation,
+        child: child,
+      ),
     );
   }
 }

@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any
 
 class WorkoutSessionCreate(BaseModel):
     user_id: int | None = None
-    workout_type: str = "squat"
+    session_name: Optional[str] = None
     started_at: datetime
     ended_at: datetime
     duration_seconds: int
@@ -15,13 +15,14 @@ class WorkoutSessionCreate(BaseModel):
     min_hip_angle: float
     avg_hip_angle: float
     total_reps: int
+    form_score: Optional[int] = 100
     fault_summary_json: Optional[Dict[str, Any]] = None
 
 
 class WorkoutSessionResponse(BaseModel):
     id: int
     user_id: int
-    workout_type: str
+    session_name: Optional[str] = None
     started_at: datetime
     ended_at: datetime
     duration_seconds: int
@@ -32,6 +33,7 @@ class WorkoutSessionResponse(BaseModel):
     min_hip_angle: float
     avg_hip_angle: float
     total_reps: int
+    form_score: Optional[int] = 100
     fault_summary_json: Optional[Dict[str, Any]]
 
     class Config:

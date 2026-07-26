@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flt_kotlin_pose/screens/workout/workout_summary_dialog.dart';
 
 const kBackground = Color(0xFFFCF8F8);
 const kSurface = Color(0xFFF6F3F2);
@@ -24,6 +25,7 @@ class HistoryScreen extends StatefulWidget {
   final VoidCallback onLogout;
   final List<Map<String, dynamic>> workouts;
   final Future<void> Function(int sessionId) onDeleteWorkout;
+  final Future<void> Function(int sessionId, String newName)? onRenameWorkout;
 
   const HistoryScreen({
     super.key,
@@ -33,6 +35,7 @@ class HistoryScreen extends StatefulWidget {
     required this.onLogout,
     required this.workouts,
     required this.onDeleteWorkout,
+    this.onRenameWorkout,
   });
 
   @override
@@ -47,15 +50,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
   _HistoryFilter? _lastFilter;
 
   List<Map<String, dynamic>> get _filteredWorkouts {
-    if (identical(widget.workouts, _lastWorkouts) && _selectedFilter == _lastFilter) {
+    if (identical(widget.workouts, _lastWorkouts) &&
+        _selectedFilter == _lastFilter) {
       return _memoizedWorkouts;
     }
 
-    final sorted = List<Map<String, dynamic>>.from(widget.workouts)..sort((a, b) {
-      final dtA = DateTime.tryParse(a['started_at']?.toString() ?? '') ?? DateTime(1970);
-      final dtB = DateTime.tryParse(b['started_at']?.toString() ?? '') ?? DateTime(1970);
-      return dtB.compareTo(dtA);
-    });
+    final sorted = List<Map<String, dynamic>>.from(widget.workouts)
+      ..sort((a, b) {
+        final dtA =
+            DateTime.tryParse(a['started_at']?.toString() ?? '') ??
+            DateTime(1970);
+        final dtB =
+            DateTime.tryParse(b['started_at']?.toString() ?? '') ??
+            DateTime(1970);
+        return dtB.compareTo(dtA);
+      });
 
     if (_selectedFilter == _HistoryFilter.all) {
       _memoizedWorkouts = sorted;
@@ -66,7 +75,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
       _memoizedWorkouts = sorted.where((w) {
         final startedAtStr = w['started_at']?.toString();
-        final dt = startedAtStr != null ? DateTime.tryParse(startedAtStr)?.toLocal() : null;
+        final dt = startedAtStr != null
+            ? DateTime.tryParse(startedAtStr)?.toLocal()
+            : null;
 
         if (_selectedFilter == _HistoryFilter.thisWeek) {
           if (dt == null) return false;
@@ -75,7 +86,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
           if (dt == null) return false;
           return dt.year == now.year && dt.month == now.month;
         } else if (_selectedFilter == _HistoryFilter.highForm) {
-          final formVal = (w['form_score'] ?? w['formScore'] as num?)?.toDouble() ?? 100.0;
+          final formVal =
+              (w['form_score'] ?? w['formScore'] as num?)?.toDouble() ?? 100.0;
           return formVal >= 90.0;
         }
         return true;
@@ -137,7 +149,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     borderRadius: BorderRadius.circular(12),
                     clipBehavior: Clip.antiAlias,
                     menuPadding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 140, maxWidth: 165),
+                    constraints: const BoxConstraints(
+                      minWidth: 140,
+                      maxWidth: 165,
+                    ),
                     position: PopupMenuPosition.under,
                     popUpAnimationStyle: AnimationStyle(
                       duration: const Duration(milliseconds: 180),
@@ -151,7 +166,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     },
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
-                      side: const BorderSide(color: kSurfaceContainerHighest, width: 1),
+                      side: const BorderSide(
+                        color: kSurfaceContainerHighest,
+                        width: 1,
+                      ),
                     ),
                     color: kSurface,
                     elevation: 6,
@@ -164,15 +182,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             Icon(
                               Icons.clear_all_rounded,
                               size: 16,
-                              color: _selectedFilter == _HistoryFilter.all ? kPrimary : kTextMuted,
+                              color: _selectedFilter == _HistoryFilter.all
+                                  ? kPrimary
+                                  : kTextMuted,
                             ),
                             const SizedBox(width: 8),
                             Text(
                               'All Workouts',
                               style: GoogleFonts.inter(
                                 fontSize: 12,
-                                fontWeight: _selectedFilter == _HistoryFilter.all ? FontWeight.w700 : FontWeight.w500,
-                                color: _selectedFilter == _HistoryFilter.all ? kPrimary : kTextPrimary,
+                                fontWeight:
+                                    _selectedFilter == _HistoryFilter.all
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: _selectedFilter == _HistoryFilter.all
+                                    ? kPrimary
+                                    : kTextPrimary,
                               ),
                             ),
                           ],
@@ -186,15 +211,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             Icon(
                               Icons.date_range_rounded,
                               size: 16,
-                              color: _selectedFilter == _HistoryFilter.thisWeek ? kPrimary : kTextMuted,
+                              color: _selectedFilter == _HistoryFilter.thisWeek
+                                  ? kPrimary
+                                  : kTextMuted,
                             ),
                             const SizedBox(width: 8),
                             Text(
                               'This Week',
                               style: GoogleFonts.inter(
                                 fontSize: 12,
-                                fontWeight: _selectedFilter == _HistoryFilter.thisWeek ? FontWeight.w700 : FontWeight.w500,
-                                color: _selectedFilter == _HistoryFilter.thisWeek ? kPrimary : kTextPrimary,
+                                fontWeight:
+                                    _selectedFilter == _HistoryFilter.thisWeek
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color:
+                                    _selectedFilter == _HistoryFilter.thisWeek
+                                    ? kPrimary
+                                    : kTextPrimary,
                               ),
                             ),
                           ],
@@ -208,15 +241,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             Icon(
                               Icons.calendar_month_rounded,
                               size: 16,
-                              color: _selectedFilter == _HistoryFilter.thisMonth ? kPrimary : kTextMuted,
+                              color: _selectedFilter == _HistoryFilter.thisMonth
+                                  ? kPrimary
+                                  : kTextMuted,
                             ),
                             const SizedBox(width: 8),
                             Text(
                               'This Month',
                               style: GoogleFonts.inter(
                                 fontSize: 12,
-                                fontWeight: _selectedFilter == _HistoryFilter.thisMonth ? FontWeight.w700 : FontWeight.w500,
-                                color: _selectedFilter == _HistoryFilter.thisMonth ? kPrimary : kTextPrimary,
+                                fontWeight:
+                                    _selectedFilter == _HistoryFilter.thisMonth
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color:
+                                    _selectedFilter == _HistoryFilter.thisMonth
+                                    ? kPrimary
+                                    : kTextPrimary,
                               ),
                             ),
                           ],
@@ -230,15 +271,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             Icon(
                               Icons.stars_rounded,
                               size: 16,
-                              color: _selectedFilter == _HistoryFilter.highForm ? kPrimary : kTextMuted,
+                              color: _selectedFilter == _HistoryFilter.highForm
+                                  ? kPrimary
+                                  : kTextMuted,
                             ),
                             const SizedBox(width: 8),
                             Text(
                               'High Form (≥90%)',
                               style: GoogleFonts.inter(
                                 fontSize: 12,
-                                fontWeight: _selectedFilter == _HistoryFilter.highForm ? FontWeight.w700 : FontWeight.w500,
-                                color: _selectedFilter == _HistoryFilter.highForm ? kPrimary : kTextPrimary,
+                                fontWeight:
+                                    _selectedFilter == _HistoryFilter.highForm
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color:
+                                    _selectedFilter == _HistoryFilter.highForm
+                                    ? kPrimary
+                                    : kTextPrimary,
                               ),
                             ),
                           ],
@@ -247,12 +296,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ],
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: _selectedFilter != _HistoryFilter.all ? kPrimary.withAlpha(25) : kSurfaceContainerHigh,
+                        color: _selectedFilter != _HistoryFilter.all
+                            ? kPrimary.withAlpha(25)
+                            : kSurfaceContainerHigh,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: _selectedFilter != _HistoryFilter.all ? kPrimary.withAlpha(100) : Colors.transparent,
+                          color: _selectedFilter != _HistoryFilter.all
+                              ? kPrimary.withAlpha(100)
+                              : Colors.transparent,
                         ),
                       ),
                       child: Row(
@@ -261,7 +317,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           Icon(
                             Icons.tune_rounded,
                             size: 14,
-                            color: _selectedFilter != _HistoryFilter.all ? kPrimary : kTextMuted,
+                            color: _selectedFilter != _HistoryFilter.all
+                                ? kPrimary
+                                : kTextMuted,
                           ),
                           const SizedBox(width: 5),
                           AnimatedSwitcher(
@@ -270,15 +328,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               _selectedFilter == _HistoryFilter.all
                                   ? 'Filter'
                                   : _selectedFilter == _HistoryFilter.thisWeek
-                                      ? 'Week'
-                                      : _selectedFilter == _HistoryFilter.thisMonth
-                                          ? 'Month'
-                                          : 'High Form',
+                                  ? 'Week'
+                                  : _selectedFilter == _HistoryFilter.thisMonth
+                                  ? 'Month'
+                                  : 'High Form',
                               key: ValueKey(_selectedFilter),
                               style: GoogleFonts.jetBrainsMono(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: _selectedFilter != _HistoryFilter.all ? kPrimary : kTextPrimary,
+                                color: _selectedFilter != _HistoryFilter.all
+                                    ? kPrimary
+                                    : kTextPrimary,
                               ),
                             ),
                           ),
@@ -286,7 +346,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           Icon(
                             Icons.arrow_drop_down_rounded,
                             size: 16,
-                            color: _selectedFilter != _HistoryFilter.all ? kPrimary : kTextMuted,
+                            color: _selectedFilter != _HistoryFilter.all
+                                ? kPrimary
+                                : kTextMuted,
                           ),
                         ],
                       ),
@@ -311,8 +373,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             final workout = displayWorkouts[index];
                             return _WorkoutHistoryCard(
                               workout: workout,
-                              onTap: () => _showWorkoutDetails(context, workout),
-                              onLongPress: () => _showLongPressOptions(context, workout),
+                              onTap: () =>
+                                  _showWorkoutDetails(context, workout),
+                              onLongPress: () =>
+                                  _showLongPressOptions(context, workout),
                             );
                           },
                         ),
@@ -337,11 +401,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.history_toggle_off_rounded,
-            size: 56,
-            color: kTextMuted,
-          ),
+          Icon(Icons.history_toggle_off_rounded, size: 56, color: kTextMuted),
           const SizedBox(height: 14),
           Text(
             'No Workouts Yet',
@@ -362,7 +422,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  void _showLongPressOptions(BuildContext context, Map<String, dynamic> workout) {
+  void _showLongPressOptions(
+    BuildContext context,
+    Map<String, dynamic> workout,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: kBackground,
@@ -400,6 +463,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   },
                 ),
                 ListTile(
+                  leading: const Icon(Icons.edit_outlined, color: kTextPrimary),
+                  title: Text(
+                    'Rename Workout Session',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w500,
+                      color: kTextPrimary,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _showRenameDialog(context, workout);
+                  },
+                ),
+                ListTile(
                   leading: const Icon(Icons.delete_outline, color: Colors.red),
                   title: Text(
                     'Delete Workout Session',
@@ -421,314 +498,90 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  void _showWorkoutDetails(BuildContext context, Map<String, dynamic> workout) {
+  void _showRenameDialog(BuildContext context, Map<String, dynamic> workout) {
+    if (widget.onRenameWorkout == null) return;
+    
+    final TextEditingController controller = TextEditingController(
+      text: workout['session_name'] ?? '',
+    );
+    
     showDialog(
       context: context,
-      builder: (context) {
-        final duration = workout['duration_seconds'] ?? 0;
-        final minutes = duration ~/ 60;
-        final seconds = duration % 60;
-        final durationText = minutes > 0 ? '${minutes}m ${seconds}s' : '${seconds}s';
-
-        final startedAt = workout['started_at'] != null
-            ? DateTime.tryParse(workout['started_at'].toString())?.toLocal()
-            : null;
-
-        final startedAtText = startedAt != null
-            ? '${startedAt.day}/${startedAt.month}/${startedAt.year} ${startedAt.hour.toString().padLeft(2, '0')}:${startedAt.minute.toString().padLeft(2, '0')}'
-            : '-';
-
-        final faults = workout['fault_summary_json'];
-        final List<Widget> faultWidgets = [];
-        if (faults is Map && faults.isNotEmpty) {
-          faults.forEach((key, value) {
-            final readableKey = key.toString().replaceAll('_', ' ');
-            final capitalizedKey = readableKey.isNotEmpty
-                ? '${readableKey[0].toUpperCase()}${readableKey.substring(1)}'
-                : readableKey;
-            faultWidgets.add(
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '• $capitalizedKey',
-                      style: GoogleFonts.inter(fontSize: 13, color: kTextPrimary),
-                    ),
-                    Text(
-                      'x$value',
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.redAccent,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          });
-        } else {
-          faultWidgets.add(
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-              decoration: BoxDecoration(
-                color: const Color(0x1A506600),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: kPrimary, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Perfect Form! No faults detected.',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: kPrimary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        return Dialog(
+      builder: (dialogContext) {
+        return AlertDialog(
           backgroundColor: kBackground,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
-                          color: Color(0x1A506600),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.fitness_center,
-                          color: kPrimary,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Session Details',
-                          style: GoogleFonts.hankenGrotesk(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: kTextPrimary,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        constraints: const BoxConstraints(),
-                        padding: EdgeInsets.zero,
-                        icon: const Icon(Icons.close, color: kTextMuted, size: 20),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Workout started on $startedAtText',
-                    style: GoogleFonts.jetBrainsMono(fontSize: 12, color: kTextMuted),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildDetailCard(
-                          label: 'Total Reps',
-                          value: '${workout['total_reps']}',
-                          icon: Icons.repeat_rounded,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildDetailCard(
-                          label: 'Duration',
-                          value: durationText,
-                          icon: Icons.timer_outlined,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildDetailCard(
-                          label: 'Min Knee Angle',
-                          value:
-                              '${(workout['min_knee_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
-                          icon: Icons.transform,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildDetailCard(
-                          label: 'Avg Knee Angle',
-                          value:
-                              '${(workout['avg_knee_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
-                          icon: Icons.functions,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildDetailCard(
-                          label: 'Min Hip Angle',
-                          value:
-                              '${(workout['min_hip_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
-                          icon: Icons.transform,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildDetailCard(
-                          label: 'Avg Hip Angle',
-                          value:
-                              '${(workout['avg_hip_angle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
-                          icon: Icons.functions,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          'Camera: ${workout['camera'] ?? '-'}',
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 11,
-                            color: kTextMuted,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          'Target Angle: ${(workout['target_angle_threshold'] as num?)?.toStringAsFixed(1) ?? '-'}°',
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 11,
-                            color: kTextMuted,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const Divider(color: Colors.black12, height: 1),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Form Faults',
-                    style: GoogleFonts.hankenGrotesk(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: kTextPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ...faultWidgets,
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 44,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: kPrimary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text(
-                        'Done',
-                        style: GoogleFonts.inter(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDetailCard({
-    required String label,
-    required String value,
-    required IconData icon,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: kSurface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kSurfaceContainerHighest, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 14, color: kPrimary),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    color: kTextMuted,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: GoogleFonts.jetBrainsMono(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            'Rename Session',
+            style: GoogleFonts.hankenGrotesk(
+              fontWeight: FontWeight.w700,
               color: kTextPrimary,
             ),
           ),
-        ],
+          content: TextField(
+            controller: controller,
+            style: GoogleFonts.inter(color: kTextPrimary),
+            decoration: InputDecoration(
+              hintText: 'e.g., Leg Day',
+              filled: true,
+              fillColor: kSurfaceContainerHighest,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w600,
+                  color: kTextMuted,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kPrimaryContainer,
+                foregroundColor: kOnPrimaryContainer,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () {
+                final newName = controller.text.trim();
+                widget.onRenameWorkout!(workout['id'], newName);
+                Navigator.of(dialogContext).pop();
+              },
+              child: Text(
+                'Rename',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        );
+      }
+    );
+  }
+
+  void _showWorkoutDetails(BuildContext context, Map<String, dynamic> workout) {
+    showDialog(
+      context: context,
+      builder: (_) => WorkoutSummaryDialog(
+        summary: workout,
+        isHistoryView: true,
+        onClose: () => Navigator.of(context).pop(),
       ),
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, Map<String, dynamic> workout) {
+  void _showDeleteConfirmation(
+    BuildContext context,
+    Map<String, dynamic> workout,
+  ) {
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -777,7 +630,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             Navigator.of(dialogContext).pop();
                             messenger.showSnackBar(
                               const SnackBar(
-                                content: Text('Workout session deleted successfully'),
+                                content: Text(
+                                  'Workout session deleted successfully',
+                                ),
                                 backgroundColor: kPrimary,
                               ),
                             );
@@ -788,7 +643,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             });
                             messenger.showSnackBar(
                               const SnackBar(
-                                content: Text('Failed to delete workout session'),
+                                content: Text(
+                                  'Failed to delete workout session',
+                                ),
                                 backgroundColor: Colors.red,
                               ),
                             );
@@ -849,10 +706,7 @@ class _HistorySummaryRowState extends State<_HistorySummaryRow> {
     }
 
     final totalMinutes = (totalSeconds / 60).round();
-    return {
-      'sessions': sessionsCount,
-      'minutes': totalMinutes,
-    };
+    return {'sessions': sessionsCount, 'minutes': totalMinutes};
   }
 
   Map<String, int> _getAllTimeStats(List<Map<String, dynamic>> workouts) {
@@ -865,10 +719,7 @@ class _HistorySummaryRowState extends State<_HistorySummaryRow> {
       totalSeconds += seconds;
     }
     final totalMinutes = (totalSeconds / 60).round();
-    return {
-      'sessions': workouts.length,
-      'minutes': totalMinutes,
-    };
+    return {'sessions': workouts.length, 'minutes': totalMinutes};
   }
 
   @override
@@ -876,10 +727,14 @@ class _HistorySummaryRowState extends State<_HistorySummaryRow> {
     final weekStats = _getThisWeekStats(widget.workouts);
     final allTimeStats = _getAllTimeStats(widget.workouts);
 
-    final sessionsVal = _isWeekly ? weekStats['sessions'] ?? 0 : allTimeStats['sessions'] ?? 0;
+    final sessionsVal = _isWeekly
+        ? weekStats['sessions'] ?? 0
+        : allTimeStats['sessions'] ?? 0;
     final sessionsTitle = _isWeekly ? 'THIS WEEK' : 'ALL TIME';
 
-    final minutesVal = _isWeekly ? weekStats['minutes'] ?? 0 : allTimeStats['minutes'] ?? 0;
+    final minutesVal = _isWeekly
+        ? weekStats['minutes'] ?? 0
+        : allTimeStats['minutes'] ?? 0;
 
     void toggle() => setState(() => _isWeekly = !_isWeekly);
 
@@ -957,11 +812,7 @@ class _SummaryCard extends StatelessWidget {
                       letterSpacing: 0.5,
                     ),
                   ),
-                  Icon(
-                    icon,
-                    size: 16,
-                    color: iconColor,
-                  ),
+                  Icon(icon, size: 16, color: iconColor),
                 ],
               ),
               const SizedBox(height: 12),
@@ -1024,7 +875,18 @@ class _WorkoutHistoryCard extends StatelessWidget {
       return 'Yesterday, $timeStr';
     } else {
       final months = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ];
       final month = months[dt.month - 1];
       return '$month ${dt.day}, $timeStr';
@@ -1033,7 +895,8 @@ class _WorkoutHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const String workoutTitle = 'Squats';
+    final String sessionName = workout['session_name']?.toString() ?? '';
+    final String workoutTitle = sessionName.isNotEmpty ? sessionName : 'Squat Session';
 
     final durationSec = workout['duration_seconds'];
     final seconds = durationSec is num

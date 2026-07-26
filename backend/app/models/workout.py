@@ -8,8 +8,8 @@ class WorkoutSession(Base):
 
    id = Column(Integer, primary_key=True, index=True)
    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+   session_name = Column(String, nullable=True)
    
-   workout_type = Column(String, default='squat')
    started_at = Column(DateTime(timezone=True), nullable=False)
    ended_at = Column(DateTime(timezone=True), nullable=False)
    duration_seconds = Column(Integer, default=0)
@@ -23,6 +23,7 @@ class WorkoutSession(Base):
    avg_hip_angle = Column(Float)
    
    total_reps = Column(Integer, default=0)
+   form_score = Column(Integer, default=100)
    fault_summary_json = Column(JSON, nullable=True)       # Store faults as JSON
 
    created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -31,4 +32,4 @@ class WorkoutSession(Base):
    user = relationship("User", back_populates="workouts")
 
    def __str__(self):
-       return f"Workout #{self.id} ({self.workout_type or 'squat'} - {self.total_reps or 0} reps)"
+       return f"Workout #{self.id} ({self.session_name or 'Squat Session'} - {self.total_reps or 0} reps)"

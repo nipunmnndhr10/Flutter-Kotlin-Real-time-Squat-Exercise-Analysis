@@ -6,7 +6,8 @@ import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flt_kotlin_pose/core/constants/app_constants.dart';
 import 'package:flt_kotlin_pose/screens/auth/loginscreen.dart';
-import 'package:flt_kotlin_pose/screens/workout/pose_screen.dart';
+import 'package:flt_kotlin_pose/screens/workout/workout_loading_screen.dart';
+import 'package:flt_kotlin_pose/screens/workout/workout_summary_dialog.dart';
 
 // Kinetic Noir Color System (from start workout screen.md)
 const kBackground = Color(0xFFFCF8F8);
@@ -93,10 +94,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                       height: 54,
                       child: ElevatedButton(
                         onPressed: () async {
-                          final result = await Navigator.push<Map<String, dynamic>>(
-                            context,
-                            MaterialPageRoute(builder: (_) => const PoseScreen()),
-                          );
+                          final result =
+                              await Navigator.push<Map<String, dynamic>>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const WorkoutLoadingScreen(),
+                                ),
+                              );
                           if (!mounted || result == null) return;
                           await _showWorkoutSummaryDialog(result);
                         },
@@ -179,166 +183,71 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     await showDialog<void>(
       context: context,
       barrierDismissible: true,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: kBackground,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: Text(
-          'Workout Summary',
-          style: GoogleFonts.hankenGrotesk(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: kTextPrimary,
-          ),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SummaryRow(
-                label: 'Record ID',
-                value: summary['id']?.toString() ?? 'Pending save',
-              ),
-              _SummaryRow(
-                label: 'User',
-                value: summary['userId']?.toString() ?? 'Authenticated user',
-              ),
-              _SummaryRow(
-                label: 'Workout Type',
-                value: summary['workoutType']?.toString() ?? '-',
-              ),
-              _SummaryRow(
-                label: 'Started At',
-                value: summary['startedAt']?.toString() ?? '-',
-              ),
-              _SummaryRow(
-                label: 'Ended At',
-                value: summary['endedAt']?.toString() ?? '-',
-              ),
-              _SummaryRow(
-                label: 'Target Angle Threshold',
-                value:
-                    '${(summary['targetAngleThreshold'] as num?)?.toStringAsFixed(1) ?? '-'}°',
-              ),
-              _SummaryRow(
-                label: 'Camera',
-                value: summary['camera']?.toString() ?? '-',
-              ),
-              _SummaryRow(
-                label: 'Fault Summary JSON',
-                value: _formatFaultSummary(summary['faultSummaryJson']),
-              ),
-              const SizedBox(height: 4),
-              _SummaryRow(
-                label: 'Duration',
-                value: '${summary['durationSeconds'] ?? '-'}s',
-              ),
-              _SummaryRow(
-                label: 'Total Reps',
-                value: summary['totalReps']?.toString() ?? '-',
-              ),
-              _SummaryRow(
-                label: 'Avg Knee Angle',
-                value:
-                    '${(summary['avgKneeAngle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
-              ),
-              _SummaryRow(
-                label: 'Avg Hip Angle',
-                value:
-                    '${(summary['avgHipAngle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
-              ),
-              _SummaryRow(
-                label: 'Min Knee Angle',
-                value:
-                    '${(summary['minKneeAngle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
-              ),
-              _SummaryRow(
-                label: 'Min Hip Angle',
-                value:
-                    '${(summary['minHipAngle'] as num?)?.toStringAsFixed(1) ?? '-'}°',
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              final messenger = ScaffoldMessenger.of(context);
-              try {
-                await _saveWorkoutSummary(summary);
-                if (!dialogContext.mounted) return;
+      builder: (dialogContext) {
+        return WorkoutSummaryDialog(
+          summary: summary,
+          onSave: (sessionName) async {
+            final messenger = ScaffoldMessenger.of(context);
+            try {
+              await _saveWorkoutSummary(summary, sessionName);
+              if (!dialogContext.mounted) return;
+              Navigator.of(dialogContext).pop();
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Text('Workout saved successfully'),
+                  backgroundColor: kPrimary,
+                ),
+              );
+              if (widget.onWorkoutSaved != null) {
+                widget.onWorkoutSaved!();
+              }
+            } on DioException catch (e) {
+              if (!dialogContext.mounted) return;
+              if (e.response?.statusCode == 401) {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.remove('access_token');
                 Navigator.of(dialogContext).pop();
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
                 messenger.showSnackBar(
                   const SnackBar(
-                    content: Text('Workout saved successfully'),
-                    backgroundColor: kPrimary,
+                    content: Text('Session expired. Please log in again.'),
+                    backgroundColor: Colors.orange,
                   ),
                 );
-                if (widget.onWorkoutSaved != null) {
-                  widget.onWorkoutSaved!();
-                }
-              } on DioException catch (e) {
-                if (!dialogContext.mounted) return;
-                if (e.response?.statusCode == 401) {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.remove('access_token');
-                  Navigator.of(dialogContext).pop();
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (route) => false,
-                  );
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('Session expired. Please log in again.'),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                } else {
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Failed to save workout: ${e.response?.data?['detail'] ?? e.message}',
-                      ),
-                    ),
-                  );
-                }
-              } catch (error) {
-                if (!dialogContext.mounted) return;
+              } else {
                 messenger.showSnackBar(
-                  SnackBar(content: Text('Failed to save workout: $error')),
+                  SnackBar(
+                    content: Text(
+                      'Failed to save workout: ${e.response?.data?['detail'] ?? e.message}',
+                    ),
+                  ),
                 );
               }
-            },
-            child: Text(
-              'Save Workout',
-              style: GoogleFonts.inter(
-                color: kPrimary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(
-              "Don't Save",
-              style: GoogleFonts.inter(color: kTextMuted),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(
-              'Close',
-              style: GoogleFonts.inter(color: kTextMuted),
-            ),
-          ),
-        ],
-      ),
+            } catch (error) {
+              if (!dialogContext.mounted) return;
+              messenger.showSnackBar(
+                SnackBar(content: Text('Failed to save workout: $error')),
+              );
+            }
+          },
+          onDiscard: () {
+            Navigator.of(dialogContext).pop();
+          },
+          onClose: () {
+            Navigator.of(dialogContext).pop();
+          },
+        );
+      },
     );
   }
 
-  Future<void> _saveWorkoutSummary(Map<String, dynamic> summary) async {
+  Future<void> _saveWorkoutSummary(
+    Map<String, dynamic> summary,
+    String? sessionName,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('access_token');
 
@@ -356,8 +265,37 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       ),
     );
 
+    final totalReps = (summary['totalReps'] as num?)?.toInt() ?? 0;
+    final faultMap = summary['faultSummaryJson'] as Map? ?? {};
+
+    int formScore = 100;
+    if (totalReps > 0) {
+      const weights = <String, double>{
+        'knee_valgus': 2.5,
+        'knee_cave': 2.5,
+        'left_knee_cave': 2.5,
+        'right_knee_cave': 2.5,
+        'chest_up': 2.2,
+        'lean_forward': 2.2,
+        'go_deeper': 1.5,
+        'shallow_depth': 1.5,
+        'too_low': 1.0,
+      };
+      double weightedPoints = 0.0;
+      faultMap.forEach((key, count) {
+        if (count is num && count > 0) {
+          final normKey = key.toString().toLowerCase();
+          final w = weights[normKey] ?? 1.5;
+          final effectiveCount = count <= 2 ? count * 0.5 : count.toDouble();
+          weightedPoints += effectiveCount * w;
+        }
+      });
+      final penalty = (weightedPoints / totalReps) * 15;
+      formScore = (100 - penalty).clamp(0, 100).round();
+    }
+
     final payload = <String, dynamic>{
-      'workout_type': summary['workoutType'],
+      'session_name': sessionName,
       'started_at': summary['startedAt'],
       'ended_at': summary['endedAt'],
       'duration_seconds': summary['durationSeconds'] ?? 0,
@@ -367,28 +305,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       'avg_knee_angle': summary['avgKneeAngle'] ?? 0.0,
       'min_hip_angle': summary['minHipAngle'] ?? 0.0,
       'avg_hip_angle': summary['avgHipAngle'] ?? 0.0,
-      'total_reps': summary['totalReps'] ?? 0,
+      'total_reps': totalReps,
+      'form_score': formScore,
       'fault_summary_json': summary['faultSummaryJson'] ?? {},
     };
 
     await authedDio.post('/workouts/', data: payload);
-  }
-
-  String _formatFaultSummary(dynamic faultSummary) {
-    if (faultSummary is! Map || faultSummary.isEmpty) {
-      return '{}';
-    }
-
-    final entries = faultSummary.entries.toList()
-      ..sort((a, b) => a.key.toString().compareTo(b.key.toString()));
-    final buffer = StringBuffer('{');
-    for (var i = 0; i < entries.length; i++) {
-      final entry = entries[i];
-      buffer.write('"${entry.key}": ${entry.value}');
-      if (i < entries.length - 1) buffer.write(', ');
-    }
-    buffer.write('}');
-    return buffer.toString();
   }
 }
 
@@ -425,11 +347,7 @@ class _InfoCard extends StatelessWidget {
                   color: kSecondaryContainer.withValues(alpha: 0.35),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  icon,
-                  color: kSecondary,
-                  size: 22,
-                ),
+                child: Icon(icon, color: kSecondary, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -480,40 +398,3 @@ class _InfoCard extends StatelessWidget {
     );
   }
 }
-
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.jetBrainsMono(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: kTextMuted,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: GoogleFonts.inter(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: kTextPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-

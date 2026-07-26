@@ -1,4 +1,5 @@
 import os
+from typing import Any
 from app.core.database import Base, engine
 from app.routers import workout, auth, notification
 from app.models.user import User
@@ -17,8 +18,54 @@ from app.routers.auth import verify_password
 # Ensure uploads directory exists
 os.makedirs("uploads/profiles", exist_ok=True)
 
+from sqlalchemy import text
+
 # Create database tables automatically from SQLAlchemy models
 Base.metadata.create_all(bind=engine)
+
+import json
+
+# Auto-migrate missing columns directly on startup
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE workout_sessions ADD COLUMN IF NOT EXISTS form_score INTEGER DEFAULT 100;"))
+except Exception as e:
+    print(f"Startup schema migration check: {e}")
+
+# Recalculate form_score for existing historical records in database
+def recalculate_existing_form_scores():
+    try:
+        db = SessionLocal()
+        sessions = db.query(WorkoutSession).all()
+        weights = {
+            'knee_valgus': 2.5, 'knee_cave': 2.5, 'left_knee_cave': 2.5, 'right_knee_cave': 2.5,
+            'chest_up': 2.2, 'lean_forward': 2.2, 'go_deeper': 1.5, 'shallow_depth': 1.5, 'too_low': 1.0,
+        }
+        for s in sessions:
+            f_json = s.fault_summary_json
+            if isinstance(f_json, str):
+                try:
+                    f_json = json.loads(f_json)
+                except Exception:
+                    f_json = {}
+            reps = s.total_reps or 0
+            if reps > 0 and f_json and isinstance(f_json, dict) and any(v > 0 for v in f_json.values() if isinstance(v, (int, float))):
+                pts = 0.0
+                for k, v in f_json.items():
+                    if isinstance(v, (int, float)) and v > 0:
+                        w = weights.get(str(k).lower(), 1.5)
+                        eff = v * 0.5 if v <= 2 else float(v)
+                        pts += eff * w
+                penalty = (pts / reps) * 15
+                s.form_score = max(0, min(100, round(100 - penalty)))
+            else:
+                s.form_score = 100
+        db.commit()
+        db.close()
+    except Exception as e:
+        print(f"Form score recalculation note: {e}")
+
+recalculate_existing_form_scores()
 
 app = FastAPI(title="Capstone Backend")
 
@@ -66,9 +113,86 @@ class UserAdmin(ModelView, model=User):
     icon = "fa-solid fa-user"
 
 
+from sqlalchemy.event import listens_for
+
+@listens_for(WorkoutSession, 'before_insert')
+@listens_for(WorkoutSession, 'before_update')
+def auto_calculate_workout_form_score(mapper, connection, target):
+    weights = {
+        'knee_valgus': 2.5, 'knee_cave': 2.5, 'left_knee_cave': 2.5, 'right_knee_cave': 2.5,
+        'chest_up': 2.2, 'lean_forward': 2.2, 'go_deeper': 1.5, 'shallow_depth': 1.5, 'too_low': 1.0,
+    }
+    f_json = target.fault_summary_json
+    if isinstance(f_json, str):
+        try:
+            f_json = json.loads(f_json)
+        except Exception:
+            f_json = {}
+    reps = target.total_reps or 0
+    if reps > 0 and f_json and isinstance(f_json, dict) and any(v > 0 for v in f_json.values() if isinstance(v, (int, float))):
+        pts = 0.0
+        for k, v in f_json.items():
+            if isinstance(v, (int, float)) and v > 0:
+                w = weights.get(str(k).lower(), 1.5)
+                eff = v * 0.5 if v <= 2 else float(v)
+                pts += eff * w
+        penalty = (pts / reps) * 15
+        target.form_score = max(0, min(100, round(100 - penalty)))
+    else:
+        target.form_score = 100
+
+
 class WorkoutAdmin(ModelView, model=WorkoutSession):
-    column_list = [WorkoutSession.id, WorkoutSession.user_id, WorkoutSession.total_reps, WorkoutSession.duration_seconds, WorkoutSession.created_at]
+    column_list = [
+        WorkoutSession.id,
+        WorkoutSession.user_id,
+        WorkoutSession.session_name,
+        WorkoutSession.total_reps,
+        WorkoutSession.form_score,
+        WorkoutSession.duration_seconds,
+        WorkoutSession.fault_summary_json,
+        WorkoutSession.created_at,
+    ]
+    column_labels = {
+        "fault_summary_json": "Fault Summary",
+        "session_name": "Session Name",
+        "duration_seconds": "Duration (sec)",
+        "total_reps": "Total Reps",
+        "form_score": "Form Score (%)",
+    }
+    column_formatters = {
+        WorkoutSession.fault_summary_json: lambda m, a: (
+            ", ".join([f"{k.replace('_', ' ').title()}: {v}" for k, v in (m.fault_summary_json or {}).items() if v > 0])
+            if (m.fault_summary_json and any(v > 0 for v in (m.fault_summary_json or {}).values()))
+            else "Clean Form (No Faults)"
+        )
+    }
+    column_searchable_list = [WorkoutSession.session_name]
     icon = "fa-solid fa-person-running"
+
+    async def on_model_change(self, data: dict, model: Any, is_created: bool, request: Request) -> None:
+        reps = data.get("total_reps") or (model.total_reps if model else 0) or 0
+        f_json = data.get("fault_summary_json") or (model.fault_summary_json if model else None)
+        if isinstance(f_json, str):
+            try:
+                f_json = json.loads(f_json)
+            except Exception:
+                f_json = {}
+        if reps > 0 and f_json and isinstance(f_json, dict) and any(v > 0 for v in f_json.values() if isinstance(v, (int, float))):
+            weights = {
+                'knee_valgus': 2.5, 'knee_cave': 2.5, 'left_knee_cave': 2.5, 'right_knee_cave': 2.5,
+                'chest_up': 2.2, 'lean_forward': 2.2, 'go_deeper': 1.5, 'shallow_depth': 1.5, 'too_low': 1.0,
+            }
+            pts = 0.0
+            for k, v in f_json.items():
+                if isinstance(v, (int, float)) and v > 0:
+                    w = weights.get(str(k).lower(), 1.5)
+                    eff = v * 0.5 if v <= 2 else float(v)
+                    pts += eff * w
+            penalty = (pts / reps) * 15
+            data["form_score"] = max(0, min(100, round(100 - penalty)))
+        else:
+            data["form_score"] = 100
 
 
 class NotificationAdmin(ModelView, model=Notification):

@@ -194,7 +194,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 : null,
                           ),
                           child: currentPicUrl.isEmpty
-                              ? const Icon(Icons.person, color: kPrimary, size: 48)
+                              ? const Icon(
+                                  Icons.person,
+                                  color: kPrimary,
+                                  size: 48,
+                                )
                               : null,
                         ),
                         if (_isUploading)
@@ -222,7 +226,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               await _pickAndUploadImage();
                               setSheetState(() {});
                             },
-                      icon: const Icon(Icons.camera_alt_outlined, color: kPrimary, size: 18),
+                      icon: const Icon(
+                        Icons.camera_alt_outlined,
+                        color: kPrimary,
+                        size: 18,
+                      ),
                       label: Text(
                         'Change Profile Picture',
                         style: GoogleFonts.inter(
@@ -306,7 +314,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               : null,
                         ),
                         child: currentPicUrl.isEmpty
-                            ? const Icon(Icons.person, color: kPrimary, size: 48)
+                            ? const Icon(
+                                Icons.person,
+                                color: kPrimary,
+                                size: 48,
+                              )
                             : null,
                       ),
                     ),
@@ -322,10 +334,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 4),
                     Text(
                       'Joined ${widget.joinedDate}',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: kTextMuted,
-                      ),
+                      style: GoogleFonts.inter(fontSize: 14, color: kTextMuted),
                     ),
                   ],
                 ),
@@ -385,7 +394,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  icon: const Icon(Icons.logout_rounded, size: 20, color: kError),
+                  icon: const Icon(
+                    Icons.logout_rounded,
+                    size: 20,
+                    color: kError,
+                  ),
                   label: Text(
                     'Logout',
                     style: GoogleFonts.inter(
@@ -433,11 +446,7 @@ class _MenuItemRow extends StatelessWidget {
                   color: kSurfaceContainerHigh,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  icon,
-                  color: kTextPrimary,
-                  size: 20,
-                ),
+                child: Icon(icon, color: kTextPrimary, size: 20),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -474,13 +483,7 @@ class _InfoRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            color: kTextMuted,
-          ),
-        ),
+        Text(label, style: GoogleFonts.inter(fontSize: 14, color: kTextMuted)),
         Text(
           value,
           style: GoogleFonts.inter(

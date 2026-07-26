@@ -15,7 +15,10 @@ SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
 
 # connects python app to PostgreSQL database using SQLAlchemy, create_engine is a function that creates a new SQLAlchemy engine instance, which is the starting point for any SQLAlchemy application. It represents the core interface to the database and provides a source of database connections. 
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"options": "-c timezone=Asia/Kathmandu"},
+)
 
 
 # session here is a temporary workspace where you talk to the db

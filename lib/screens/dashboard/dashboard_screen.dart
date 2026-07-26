@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,6 +10,7 @@ import 'package:flt_kotlin_pose/screens/workout/workout_screen.dart';
 import 'package:flt_kotlin_pose/screens/dashboard/home_screen.dart';
 import 'package:flt_kotlin_pose/screens/dashboard/history_screen.dart';
 import 'package:flt_kotlin_pose/screens/dashboard/profile_screen.dart';
+import 'package:flt_kotlin_pose/services/notification_service.dart';
 
 const kPrimary = Color(0xFFC5F014);
 const kSecondary = Color(0xFF81C784);
@@ -35,6 +37,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<int> weeklySquats = List.filled(7, 0);
   List<Map<String, dynamic>> _workouts = [];
   List<Map<String, dynamic>> _backendNotifications = [];
+  final Set<int> _shownNotificationIds = {};
   bool _isLoading = true;
   String? _error;
   String _currentUserName = '';
@@ -96,6 +99,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _currentUserName = widget.userName;
+    LocalNotificationService().init();
     _loadWorkouts();
     // Auto-refresh notifications every 30 seconds
     _notificationTimer = Timer.periodic(
@@ -128,9 +132,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       final notifResponse = await dio.get('/notifications/my-notifications');
       if (notifResponse.data is List && mounted) {
+        final newNotifs = (notifResponse.data as List).cast<Map<String, dynamic>>();
+
+        // Trigger system notification banner for newly arrived notifications
+        for (var n in newNotifs) {
+          final id = n['id'] as int? ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
+          final isRead = n['is_read'] == true || n['is_read'] == 1;
+
+          if (!_shownNotificationIds.contains(id)) {
+            _shownNotificationIds.add(id);
+            if (!isRead && _shownNotificationIds.length > newNotifs.length) {
+              LocalNotificationService().showNotification(
+                id: id,
+                title: n['title']?.toString() ?? 'SquatMate Notification',
+                body: n['message']?.toString() ?? 'You have a new alert.',
+              );
+            }
+          }
+        }
+
         setState(() {
-          _backendNotifications =
-              (notifResponse.data as List).cast<Map<String, dynamic>>();
+          _backendNotifications = newNotifs;
         });
       }
     } catch (_) {}
@@ -163,7 +185,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final reps = int.tryParse(repsStr) ?? 0;
       allTimeTotal += reps;
 
-      final formVal = (w['form_score'] ?? w['formScore'] as num?)?.toDouble() ?? 100.0;
+      double formVal = 100.0;
+      if (w['form_score'] != null || w['formScore'] != null) {
+        formVal = ((w['form_score'] ?? w['formScore']) as num).toDouble();
+      } else if (reps > 0) {
+        var rawFaults = w['fault_summary_json'] ?? w['faultSummaryJson'];
+        if (rawFaults is String) {
+          try {
+            rawFaults = jsonDecode(rawFaults);
+          } catch (_) {
+            rawFaults = {};
+          }
+        }
+        final fMap = rawFaults as Map? ?? {};
+        const weights = <String, double>{
+          'knee_valgus': 2.5,
+          'knee_cave': 2.5,
+          'left_knee_cave': 2.5,
+          'right_knee_cave': 2.5,
+          'chest_up': 2.2,
+          'lean_forward': 2.2,
+          'go_deeper': 1.5,
+          'shallow_depth': 1.5,
+          'too_low': 1.0,
+        };
+        double pts = 0.0;
+        fMap.forEach((k, c) {
+          if (c is num && c > 0) {
+            final w = weights[k.toString().toLowerCase()] ?? 1.5;
+            final eff = c <= 2 ? c * 0.5 : c.toDouble();
+            pts += eff * w;
+          }
+        });
+        formVal = (100.0 - (pts / reps) * 15).clamp(0.0, 100.0);
+      }
       allTimeFormSum += formVal;
       allTimeFormCount++;
 
@@ -187,8 +242,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     weeklySquatsTotal = weekTotal;
     weeklySquats = weekData;
 
-    weeklyForm = weekFormCount > 0 ? (weekFormSum / weekFormCount).round() : 100;
-    allTimeForm = allTimeFormCount > 0 ? (allTimeFormSum / allTimeFormCount).round() : 100;
+    weeklyForm = weekFormCount > 0
+        ? (weekFormSum / weekFormCount).round()
+        : 100;
+    allTimeForm = allTimeFormCount > 0
+        ? (allTimeFormSum / allTimeFormCount).round()
+        : 100;
     topForm = weeklyForm;
   }
 
@@ -274,7 +333,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       try {
         final notifResponse = await dio.get('/notifications/my-notifications');
         if (notifResponse.data is List) {
-          _backendNotifications = (notifResponse.data as List).cast<Map<String, dynamic>>();
+          _backendNotifications = (notifResponse.data as List)
+              .cast<Map<String, dynamic>>();
         }
       } catch (_) {}
 
@@ -343,6 +403,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {
       _workouts.removeWhere((w) => w['id'] == sessionId);
       _updateStatsFromWorkouts();
+    });
+  }
+
+  Future<void> _renameWorkout(int sessionId, String newName) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+
+    if (token == null || token.isEmpty) {
+      _redirectToLogin();
+      return;
+    }
+
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: kApiBaseUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ),
+    );
+
+    await dio.patch(
+      '/workouts/$sessionId/name',
+      data: {'session_name': newName},
+    );
+
+    setState(() {
+      final index = _workouts.indexWhere((w) => w['id'] == sessionId);
+      if (index != -1) {
+        _workouts[index]['session_name'] = newName;
+      }
     });
   }
 
@@ -468,6 +560,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onWorkoutSaved: () {
             _loadWorkouts();
             _fetchNotifications(); // Instantly refresh notifications after workout save
+            LocalNotificationService().showNotification(
+              id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+              title: 'Workout Recorded! 🏋️',
+              body: 'Your squat session has been saved successfully.',
+            );
             setState(() => _currentIndex = 0);
           },
         ),
@@ -478,6 +575,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onLogout: _logout,
           workouts: _workouts,
           onDeleteWorkout: _deleteWorkout,
+          onRenameWorkout: _renameWorkout,
         ),
         ProfileScreen(
           userName: _currentUserName,
@@ -573,7 +671,9 @@ class _BottomNav extends StatelessWidget {
                         width: 5,
                         height: 5,
                         decoration: BoxDecoration(
-                          color: isSelected ? selectedColor : Colors.transparent,
+                          color: isSelected
+                              ? selectedColor
+                              : Colors.transparent,
                           shape: BoxShape.circle,
                         ),
                       ),
