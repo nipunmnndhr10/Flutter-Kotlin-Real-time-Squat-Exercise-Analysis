@@ -52,6 +52,7 @@ data class PoseFramePayload(
     val frameHeight: Int,
     val landmarks:   List<PoseLandmarkPayload>,
     val timestampMs: Long = System.currentTimeMillis(),
+    val averageLuminance: Float = -1f,
 )
 
 class PoseLandmarkerProcessor(
@@ -64,6 +65,7 @@ class PoseLandmarkerProcessor(
     @Volatile var isPaused: Boolean = false
     @Volatile private var activeDelegate: String = "CPU"
     @Volatile private var poseLandmarker: PoseLandmarker? = null
+    @Volatile private var currentFrameLuminance: Float = -1f
 
     init {
         java.util.concurrent.Executors.newSingleThreadExecutor().execute {
@@ -130,6 +132,10 @@ class PoseLandmarkerProcessor(
             // Rotate into destination bounds, then optionally mirror for front camera.
             val matrix = buildTransformMatrix(rotationDegrees, srcW, srcH, dstW, dstH, shouldMirror)
             canvas.drawBitmap(buf, matrix, null)
+
+            val pixels = getOrResizePixelArray(dstW * dstH)
+            rot.getPixels(pixels, 0, dstW, 0, 0, dstW, dstH)
+            currentFrameLuminance = calculateAverageLuminance(pixels)
 
             val mpImage: MPImage = BitmapImageBuilder(rot).build()
 
@@ -245,6 +251,7 @@ class PoseLandmarkerProcessor(
                 frameWidth  = input.width,
                 frameHeight = input.height,
                 landmarks   = filteredLandmarks,
+                averageLuminance = currentFrameLuminance,
             )
         )
 
@@ -358,5 +365,16 @@ class PoseLandmarkerProcessor(
         }
 
         return matrix
+    }
+
+    private fun calculateAverageLuminance(pixels: IntArray): Float {
+        var totalLuminance = 0L
+        for (pixel in pixels) {
+            val r = (pixel shr 16) and 0xFF
+            val g = (pixel shr 8) and 0xFF
+            val b = pixel and 0xFF
+            totalLuminance += (0.299f * r + 0.587f * g + 0.114f * b).toLong()
+        }
+        return if (pixels.isNotEmpty()) (totalLuminance.toFloat() / pixels.size) else -1f
     }
 }

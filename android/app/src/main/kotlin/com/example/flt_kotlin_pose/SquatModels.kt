@@ -32,4 +32,6 @@ data class SquatFeedback(
     val hipAngle: Float,
     val isLandmarkReliable: Boolean,
     val targetAngleThreshold: Float = 95.0f,
+    val averageLuminance: Float = -1f,
+    val isLightingPoor: Boolean = false,
 )

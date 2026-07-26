@@ -189,6 +189,27 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     fun analyze(frame: PoseFramePayload): SquatFeedback? {
         if (isPaused) return null
 
+        val averageLuminance = frame.averageLuminance
+        val isLightingPoor = averageLuminance != -1f && (averageLuminance < 40f || averageLuminance > 230f)
+
+        fun earlyReturnOrWarning(): SquatFeedback? {
+            return if (isLightingPoor) {
+                SquatFeedback(
+                    phase = currentPhase,
+                    repCount = repCount,
+                    activeFaults = emptyList(),
+                    kneeAngle = 180f,
+                    hipAngle = 180f,
+                    isLandmarkReliable = false,
+                    targetAngleThreshold = depthProfile.targetBottom,
+                    averageLuminance = averageLuminance,
+                    isLightingPoor = true,
+                )
+            } else {
+                null
+            }
+        }
+
         // STAGE 1 & 2: 3D Spatial Landmark Spike Guard + 3D Spatial 1€ Trajectory Filtering
         landmarkArray.fill(null)
         val timestampMs = frame.timestampMs
@@ -215,7 +236,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             (lm?.visibility ?: 0f) >= 0.55f && (lm?.presence ?: lm?.visibility ?: 1.0f) >= 0.55f
         }
 
-        if (!leftValid && !rightValid) return null
+        if (!leftValid && !rightValid) return earlyReturnOrWarning()
 
         val useLeft = when {
             leftValid && !rightValid -> true
@@ -229,17 +250,17 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             }
         }
 
-        val hip      = if (useLeft) landmarkArray[LM.LEFT_HIP]      ?: return null else landmarkArray[LM.RIGHT_HIP]      ?: return null
-        val knee     = if (useLeft) landmarkArray[LM.LEFT_KNEE]     ?: return null else landmarkArray[LM.RIGHT_KNEE]     ?: return null
-        val ankle    = if (useLeft) landmarkArray[LM.LEFT_ANKLE]    ?: return null else landmarkArray[LM.RIGHT_ANKLE]    ?: return null
-        val shoulder = if (useLeft) landmarkArray[LM.LEFT_SHOULDER] ?: return null else landmarkArray[LM.RIGHT_SHOULDER] ?: return null
+        val hip      = if (useLeft) landmarkArray[LM.LEFT_HIP]      ?: return earlyReturnOrWarning() else landmarkArray[LM.RIGHT_HIP]      ?: return earlyReturnOrWarning()
+        val knee     = if (useLeft) landmarkArray[LM.LEFT_KNEE]     ?: return earlyReturnOrWarning() else landmarkArray[LM.RIGHT_KNEE]     ?: return earlyReturnOrWarning()
+        val ankle    = if (useLeft) landmarkArray[LM.LEFT_ANKLE]    ?: return earlyReturnOrWarning() else landmarkArray[LM.RIGHT_ANKLE]    ?: return earlyReturnOrWarning()
+        val shoulder = if (useLeft) landmarkArray[LM.LEFT_SHOULDER] ?: return earlyReturnOrWarning() else landmarkArray[LM.RIGHT_SHOULDER] ?: return earlyReturnOrWarning()
 
         // Anatomical Proportion Sanity Check: Reject non-human background object hallucinations (e.g. fans, chairs)
         val minY = minOf(shoulder.y, hip.y, knee.y, ankle.y)
         val maxY = maxOf(shoulder.y, hip.y, knee.y, ankle.y)
         val totalVerticalSpan = maxY - minY
         if (totalVerticalSpan < 0.10f) {
-            return null
+            return earlyReturnOrWarning()
         }
 
         val w = frame.frameWidth
@@ -336,6 +357,8 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             hipAngle = hipAngle,
             isLandmarkReliable = true,
             targetAngleThreshold = depthProfile.targetBottom,
+            averageLuminance = averageLuminance,
+            isLightingPoor = isLightingPoor,
         )
     }
 

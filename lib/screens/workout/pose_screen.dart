@@ -43,6 +43,9 @@ class _PoseScreenState extends State<PoseScreen> {
   Timer? _poseLostTimer;
   final ValueNotifier<bool> _isPoseLost = ValueNotifier<bool>(false);
 
+  // Lighting feedback — driven by pose_landmarks channel (every frame)
+  final ValueNotifier<double> _averageLuminance = ValueNotifier<double>(-1.0);
+
   // Idle detection — tracks actual landmark movement, not just rep/phase changes.
   // When zero movement is detected for 1 minute, show the "Are you there?" banner.
   // If the user doesn't respond within another 1 minute, auto-end the session.
@@ -98,6 +101,12 @@ class _PoseScreenState extends State<PoseScreen> {
       if (parsed == null) return;
 
       _frameData.value = parsed;
+
+      // Update lighting feedback on every frame
+      if (parsed.averageLuminance != -1.0) {
+        _averageLuminance.value = parsed.averageLuminance;
+      }
+
       final hasLandmarks = parsed.landmarks.isNotEmpty;
 
       if (!hasLandmarks) {
@@ -415,6 +424,7 @@ class _PoseScreenState extends State<PoseScreen> {
 
     final frameWidth = (event['frameWidth'] as num?)?.toInt() ?? 1;
     final frameHeight = (event['frameHeight'] as num?)?.toInt() ?? 1;
+    final averageLuminance = (event['averageLuminance'] as num?)?.toDouble() ?? -1.0;
     final rawLandmarks = event['landmarks'];
 
     if (rawLandmarks is! List) {
@@ -422,6 +432,7 @@ class _PoseScreenState extends State<PoseScreen> {
         frameWidth: frameWidth,
         frameHeight: frameHeight,
         landmarks: const <int, PoseLandmarkPoint>{},
+        averageLuminance: averageLuminance,
       );
     }
 
@@ -442,6 +453,7 @@ class _PoseScreenState extends State<PoseScreen> {
       frameWidth: frameWidth,
       frameHeight: frameHeight,
       landmarks: landmarks,
+      averageLuminance: averageLuminance,
     );
   }
 
@@ -455,6 +467,7 @@ class _PoseScreenState extends State<PoseScreen> {
     _frameData.dispose();
     _squatFeedback.dispose();
     _isPoseLost.dispose();
+    _averageLuminance.dispose();
     super.dispose();
   }
 
@@ -593,6 +606,24 @@ class _PoseScreenState extends State<PoseScreen> {
           ),
         ),
 
+        // Lighting feedback banner — driven by pose channel (every frame)
+        Positioned(
+          top: 180,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: ValueListenableBuilder<double>(
+              valueListenable: _averageLuminance,
+              builder: (_, luminance, _) {
+                if (luminance == -1.0) return const SizedBox.shrink();
+                return _LightingFeedbackBanner(
+                  averageLuminance: luminance,
+                );
+              },
+            ),
+          ),
+        ),
+
         // Idle end-session banner
         if (_showIdleBanner)
           Positioned(
@@ -688,6 +719,7 @@ class PoseFrameData {
     required this.frameWidth,
     required this.frameHeight,
     required this.landmarks,
+    this.averageLuminance = -1.0,
   });
 
   factory PoseFrameData.empty() => const PoseFrameData(
@@ -699,6 +731,7 @@ class PoseFrameData {
   final int frameWidth;
   final int frameHeight;
   final Map<int, PoseLandmarkPoint> landmarks;
+  final double averageLuminance;
 }
 
 class PoseLandmarkPoint {
@@ -728,6 +761,8 @@ class SquatFeedbackData {
     this.activePreset = 'FULL_SQUAT',
     this.angleThreshold = 90.0,
     this.presetLabel = 'Full Strength (Full Squat)',
+    this.averageLuminance = -1.0,
+    this.isLightingPoor = false,
   });
 
   const SquatFeedbackData.empty()
@@ -739,7 +774,9 @@ class SquatFeedbackData {
       isLandmarkReliable = false,
       activePreset = 'FULL_SQUAT',
       angleThreshold = 90.0,
-      presetLabel = 'Full Strength (Full Squat)';
+      presetLabel = 'Full Strength (Full Squat)',
+      averageLuminance = -1.0,
+      isLightingPoor = false;
 
   factory SquatFeedbackData.fromMap(Map map) => SquatFeedbackData(
     phase: (map['phase'] as String?) ?? 'STANDING',
@@ -752,6 +789,8 @@ class SquatFeedbackData {
     angleThreshold: (map['angleThreshold'] as num?)?.toDouble() ?? 90.0,
     presetLabel:
         (map['presetLabel'] as String?) ?? 'Full Strength (Full Squat)',
+    averageLuminance: (map['averageLuminance'] as num?)?.toDouble() ?? -1.0,
+    isLightingPoor: (map['isLightingPoor'] as bool?) ?? false,
   );
 
   final String phase;
@@ -763,6 +802,8 @@ class SquatFeedbackData {
   final String activePreset;
   final double angleThreshold;
   final String presetLabel;
+  final double averageLuminance;
+  final bool isLightingPoor;
 }
 
 // Pose Painter
@@ -1098,6 +1139,60 @@ class _LandmarkLostBadge extends StatelessWidget {
           Text(
             'Pose lost — step into frame',
             style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LightingFeedbackBanner extends StatelessWidget {
+  const _LightingFeedbackBanner({required this.averageLuminance});
+  final double averageLuminance;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isTooDark = averageLuminance < 40;
+    final bool isTooBright = averageLuminance > 230;
+    final bool isOptimal = !isTooDark && !isTooBright;
+    
+    final String message;
+    final IconData icon;
+    final Color bgColor;
+    
+    if (isTooDark) {
+      message = 'Low light detected (${averageLuminance.toInt()}). Turn on lights.';
+      icon = Icons.lightbulb_outline;
+      bgColor = Colors.redAccent.withValues(alpha: 0.85);
+    } else if (isTooBright) {
+      message = 'Glare detected (${averageLuminance.toInt()}). Adjust camera.';
+      icon = Icons.brightness_high;
+      bgColor = Colors.redAccent.withValues(alpha: 0.85);
+    } else {
+      message = 'Optimal Lighting (${averageLuminance.toInt()})';
+      icon = Icons.check_circle_outline;
+      bgColor = Colors.green.withValues(alpha: 0.85);
+    }
+        
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            message,
+            style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w600,
               fontSize: 13,

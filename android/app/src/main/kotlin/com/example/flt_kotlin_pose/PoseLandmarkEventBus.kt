@@ -37,6 +37,7 @@ internal object PoseLandmarkEventBus {
                 mapOf(
                     "frameWidth"  to framePayload.frameWidth,
                     "frameHeight" to framePayload.frameHeight,
+                    "averageLuminance" to framePayload.averageLuminance,
                     "landmarks"   to framePayload.landmarks.map {
                         mapOf(
                             "index"      to it.index,
