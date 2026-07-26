@@ -21,6 +21,13 @@ const kPrimaryLime = Color(0xFFD9FE03); // Bright electric lime for CTA
 const kSecondary = Color(0xFF006970);
 const kSecondaryContainer = Color(0xFF00EEFC);
 
+// Dark Mode Edition Tokens
+const kDarkBg = Color(0xFF111710);
+const kDarkSurface = Color(0xFF1B2319);
+const kDarkContainerHigh = Color(0xFF222B1F);
+const kDarkTextMuted = Color(0xFF889684);
+const kNeonLime = Color(0xFF82D616);
+
 class WorkoutScreen extends StatefulWidget {
   final VoidCallback? onWorkoutSaved;
   const WorkoutScreen({super.key, this.onWorkoutSaved});
@@ -32,9 +39,16 @@ class WorkoutScreen extends StatefulWidget {
 class _WorkoutScreenState extends State<WorkoutScreen> {
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? kDarkBg : kBackground;
+    final cardBg = isDark ? kDarkSurface : kSurface;
+    final cardBorder = isDark ? const Color(0xFF222B1F) : kSurfaceContainerHighest;
+    final titleColor = isDark ? Colors.white : kTextPrimary;
+    final subtitleColor = isDark ? kDarkTextMuted : kTextMuted;
+
     return SafeArea(
       child: Scaffold(
-        backgroundColor: kBackground,
+        backgroundColor: bg,
         body: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -47,7 +61,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: kTextPrimary,
+                  color: titleColor,
                   letterSpacing: -0.5,
                 ),
               ),
@@ -57,7 +71,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
-                  color: kTextMuted,
+                  color: subtitleColor,
                   height: 1.4,
                 ),
               ),
@@ -68,9 +82,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: kSurface,
+                  color: cardBg,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: kSurfaceContainerHighest, width: 1),
+                  border: Border.all(color: cardBorder, width: 1),
                 ),
                 child: Column(
                   children: [
@@ -105,8 +119,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                           await _showWorkoutSummaryDialog(result);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: kPrimaryLime,
-                          foregroundColor: kTextPrimary,
+                          backgroundColor: isDark ? kNeonLime : kPrimaryLime,
+                          foregroundColor: const Color(0xFF111710),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
@@ -118,7 +132,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                             const Icon(
                               Icons.play_circle_outline_rounded,
                               size: 22,
-                              color: kTextPrimary,
+                              color: Color(0xFF111710),
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -126,7 +140,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                               style: GoogleFonts.inter(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
-                                color: kTextPrimary,
+                                color: const Color(0xFF111710),
                                 letterSpacing: 0.5,
                               ),
                             ),
@@ -146,7 +160,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 24,
                   fontWeight: FontWeight.w600,
-                  color: kTextPrimary,
+                  color: titleColor,
                 ),
               ),
               const SizedBox(height: 14),
@@ -327,13 +341,21 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? kDarkSurface : kSurface;
+    final cardBorder = isDark ? const Color(0xFF222B1F) : kSurfaceContainerHighest;
+    final iconBg = isDark ? kDarkContainerHigh : kSecondaryContainer.withValues(alpha: 0.35);
+    final iconColor = isDark ? kPrimaryLime : kSecondary;
+    final titleColor = isDark ? Colors.white : kTextPrimary;
+    final bulletColor = isDark ? kDarkTextMuted : kTextMuted;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: kSurface,
+        color: cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kSurfaceContainerHighest, width: 1),
+        border: Border.all(color: cardBorder, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -344,10 +366,10 @@ class _InfoCard extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: kSecondaryContainer.withValues(alpha: 0.35),
+                  color: iconBg,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: kSecondary, size: 22),
+                child: Icon(icon, color: iconColor, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -356,7 +378,7 @@ class _InfoCard extends StatelessWidget {
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: kTextPrimary,
+                    color: titleColor,
                   ),
                 ),
               ),
@@ -374,7 +396,7 @@ class _InfoCard extends StatelessWidget {
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: kTextMuted,
+                      color: bulletColor,
                       height: 1.4,
                     ),
                   ),
@@ -384,7 +406,7 @@ class _InfoCard extends StatelessWidget {
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
-                        color: kTextMuted,
+                        color: bulletColor,
                         height: 1.4,
                       ),
                     ),

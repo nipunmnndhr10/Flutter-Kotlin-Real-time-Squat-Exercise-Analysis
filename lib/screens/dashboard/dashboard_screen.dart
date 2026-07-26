@@ -596,8 +596,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF111710) : kBackground;
+
     return Scaffold(
-      backgroundColor: kBackground,
+      backgroundColor: bg,
       body: SafeArea(child: _buildBody()),
       bottomNavigationBar: _BottomNav(
         currentIndex: _currentIndex,
@@ -620,8 +623,11 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const selectedColor = Color.fromARGB(255, 144, 175, 19);
-    const unselectedColor = Color(0xFF5F5F5F);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final navBg = isDark ? const Color(0xFF111710) : Colors.white;
+    final borderColor = isDark ? const Color(0xFF1C2419) : const Color(0xFFE8E8E8);
+    final selectedColor = isDark ? const Color(0xFF82D616) : const Color.fromARGB(255, 144, 175, 19);
+    final unselectedColor = isDark ? const Color(0xFF6B7767) : const Color(0xFF5F5F5F);
 
     const items = [
       (Icons.home_outlined, 'Home'),
@@ -631,9 +637,9 @@ class _BottomNav extends StatelessWidget {
     ];
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE8E8E8), width: 1)),
+      decoration: BoxDecoration(
+        color: navBg,
+        border: Border(top: BorderSide(color: borderColor, width: 1)),
       ),
       child: SafeArea(
         top: false,

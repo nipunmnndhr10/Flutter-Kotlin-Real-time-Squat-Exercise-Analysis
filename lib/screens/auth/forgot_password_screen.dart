@@ -93,13 +93,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF111710) : const Color(0xFFF5F5F5);
+    final titleColor = isDark ? Colors.white : textDark;
+    final subtitleColor = isDark ? const Color(0xFF889684) : textGray;
+    final buttonBg = isDark ? const Color(0xFF82D616) : const Color(0xFF111820);
+    final buttonText = isDark ? const Color(0xFF111710) : Colors.white;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: textDark),
+          icon: Icon(Icons.arrow_back_ios_new, color: titleColor),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -113,21 +120,21 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   'Forgot Password?',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
-                    color: textDark,
+                    color: titleColor,
                     letterSpacing: -0.5,
                   ),
                 ),
                 const SizedBox(height: kSpacingSm),
-                const Text(
+                Text(
                   'Enter the email address associated with your account and we will send you a 6-digit code to reset your password.',
                   style: TextStyle(
                     fontSize: 14,
-                    color: textGray,
+                    color: subtitleColor,
                     fontWeight: FontWeight.w400,
                     height: 1.5,
                   ),
@@ -148,29 +155,37 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleForgotPassword,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color.fromRGBO(17, 24, 32, 1),
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: const Color.fromRGBO(209, 213, 219, 1),
+                      backgroundColor: buttonBg,
+                      foregroundColor: buttonText,
+                      disabledBackgroundColor: isDark
+                          ? const Color(0xFF222B1F)
+                          : const Color.fromRGBO(209, 213, 219, 1),
+                      disabledForegroundColor: isDark
+                          ? const Color(0xFF889684)
+                          : const Color(0xFF9CA3AF),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
                     ),
                     child: _isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
-                              color: Colors.white,
+                              color: buttonText,
                               strokeWidth: 2.5,
                             ),
                           )
-                        : const Text(
+                        : Text(
                             'Send Code',
                             style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.35,
+                              color: _isLoading
+                                  ? buttonText
+                                  : (isDark ? const Color(0xFF111710) : Colors.white),
                             ),
                           ),
                   ),

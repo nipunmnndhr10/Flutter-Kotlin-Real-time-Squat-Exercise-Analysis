@@ -284,8 +284,19 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF111710) : const Color(0xFFF5F5F5);
+    final titleDarkColor = isDark ? Colors.white : textDark;
+    final greenColor = isDark ? const Color(0xFF82D616) : primaryGreen;
+    final subtitleColor = isDark ? const Color(0xFF889684) : textGray;
+    final buttonBg = isDark ? const Color(0xFF82D616) : const Color(0xFF111820);
+    final buttonText = isDark ? const Color(0xFF111710) : Colors.white;
+    final googleBg = isDark ? const Color(0xFF1B2319) : cardBg;
+    final googleBorder = isDark ? const Color(0xFF222B1F) : const Color(0xFFE0E0E0);
+    final googleText = isDark ? Colors.white : textDark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: scaffoldBg,
       resizeToAvoidBottomInset: true,
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
@@ -314,14 +325,14 @@ class _LoginScreenState extends State<LoginScreen>
                               children: [
                                 const SizedBox(height: kSpacingSm),
                                 RichText(
-                                  text: const TextSpan(
+                                  text: TextSpan(
                                     children: [
                                       TextSpan(
                                         text: 'Squat',
                                         style: TextStyle(
                                           fontSize: 30,
                                           fontWeight: FontWeight.w800,
-                                          color: textDark,
+                                          color: titleDarkColor,
                                           letterSpacing: -0.5,
                                         ),
                                       ),
@@ -330,7 +341,7 @@ class _LoginScreenState extends State<LoginScreen>
                                         style: TextStyle(
                                           fontSize: 30,
                                           fontWeight: FontWeight.w800,
-                                          color: primaryGreen,
+                                          color: greenColor,
                                           letterSpacing: -0.5,
                                         ),
                                       ),
@@ -338,11 +349,11 @@ class _LoginScreenState extends State<LoginScreen>
                                   ),
                                 ),
                                 const SizedBox(height: kSpacingXs),
-                                const Text(
+                                Text(
                                   'Your AI squat coaching companion',
                                   style: TextStyle(
                                     fontSize: 13,
-                                    color: textGray,
+                                    color: subtitleColor,
                                     fontWeight: FontWeight.w400,
                                     letterSpacing: 0.1,
                                   ),
@@ -377,7 +388,7 @@ class _LoginScreenState extends State<LoginScreen>
                                           _obscurePassword
                                               ? Icons.visibility_off_outlined
                                               : Icons.remove_red_eye_outlined,
-                                          color: textGray,
+                                          color: subtitleColor,
                                           size: 20,
                                         ),
                                       ),
@@ -402,10 +413,10 @@ class _LoginScreenState extends State<LoginScreen>
                                           tapTargetSize:
                                               MaterialTapTargetSize.shrinkWrap,
                                         ),
-                                        child: const Text(
+                                        child: Text(
                                           'Forgot password?',
                                           style: TextStyle(
-                                            color: primaryGreen,
+                                            color: greenColor,
                                             fontWeight: FontWeight.w600,
                                             fontSize: 13,
                                           ),
@@ -421,13 +432,8 @@ class _LoginScreenState extends State<LoginScreen>
                                             ? null
                                             : _handleLogin,
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color.fromRGBO(
-                                            17,
-                                            24,
-                                            32,
-                                            1,
-                                          ),
-                                          foregroundColor: Colors.white,
+                                          backgroundColor: buttonBg,
+                                          foregroundColor: buttonText,
                                           disabledBackgroundColor:
                                               const Color.fromRGBO(
                                                 209,
@@ -444,21 +450,21 @@ class _LoginScreenState extends State<LoginScreen>
                                           ),
                                         ),
                                         child: _isEmailLoading
-                                            ? const SizedBox(
+                                            ? SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      color: Colors.white,
-                                                      strokeWidth: 2.5,
-                                                    ),
+                                                child: CircularProgressIndicator(
+                                                  color: buttonText,
+                                                  strokeWidth: 2.5,
+                                                ),
                                               )
-                                            : const Text(
+                                            : Text(
                                                 'Log In',
                                                 style: TextStyle(
                                                   fontSize: 17,
                                                   fontWeight: FontWeight.w800,
                                                   letterSpacing: 0.35,
+                                                  color: buttonText,
                                                 ),
                                               ),
                                       ),
@@ -480,17 +486,17 @@ class _LoginScreenState extends State<LoginScreen>
                                             : const GoogleLogo(),
                                         label: Text(
                                           _isGoogleLoading ? 'Signing in...' : 'Continue with Google',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.w800,
-                                            color: textDark,
+                                            color: googleText,
                                             letterSpacing: 0.1,
                                           ),
                                         ),
                                         style: OutlinedButton.styleFrom(
-                                          backgroundColor: cardBg,
-                                          side: const BorderSide(
-                                            color: Color(0xFFE0E0E0),
+                                          backgroundColor: googleBg,
+                                          side: BorderSide(
+                                            color: googleBorder,
                                             width: 1.2,
                                           ),
                                           shape: RoundedRectangleBorder(
@@ -508,10 +514,10 @@ class _LoginScreenState extends State<LoginScreen>
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    const Text(
+                                    Text(
                                       'New here? ',
                                       style: TextStyle(
-                                        color: textGray,
+                                        color: subtitleColor,
                                         fontSize: 13,
                                       ),
                                     ),
@@ -524,10 +530,10 @@ class _LoginScreenState extends State<LoginScreen>
                                           ),
                                         );
                                       },
-                                      child: const Text(
+                                      child: Text(
                                         'Join SquatMate',
                                         style: TextStyle(
-                                          color: primaryGreen,
+                                          color: greenColor,
                                           fontSize: 15,
                                           fontWeight: FontWeight.w700,
                                         ),
