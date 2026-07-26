@@ -61,8 +61,8 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
     super.dispose();
   }
 
-  int _calculateFormScore(int reps, Map faultMap) {
-    if (reps <= 0) return faultMap.isEmpty ? 100 : 0;
+  int? _calculateFormScore(int reps, Map faultMap) {
+    if (reps <= 0) return null;
 
     const weights = <String, double>{
       'knee_valgus': 2.5,
@@ -101,7 +101,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
   Widget build(BuildContext context) {
     // Extract and parse data
     final totalReps =
-        widget.summary['totalReps'] ?? widget.summary['total_reps'] ?? 0;
+        (widget.summary['totalReps'] ?? widget.summary['total_reps'] ?? 0) as int;
     final duration =
         widget.summary['durationSeconds'] ??
         widget.summary['duration_seconds'] ??
@@ -119,14 +119,18 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
     }
     final faultMap = rawFaults as Map? ?? {};
 
-    // Dynamic Form Score Calculation
-    final computedScore = _calculateFormScore(totalReps as int, faultMap);
+    // Dynamic Form Score Calculation (null if 0 reps)
+    final computedScore = _calculateFormScore(totalReps, faultMap);
     final rawFormScore = widget.summary['form_score'] ?? widget.summary['formScore'];
-    final formScore = (rawFormScore != null && (rawFormScore != 100 || faultMap.isEmpty))
-        ? (rawFormScore as num).toInt()
-        : computedScore;
+    final int? formScore = (totalReps <= 0)
+        ? null
+        : ((rawFormScore != null && rawFormScore is num)
+            ? rawFormScore.toInt()
+            : computedScore);
 
-    final scoreColor = _getScoreColor(formScore);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final subtitleTextColor = isDark ? const Color(0xFF889684) : kTextMuted;
+    final scoreColor = formScore != null ? _getScoreColor(formScore) : subtitleTextColor;
 
     // Date formatting
     String dateStr = '';
@@ -143,11 +147,9 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
     final cameraMode = (widget.summary['camera']?.toString() ?? 'UNKNOWN')
         .toUpperCase();
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final dialogBg = isDark ? const Color(0xFF1B2319) : kSurface;
     final containerBg = isDark ? const Color(0xFF222B1F) : kSurfaceContainer;
     final titleTextColor = isDark ? Colors.white : kTextPrimary;
-    final subtitleTextColor = isDark ? const Color(0xFF889684) : kTextMuted;
     final trackColor = isDark ? const Color(0xFF222B1F) : const Color(0xFFE5E2E1);
 
     return Dialog(
@@ -172,7 +174,9 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                     Center(
                       child: GestureDetector(
                         onTap: () {
-                          _animController.forward(from: 0.0);
+                          if (formScore != null) {
+                            _animController.forward(from: 0.0);
+                          }
                         },
                         child: SizedBox(
                           width: 124,
@@ -180,14 +184,14 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                           child: AnimatedBuilder(
                             animation: _scoreAnimation,
                             builder: (context, _) {
-                              final rawProgress =
-                                  (_scoreAnimation.value * formScore) / 100.0;
-                              // Scale indicator slightly when < 100% so StrokeCap.round leaves a crisp visible gap
-                              final displayProgress = formScore < 100
-                                  ? (rawProgress * 0.96)
-                                  : rawProgress;
-                              final animatedScore =
-                                  (_scoreAnimation.value * formScore).round();
+                              final double displayProgress = formScore != null
+                                  ? (formScore < 100
+                                      ? (((_scoreAnimation.value * formScore) / 100.0) * 0.96)
+                                      : ((_scoreAnimation.value * formScore) / 100.0))
+                                  : 0.0;
+                              final String animatedScoreText = formScore != null
+                                  ? '${(_scoreAnimation.value * formScore).round()}%'
+                                  : '-';
                               return Stack(
                                 fit: StackFit.expand,
                                 children: [
@@ -200,9 +204,9 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                                   ),
                                   Center(
                                     child: Text(
-                                      '$animatedScore%',
+                                      animatedScoreText,
                                       style: GoogleFonts.hankenGrotesk(
-                                        fontSize: 34,
+                                        fontSize: formScore != null ? 34 : 44,
                                         fontWeight: FontWeight.w800,
                                         color: titleTextColor,
                                       ),

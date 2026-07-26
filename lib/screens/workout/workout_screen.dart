@@ -287,7 +287,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final totalReps = (summary['totalReps'] as num?)?.toInt() ?? 0;
     final faultMap = summary['faultSummaryJson'] as Map? ?? {};
 
-    int formScore = 100;
+    int? formScore;
     if (totalReps > 0) {
       const weights = <String, double>{
         'knee_valgus': 2.5,
