@@ -25,10 +25,10 @@ class SquatAudioController(private val context: Context) {
     private val lastPlayedTime = HashMap<String, Long>()
 
     private val cooldownMs = mapOf(
-        "go_deeper" to 1500L,
-        "chest_up"  to 1200L,
-        "knees_out" to 1200L,
-        "too_low"   to 1500L
+        "go_deeper" to 1000L,
+        "chest_up"  to 800L,
+        "knees_out" to 800L,
+        "too_low"   to 1000L
     )
 
     private var activeStreamId = 0
