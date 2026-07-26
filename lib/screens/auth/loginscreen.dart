@@ -9,6 +9,7 @@ import 'package:flt_kotlin_pose/screens/auth/components/login_components.dart';
 import 'package:flt_kotlin_pose/screens/auth/signup_screen.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flt_kotlin_pose/screens/auth/forgot_password_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -284,149 +285,162 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final scaffoldBg = isDark ? const Color(0xFF111710) : const Color(0xFFF5F5F5);
-    final titleDarkColor = isDark ? Colors.white : textDark;
-    final greenColor = isDark ? const Color(0xFF82D616) : primaryGreen;
-    final subtitleColor = isDark ? const Color(0xFF889684) : textGray;
-    final buttonBg = isDark ? const Color(0xFF82D616) : const Color(0xFF111820);
-    final buttonText = isDark ? const Color(0xFF111710) : Colors.white;
-    final googleBg = isDark ? const Color(0xFF1B2319) : cardBg;
-    final googleBorder = isDark ? const Color(0xFF222B1F) : const Color(0xFFE0E0E0);
-    final googleText = isDark ? Colors.white : textDark;
+    const scaffoldBg = Color(0xFFFCF8F8);
+    const titleColor = Color(0xFF506600);
+    const labelColor = Color(0xFF1C1B1B);
+    const buttonBg = Color(0xFFCCFF00);
+    const buttonText = Color(0xFF1C1B1B);
+    const googleBg = Color(0xFFFFFFFF);
+    const googleBorder = Color(0xFFE5E2E1);
+    const googleText = Color(0xFF1C1B1B);
+
 
     return Scaffold(
       backgroundColor: scaffoldBg,
-      resizeToAvoidBottomInset: true,
+      resizeToAvoidBottomInset: false,
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.translucent,
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              return SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: Column(
-                    children: [
-                      SizedBox(
-                        height: _heroHeight,
-                        width: double.infinity,
-                        child: const RepaintBoundary(child: HeroSection()),
-                      ),
-                      FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: SlideTransition(
-                          position: _slideAnimation,
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const SizedBox(height: kSpacingSm),
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const HeroSection(),
+                  const SizedBox(height: 12),
+                  FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: SlideTransition(
+                      position: _slideAnimation,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
                                 RichText(
                                   text: TextSpan(
                                     children: [
                                       TextSpan(
                                         text: 'Squat',
-                                        style: TextStyle(
-                                          fontSize: 30,
+                                        style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 48,
                                           fontWeight: FontWeight.w800,
-                                          color: titleDarkColor,
-                                          letterSpacing: -0.5,
+                                          color: titleColor,
+                                          letterSpacing: -0.96,
                                         ),
                                       ),
                                       TextSpan(
                                         text: 'Mate',
-                                        style: TextStyle(
-                                          fontSize: 30,
+                                        style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 48,
                                           fontWeight: FontWeight.w800,
-                                          color: greenColor,
-                                          letterSpacing: -0.5,
+                                          color: titleColor,
+                                          letterSpacing: -0.96,
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: kSpacingXs),
+                                const SizedBox(height: 4),
                                 Text(
-                                  'Your AI squat coaching companion',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: subtitleColor,
-                                    fontWeight: FontWeight.w400,
-                                    letterSpacing: 0.1,
+                                  'AI SQUAD COACHING COMPANION',
+                                  style: GoogleFonts.jetBrainsMono(
+                                    fontSize: 12,
+                                    color: const Color(0xFF5D5E61),
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.6,
                                   ),
                                 ),
-                                const SizedBox(height: kSpacingXl),
+                                const SizedBox(height: 40),
                                 Column(
                                   mainAxisSize: MainAxisSize.min,
                                   mainAxisAlignment: MainAxisAlignment.start,
                                   children: [
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        'Email Address',
+                                        style: GoogleFonts.jetBrainsMono(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: labelColor,
+                                          letterSpacing: 0.6,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
                                     InputField(
                                       controller: _emailController,
-                                      hint: 'Email',
+                                      hint: 'name@example.com',
                                       icon: Icons.mail_outline_rounded,
                                       keyboardType: TextInputType.emailAddress,
                                       errorText: _emailError,
                                       onChanged: _onEmailChanged,
                                     ),
-                                    const SizedBox(height: kSpacingMd),
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Password',
+                                          style: GoogleFonts.jetBrainsMono(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: labelColor,
+                                            letterSpacing: 0.6,
+                                          ),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) => const ForgotPasswordScreen(),
+                                              ),
+                                            );
+                                          },
+                                          style: TextButton.styleFrom(
+                                            padding: EdgeInsets.zero,
+                                            minimumSize: Size.zero,
+                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          ),
+                                          child: Text(
+                                            'Forgot password?',
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: const Color(0xFF006970),
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 12,
+                                              letterSpacing: 0.6,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
                                     InputField(
                                       controller: _passwordController,
-                                      hint: 'Password',
+                                      hint: '••••••••',
                                       icon: Icons.lock_outline_rounded,
                                       obscureText: _obscurePassword,
                                       errorText: _passwordError,
                                       onChanged: _onPasswordChanged,
                                       suffixIcon: GestureDetector(
                                         onTap: () => setState(
-                                          () => _obscurePassword =
-                                              !_obscurePassword,
+                                          () => _obscurePassword = !_obscurePassword,
                                         ),
                                         child: Icon(
                                           _obscurePassword
                                               ? Icons.visibility_off_outlined
                                               : Icons.remove_red_eye_outlined,
-                                          color: subtitleColor,
-                                          size: 20,
+                                          color: const Color(0xFF5D5E61),
+                                          size: 24,
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(height: kSpacingSm),
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: TextButton(
-                                        onPressed: () {
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (_) => const ForgotPasswordScreen(),
-                                            ),
-                                          );
-                                        },
-                                        style: TextButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 0,
-                                            vertical: 6,
-                                          ),
-                                          minimumSize: Size.zero,
-                                          tapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
-                                        ),
-                                        child: Text(
-                                          'Forgot password?',
-                                          style: TextStyle(
-                                            color: greenColor,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: kSpacingMd),
+                                    const SizedBox(height: 24),
                                     SizedBox(
                                       width: double.infinity,
-                                      height: 52,
+                                      height: 56,
                                       child: ElevatedButton(
                                         onPressed: _isEmailLoading
                                             ? null
@@ -435,46 +449,51 @@ class _LoginScreenState extends State<LoginScreen>
                                           backgroundColor: buttonBg,
                                           foregroundColor: buttonText,
                                           disabledBackgroundColor:
-                                              const Color.fromRGBO(
-                                                209,
-                                                213,
-                                                219,
-                                                1,
-                                              ),
+                                              const Color(0xFFDCD9D9),
                                           elevation: 0,
                                           shadowColor: Colors.transparent,
                                           shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(
-                                              30,
+                                              12,
                                             ),
                                           ),
                                         ),
                                         child: _isEmailLoading
-                                            ? SizedBox(
-                                                width: 20,
-                                                height: 20,
+                                            ? const SizedBox(
+                                                width: 24,
+                                                height: 24,
                                                 child: CircularProgressIndicator(
                                                   color: buttonText,
                                                   strokeWidth: 2.5,
                                                 ),
                                               )
-                                            : Text(
-                                                'Log In',
-                                                style: TextStyle(
-                                                  fontSize: 17,
-                                                  fontWeight: FontWeight.w800,
-                                                  letterSpacing: 0.35,
-                                                  color: buttonText,
-                                                ),
+                                            : Row(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Text(
+                                                    'Log In',
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 18,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: buttonText,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  const Icon(
+                                                    Icons.arrow_forward,
+                                                    color: buttonText,
+                                                    size: 20,
+                                                  ),
+                                                ],
                                               ),
                                       ),
                                     ),
-                                    const SizedBox(height: kSpacingLg),
+                                    const SizedBox(height: 24),
                                     const OrDivider(),
-                                    const SizedBox(height: kSpacingMd),
+                                    const SizedBox(height: 24),
                                     SizedBox(
                                       width: double.infinity,
-                                      height: 50,
+                                      height: 56,
                                       child: OutlinedButton.icon(
                                         onPressed: (_isEmailLoading || _isGoogleLoading) ? null : _handleGoogleSignIn,
                                         icon: _isGoogleLoading 
@@ -486,22 +505,21 @@ class _LoginScreenState extends State<LoginScreen>
                                             : const GoogleLogo(),
                                         label: Text(
                                           _isGoogleLoading ? 'Signing in...' : 'Continue with Google',
-                                          style: TextStyle(
+                                          style: GoogleFonts.inter(
                                             fontSize: 16,
-                                            fontWeight: FontWeight.w800,
+                                            fontWeight: FontWeight.w500,
                                             color: googleText,
-                                            letterSpacing: 0.1,
                                           ),
                                         ),
                                         style: OutlinedButton.styleFrom(
                                           backgroundColor: googleBg,
-                                          side: BorderSide(
+                                          side: const BorderSide(
                                             color: googleBorder,
-                                            width: 1.2,
+                                            width: 1,
                                           ),
                                           shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(
-                                              30,
+                                              12,
                                             ),
                                           ),
                                           elevation: 0,
@@ -516,25 +534,24 @@ class _LoginScreenState extends State<LoginScreen>
                                   children: [
                                     Text(
                                       'New here? ',
-                                      style: TextStyle(
-                                        color: subtitleColor,
-                                        fontSize: 13,
+                                      style: GoogleFonts.inter(
+                                        color: const Color(0xFF444933),
+                                        fontSize: 16,
                                       ),
                                     ),
                                     GestureDetector(
                                       onTap: () {
                                         Navigator.of(context).push(
                                           MaterialPageRoute(
-                                            builder: (_) =>
-                                                const SignupScreen(),
+                                            builder: (_) => const SignupScreen(),
                                           ),
                                         );
                                       },
                                       child: Text(
                                         'Join SquatMate',
-                                        style: TextStyle(
-                                          color: greenColor,
-                                          fontSize: 15,
+                                        style: GoogleFonts.inter(
+                                          color: titleColor,
+                                          fontSize: 16,
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
@@ -547,11 +564,9 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       ),
                     ],
-                  ),
-                ),
-              );
-            },
-          ),
+                  );
+                },
+              ),
         ),
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 // Reusable hero illustration
 class HeroSection extends StatelessWidget {
@@ -6,33 +7,7 @@ class HeroSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(50),
-          bottomRight: Radius.circular(50),
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(50),
-          bottomRight: Radius.circular(50),
-        ),
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          child: Image.asset(
-            'assets/login_image.png',
-            width: double.infinity,
-            height: double.infinity,
-            fit: BoxFit.contain,
-            alignment: Alignment.bottomCenter,
-          ),
-        ),
-      ),
-    );
+    return Image.asset('assets/app_logo.png', height: 100, fit: BoxFit.contain);
   }
 }
 
@@ -46,10 +21,12 @@ class InputField extends StatelessWidget {
   final TextInputType? keyboardType;
   final String? errorText;
   final ValueChanged<String>? onChanged;
+  final TextStyle? hintStyle;
+  final TextStyle? style;
 
-  static const Color inputBg = Color(0xFFF0F0F0);
-  static const Color textGray = Color(0xFF8A95A3);
-  static const Color textDark = Color(0xFF1A2332);
+  static const Color inputBg = Color(0xFFF6F3F2);
+  static const Color textDark = Color(0xFF1C1B1B);
+  static const Color borderColor = Color(0xFF747A60);
 
   const InputField({
     super.key,
@@ -61,40 +38,43 @@ class InputField extends StatelessWidget {
     this.keyboardType,
     this.errorText,
     this.onChanged,
+    this.hintStyle,
+    this.style,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF1B2319) : inputBg;
-    final border = isDark ? Border.all(color: const Color(0xFF222B1F), width: 1) : null;
-    final textColor = isDark ? Colors.white : textDark;
-    final mutedColor = isDark ? const Color(0xFF889684) : textGray;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           height: 56,
           decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(14),
-            border: border,
+            color: inputBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: borderColor, width: 1),
           ),
           child: TextField(
             controller: controller,
             obscureText: obscureText,
             keyboardType: keyboardType,
             onChanged: onChanged,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 15,
+            style: style ?? GoogleFonts.inter(
+              color: textDark,
+              fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: TextStyle(color: mutedColor, fontSize: 15),
-              prefixIcon: Icon(icon, color: mutedColor, size: 20),
+              hintStyle: hintStyle ?? GoogleFonts.inter(
+                color: textDark.withOpacity(0.5),
+                fontSize: 16,
+              ),
+              prefixIcon: Icon(
+                icon,
+                color: textDark.withOpacity(0.5),
+                size: 24,
+              ),
               suffixIcon: suffixIcon != null
                   ? Padding(
                       padding: const EdgeInsets.only(right: 14),
@@ -102,8 +82,10 @@ class InputField extends StatelessWidget {
                     )
                   : null,
               border: InputBorder.none,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 18,
+              ),
             ),
           ),
         ),
@@ -112,7 +94,10 @@ class InputField extends StatelessWidget {
             padding: const EdgeInsets.only(left: 12, top: 6),
             child: Text(
               errorText!,
-              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+              style: GoogleFonts.inter(
+                color: const Color(0xFFBA1A1A),
+                fontSize: 12,
+              ),
             ),
           ),
       ],
@@ -124,30 +109,27 @@ class InputField extends StatelessWidget {
 class OrDivider extends StatelessWidget {
   const OrDivider({super.key});
 
-  static const Color textGray = Color(0xFF8A95A3);
-
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final dividerColor = isDark ? const Color(0xFF222B1F) : const Color(0xFFDDDDDD);
-    final mutedColor = isDark ? const Color(0xFF889684) : textGray;
+    const dividerColor = Color(0xFFE5E2E1);
+    const mutedColor = Color(0xFF5D5E61);
 
     return Row(
       children: [
-        Expanded(child: Divider(color: dividerColor, thickness: 1)),
+        const Expanded(child: Divider(color: dividerColor, thickness: 1)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'OR',
-            style: TextStyle(
-              color: mutedColor.withValues(alpha: 0.8),
+            style: GoogleFonts.jetBrainsMono(
+              color: mutedColor,
               fontSize: 12,
               fontWeight: FontWeight.w600,
               letterSpacing: 1.2,
             ),
           ),
         ),
-        Expanded(child: Divider(color: dividerColor, thickness: 1)),
+        const Expanded(child: Divider(color: dividerColor, thickness: 1)),
       ],
     );
   }

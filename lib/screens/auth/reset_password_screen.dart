@@ -3,6 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flt_kotlin_pose/core/constants/app_constants.dart';
 import 'package:flt_kotlin_pose/screens/auth/components/login_components.dart';
 import 'package:flt_kotlin_pose/core/utils/validators.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+const _kBg = Color(0xFFFCF8F8);
+const _kDark = Color(0xFF1C1B1B);
+const _kTextMuted = Color(0xFF444933);
+const _kPrimary = Color(0xFF506600);
+const _kLime = Color(0xFFCCFF00);
+const _kRadius = 12.0;
 
 class ResetPasswordScreen extends StatefulWidget {
   final String email;
@@ -22,8 +30,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   bool _obscurePassword = true;
   bool _isLoading = false;
 
-  static const Color textDark = Color(0xFF1A2332);
-  static const Color textGray = Color(0xFF8A95A3);
 
   @override
   void dispose() {
@@ -112,12 +118,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final scaffoldBg = isDark ? const Color(0xFF111710) : const Color(0xFFF5F5F5);
-    final titleColor = isDark ? Colors.white : textDark;
-    final subtitleColor = isDark ? const Color(0xFF889684) : textGray;
-    final buttonBg = isDark ? const Color(0xFF82D616) : const Color(0xFF111820);
-    final buttonText = isDark ? const Color(0xFF111710) : Colors.white;
+    const scaffoldBg = _kBg;
+    const titleColor = _kDark;
+    const subtitleColor = _kTextMuted;
+    const buttonBg = _kLime;
+    const buttonText = _kDark;
+    const backBtnIcon = _kPrimary;
 
     return Scaffold(
       backgroundColor: scaffoldBg,
@@ -125,7 +131,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: titleColor),
+          icon: const Icon(Icons.arrow_back, color: backBtnIcon, size: 28),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -141,33 +147,24 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 const SizedBox(height: 20),
                 Text(
                   'Reset Password',
-                  style: TextStyle(
-                    fontSize: 28,
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 38,
                     fontWeight: FontWeight.w800,
                     color: titleColor,
                     letterSpacing: -0.5,
                   ),
                 ),
-                const SizedBox(height: kSpacingSm),
-                RichText(
-                  text: TextSpan(
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: subtitleColor,
-                      fontWeight: FontWeight.w400,
-                      height: 1.5,
-                    ),
-                    children: [
-                      const TextSpan(text: 'Please enter the 6-digit code sent to '),
-                      TextSpan(
-                        text: widget.email,
-                        style: TextStyle(color: titleColor, fontWeight: FontWeight.w600),
-                      ),
-                      const TextSpan(text: ' and your new password.'),
-                    ],
+                const SizedBox(height: 12),
+                Text(
+                  'Please enter the 6-digit code sent to your email and your new password.',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    color: subtitleColor,
+                    fontWeight: FontWeight.w400,
+                    height: 1.5,
                   ),
                 ),
-                const SizedBox(height: kSpacingXxl),
+                const SizedBox(height: 32),
                 InputField(
                   controller: _otpController,
                   hint: '6-digit OTP',
@@ -175,7 +172,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   keyboardType: TextInputType.number,
                   errorText: _otpError,
                 ),
-                const SizedBox(height: kSpacingMd),
+                const SizedBox(height: 16),
                 InputField(
                   controller: _passwordController,
                   hint: 'New Password',
@@ -186,27 +183,23 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   suffixIcon: GestureDetector(
                     onTap: () => setState(() => _obscurePassword = !_obscurePassword),
                     child: Icon(
-                      _obscurePassword ? Icons.visibility_off_outlined : Icons.remove_red_eye_outlined,
+                      _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
                       color: subtitleColor,
                       size: 20,
                     ),
                   ),
                 ),
-                const SizedBox(height: kSpacingXxl),
+                const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
-                  height: 52,
+                  height: 56,
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleResetPassword,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: buttonBg,
                       foregroundColor: buttonText,
-                      disabledBackgroundColor: isDark
-                          ? const Color(0xFF222B1F)
-                          : const Color.fromRGBO(209, 213, 219, 1),
-                      disabledForegroundColor: isDark
-                          ? const Color(0xFF889684)
-                          : const Color(0xFF9CA3AF),
+                      disabledBackgroundColor: const Color(0xFFDCD9D9),
+                      disabledForegroundColor: const Color(0x801C1B1B),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
@@ -223,13 +216,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                           )
                         : Text(
                             'Reset Password',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.35,
-                              color: _isLoading
-                                  ? buttonText
-                                  : (isDark ? const Color(0xFF111710) : Colors.white),
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: buttonText,
                             ),
                           ),
                   ),
