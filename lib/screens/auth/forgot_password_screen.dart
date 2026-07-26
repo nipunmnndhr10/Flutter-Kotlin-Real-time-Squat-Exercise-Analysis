@@ -62,8 +62,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("OTP sent to your email!"),
-            backgroundColor: Colors.green,
+            content: Text("OTP sent to your email!", style: TextStyle(color: Colors.black)),
+            backgroundColor: Color(0xFFCCFF00),
           ),
         );
         Navigator.of(context).push(
@@ -83,13 +83,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
+        SnackBar(content: Text(errorMsg, style: GoogleFonts.inter()), backgroundColor: Colors.red),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text("Something went wrong")));
+      ).showSnackBar(SnackBar(content: Text("Something went wrong", style: GoogleFonts.inter())));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

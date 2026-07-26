@@ -198,8 +198,8 @@ class _SignupScreenState extends State<SignupScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Account created successfully!"),
-            backgroundColor: Colors.green,
+            content: Text("Account created successfully!", style: TextStyle(color: Colors.black)),
+            backgroundColor: Color(0xFFCCFF00),
           ),
         );
 
@@ -222,13 +222,13 @@ class _SignupScreenState extends State<SignupScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
+        SnackBar(content: Text(errorMsg, style: GoogleFonts.inter()), backgroundColor: Colors.red),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text("Something went wrong")));
+      ).showSnackBar(SnackBar(content: Text("Something went wrong", style: GoogleFonts.inter())));
     } finally {
       if (mounted) setState(() => _isEmailLoading = false);
     }
@@ -265,8 +265,8 @@ class _SignupScreenState extends State<SignupScreen> {
       if (idToken == null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Failed to get Google ID token"),
+          SnackBar(
+            content: Text("Failed to get Google ID token", style: GoogleFonts.inter()),
             backgroundColor: Colors.red,
           ),
         );
@@ -290,8 +290,8 @@ class _SignupScreenState extends State<SignupScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Google Signup successful!"),
-            backgroundColor: Colors.green,
+            content: Text("Google Signup successful!", style: TextStyle(color: Colors.black)),
+            backgroundColor: Color(0xFFCCFF00),
           ),
         );
 
@@ -310,14 +310,14 @@ class _SignupScreenState extends State<SignupScreen> {
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
+        SnackBar(content: Text(errorMsg, style: GoogleFonts.inter()), backgroundColor: Colors.red),
       );
     } catch (e, stackTrace) {
       debugPrint('Error during Google signup: $e');
       debugPrintStack(stackTrace: stackTrace);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      ).showSnackBar(SnackBar(content: Text("Error: $e", style: GoogleFonts.inter())));
     } finally {
       if (mounted) setState(() => _isGoogleLoading = false);
     }

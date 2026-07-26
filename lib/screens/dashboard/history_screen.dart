@@ -658,11 +658,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             if (!dialogContext.mounted) return;
                             Navigator.of(dialogContext).pop();
                             messenger.showSnackBar(
-                              const SnackBar(
+                              SnackBar(
                                 content: Text(
                                   'Workout session deleted successfully',
+                                  style: GoogleFonts.inter(color: Colors.black),
                                 ),
-                                backgroundColor: kPrimary,
+                                backgroundColor: const Color(0xFFCCFF00),
                               ),
                             );
                           } catch (e) {
@@ -671,9 +672,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               deleting = false;
                             });
                             messenger.showSnackBar(
-                              const SnackBar(
+                              SnackBar(
                                 content: Text(
                                   'Failed to delete workout session',
+                                  style: GoogleFonts.inter(),
                                 ),
                                 backgroundColor: Colors.red,
                               ),

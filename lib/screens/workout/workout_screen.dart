@@ -207,9 +207,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               if (!dialogContext.mounted) return;
               Navigator.of(dialogContext).pop();
               messenger.showSnackBar(
-                const SnackBar(
-                  content: Text('Workout saved successfully'),
-                  backgroundColor: kPrimary,
+                SnackBar(
+                  content: Text('Workout saved successfully', style: GoogleFonts.inter(color: Colors.black)),
+                  backgroundColor: const Color(0xFFCCFF00),
                 ),
               );
               if (widget.onWorkoutSaved != null) {
@@ -226,8 +226,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   (route) => false,
                 );
                 messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Session expired. Please log in again.'),
+                  SnackBar(
+                    content: Text('Session expired. Please log in again.', style: GoogleFonts.inter()),
                     backgroundColor: Colors.orange,
                   ),
                 );
@@ -236,14 +236,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   SnackBar(
                     content: Text(
                       'Failed to save workout: ${e.response?.data?['detail'] ?? e.message}',
+                      style: GoogleFonts.inter(),
                     ),
+                    backgroundColor: Colors.red,
                   ),
                 );
               }
             } catch (error) {
               if (!dialogContext.mounted) return;
               messenger.showSnackBar(
-                SnackBar(content: Text('Failed to save workout: $error')),
+                SnackBar(
+                  content: Text('Failed to save workout: $error', style: GoogleFonts.inter()),
+                  backgroundColor: Colors.red,
+                ),
               );
             }
           },

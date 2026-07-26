@@ -118,9 +118,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         widget.onProfilePictureUpdated(fullUrl);
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile picture updated successfully!'),
-            backgroundColor: kPrimary,
+          SnackBar(
+            content: Text('Profile picture updated successfully!', style: GoogleFonts.inter(color: Colors.black)),
+            backgroundColor: const Color(0xFFCCFF00),
           ),
         );
       }
@@ -128,7 +128,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to upload profile picture: $e'),
+          content: Text('Failed to upload profile picture: $e', style: GoogleFonts.inter()),
           backgroundColor: kError,
         ),
       );

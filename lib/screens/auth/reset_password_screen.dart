@@ -30,7 +30,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   bool _obscurePassword = true;
   bool _isLoading = false;
 
-
   @override
   void dispose() {
     _otpController.dispose();
@@ -87,8 +86,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Password reset successfully! You can now log in."),
-            backgroundColor: Colors.green,
+            content: Text("Password reset successfully! You can now log in.", style: TextStyle(color: Colors.black)),
+            backgroundColor: Color(0xFFCCFF00),
           ),
         );
         // Pop back to the first screen (LoginScreen)
@@ -104,12 +103,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
+        SnackBar(content: Text(errorMsg, style: GoogleFonts.inter()), backgroundColor: Colors.red),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Something went wrong")),
+        SnackBar(content: Text("Something went wrong", style: GoogleFonts.inter())),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -181,9 +180,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   errorText: _passwordError,
                   onChanged: _onPasswordChanged,
                   suffixIcon: GestureDetector(
-                    onTap: () => setState(() => _obscurePassword = !_obscurePassword),
+                    onTap: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                     child: Icon(
-                      _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
                       color: subtitleColor,
                       size: 20,
                     ),
