@@ -172,18 +172,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    final DateTime targetWeekStart;
-    final DateTime targetWeekEnd;
-
-    if (_weeksAgo == 0) {
-      // Rolling 7 days (today - 6 days through end of today) so recent workout activity never vanishes on Monday morning
-      targetWeekStart = today.subtract(const Duration(days: 6));
-      targetWeekEnd = today.add(const Duration(days: 1));
-    } else {
-      final mostRecentMonday = today.subtract(Duration(days: now.weekday - 1));
-      targetWeekStart = mostRecentMonday.subtract(Duration(days: 7 * _weeksAgo));
-      targetWeekEnd = targetWeekStart.add(const Duration(days: 7));
-    }
+    final mostRecentMonday = today.subtract(Duration(days: now.weekday - 1));
+    final targetWeekStart = mostRecentMonday.subtract(
+      Duration(days: 7 * _weeksAgo),
+    );
+    final targetWeekEnd = targetWeekStart.add(const Duration(days: 7));
 
     for (final w in _workouts) {
       final repsStr = w['total_reps']?.toString() ?? '0';
@@ -487,7 +480,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   String _getDateRangeText() {
-    if (_weeksAgo == 0) return 'Last 7 Days';
+    if (_weeksAgo == 0) return 'This Week';
     if (_weeksAgo == 1) return 'Last Week';
 
     final now = DateTime.now();

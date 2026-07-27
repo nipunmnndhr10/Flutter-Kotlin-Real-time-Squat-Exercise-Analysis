@@ -74,43 +74,56 @@ class HomeScreen extends StatelessWidget {
 
     return Container(
       color: bg,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _Header(
-              userName: userName,
-              greeting: greeting,
-              profilePictureUrl: profilePictureUrl,
-              weeklySquatsTotal: weeklySquatsTotal,
-              weeklyForm: weeklyForm,
-              totalSquats: totalSquats,
-              backendNotifications: backendNotifications,
-              onMarkNotificationsRead: onMarkNotificationsRead,
-              onClearNotifications: onClearNotifications,
-              onLogout: onLogout,
-            ),
-            const SizedBox(height: 24),
-            _SquatSessionCard(onTap: onOpenCamera),
-            const SizedBox(height: 16),
-            _StatRow(
-              totalSquats: totalSquats,
-              weeklySquatsTotal: weeklySquatsTotal,
-              weeklyForm: weeklyForm,
-              allTimeForm: allTimeForm,
-            ),
-            const SizedBox(height: 24),
-            _WeeklySection(
-              data: weeklySquats,
-              titleText: dateRangeText,
-              hasPreviousWeek: hasPreviousWeek,
-              hasNextWeek: hasNextWeek,
-              onPreviousWeek: onPreviousWeek,
-              onNextWeek: onNextWeek,
-            ),
-            const SizedBox(height: 16),
-          ],
+      child: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                  maxHeight: constraints.maxHeight,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _Header(
+                        userName: userName,
+                        greeting: greeting,
+                        profilePictureUrl: profilePictureUrl,
+                        weeklySquatsTotal: weeklySquatsTotal,
+                        weeklyForm: weeklyForm,
+                        totalSquats: totalSquats,
+                        backendNotifications: backendNotifications,
+                        onMarkNotificationsRead: onMarkNotificationsRead,
+                        onClearNotifications: onClearNotifications,
+                        onLogout: onLogout,
+                      ),
+                      _SquatSessionCard(onTap: onOpenCamera),
+                      _StatRow(
+                        totalSquats: totalSquats,
+                        weeklySquatsTotal: weeklySquatsTotal,
+                        weeklyForm: weeklyForm,
+                        allTimeForm: allTimeForm,
+                        dateRangeText: dateRangeText,
+                      ),
+                      _WeeklySection(
+                        data: weeklySquats,
+                        titleText: dateRangeText,
+                        hasPreviousWeek: hasPreviousWeek,
+                        hasNextWeek: hasNextWeek,
+                        onPreviousWeek: onPreviousWeek,
+                        onNextWeek: onNextWeek,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -579,20 +592,20 @@ class _SquatSessionCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.all(20.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Start your\nSquat Session',
                   style: GoogleFonts.hankenGrotesk(
-                    fontSize: 32,
+                    fontSize: 28,
                     fontWeight: FontWeight.w800,
                     color: titleColor.withAlpha(230),
                     height: 1.1,
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 18),
                 GestureDetector(
                   onTap: onTap,
                   child: Container(
@@ -607,12 +620,12 @@ class _SquatSessionCard extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.videocam_rounded,
                           color: Colors.white,
-                          size: 20,
+                          size: 18,
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Text(
                           'Improve your form in real-time',
                           style: GoogleFonts.jetBrainsMono(
@@ -640,12 +653,14 @@ class _StatRow extends StatefulWidget {
   final int weeklySquatsTotal;
   final int weeklyForm;
   final int allTimeForm;
+  final String dateRangeText;
 
   const _StatRow({
     required this.totalSquats,
     required this.weeklySquatsTotal,
     required this.weeklyForm,
     required this.allTimeForm,
+    this.dateRangeText = 'Last 7 Days',
   });
 
   @override
@@ -653,8 +668,8 @@ class _StatRow extends StatefulWidget {
 }
 
 class _StatRowState extends State<_StatRow> {
-  bool _totalSquatsIsWeekly = true; // Default to LAST 7 DAYS
-  bool _formScoreIsWeekly = true; // Default to LAST 7 DAYS
+  bool _totalSquatsIsWeekly = true; // Default to LAST 7 DAYS / timeframe
+  bool _formScoreIsWeekly = true; // Default to LAST 7 DAYS / timeframe
 
   String _fmt(int n) {
     if (n >= 1000) {
@@ -666,15 +681,17 @@ class _StatRowState extends State<_StatRow> {
 
   @override
   Widget build(BuildContext context) {
+    final timeframeBadge = widget.dateRangeText.toUpperCase();
+
     final squatsValue = _totalSquatsIsWeekly
         ? widget.weeklySquatsTotal
         : widget.totalSquats;
-    final squatsBadge = _totalSquatsIsWeekly ? 'LAST 7 DAYS' : 'ALL TIME';
+    final squatsBadge = _totalSquatsIsWeekly ? timeframeBadge : 'ALL TIME';
 
     final formValue = _formScoreIsWeekly
         ? widget.weeklyForm
         : widget.allTimeForm;
-    final formBadge = _formScoreIsWeekly ? 'LAST 7 DAYS' : 'ALL TIME';
+    final formBadge = _formScoreIsWeekly ? timeframeBadge : 'ALL TIME';
 
     return Row(
       children: [
@@ -765,25 +782,25 @@ class _StatCard extends StatelessWidget {
                 alignment: Alignment.topRight,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
+                    horizontal: 9,
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
                     color: badgeBg,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     badgeText,
                     style: GoogleFonts.jetBrainsMono(
-                      fontSize: 10,
+                      fontSize: 9.5,
                       fontWeight: FontWeight.w600,
                       color: badgeTextColor,
-                      letterSpacing: 0.5,
+                      letterSpacing: 0.4,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               Text(
                 label,
                 style: GoogleFonts.jetBrainsMono(
@@ -800,7 +817,7 @@ class _StatCard extends StatelessWidget {
                   Text(
                     value,
                     style: GoogleFonts.jetBrainsMono(
-                      fontSize: 32,
+                      fontSize: 28,
                       fontWeight: FontWeight.w700,
                       color: valueColor,
                     ),
@@ -809,7 +826,7 @@ class _StatCard extends StatelessWidget {
                     Text(
                       suffix!,
                       style: GoogleFonts.jetBrainsMono(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w500,
                         color: suffixColor,
                       ),
@@ -834,7 +851,7 @@ class _WeeklySection extends StatelessWidget {
 
   const _WeeklySection({
     required this.data,
-    this.titleText = 'Last 7 Days',
+    this.titleText = 'This Week',
     this.hasPreviousWeek = false,
     this.hasNextWeek = false,
     this.onPreviousWeek,
@@ -859,7 +876,7 @@ class _WeeklySection extends StatelessWidget {
     final valTextColor = isDark ? Colors.white : const Color(0xFF1C1B1B);
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: sectionBg,
         borderRadius: BorderRadius.circular(24),
@@ -873,8 +890,8 @@ class _WeeklySection extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: 42,
+                    height: 42,
                     decoration: BoxDecoration(
                       color: circleBg,
                       shape: BoxShape.circle,
@@ -882,8 +899,8 @@ class _WeeklySection extends StatelessWidget {
                     child: Center(
                       child: SvgPicture.asset(
                         'assets/squat-icon.svg',
-                        width: 31,
-                        height: 31,
+                        width: 28,
+                        height: 28,
                         colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
                       ),
                     ),
@@ -895,7 +912,7 @@ class _WeeklySection extends StatelessWidget {
                       Text(
                         titleText,
                         style: GoogleFonts.hankenGrotesk(
-                          fontSize: 18,
+                          fontSize: 17,
                           fontWeight: FontWeight.w700,
                           color: titleColor,
                         ),
@@ -903,7 +920,7 @@ class _WeeklySection extends StatelessWidget {
                       Text(
                         'Squats',
                         style: GoogleFonts.inter(
-                          fontSize: 14,
+                          fontSize: 13.5,
                           fontWeight: FontWeight.w500,
                           color: subtitleColor,
                         ),
@@ -936,93 +953,87 @@ class _WeeklySection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
           Builder(
             builder: (context) {
               final maxVal = data.isEmpty
                   ? 0.0
                   : data.reduce(math.max).toDouble();
               final safeMax = maxVal == 0 ? 1.0 : maxVal;
+              const barHeight = 110.0;
 
-              return Column(
-                children: List.generate(7, (i) {
-                  final dataIndex = _dayIndices[i];
-                  final val = data[dataIndex];
-                  final fraction = val / safeMax;
+              return SizedBox(
+                height: 160,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: List.generate(7, (i) {
+                    final dataIndex = _dayIndices[i];
+                    final val = data[dataIndex];
+                    final fraction = (val / safeMax).clamp(0.0, 1.0);
+                    final isToday = (titleText == 'This Week') &&
+                        (DateTime.now().weekday % 7 == dataIndex);
 
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Row(
+                    return Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         SizedBox(
-                          width: 32,
+                          height: 18,
                           child: Text(
-                            _dayNames[i],
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              color: dayTextColor,
-                              fontWeight: FontWeight.w500,
+                            val > 0 ? '$val' : '',
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isToday ? (isDark ? kNeonLime : kLime) : valTextColor,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              return Stack(
-                                alignment: Alignment.centerLeft,
-                                children: [
-                                  Container(
-                                    height: 24,
-                                    width: constraints.maxWidth - 40,
-                                    decoration: BoxDecoration(
-                                      color: trackColor,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  Row(
-                                    children: [
-                                      AnimatedContainer(
-                                        duration: const Duration(
-                                          milliseconds: 600,
-                                        ),
-                                        curve: Curves.easeOut,
-                                        height: 24,
-                                        width:
-                                            (constraints.maxWidth - 40) *
-                                            fraction,
-                                        decoration: BoxDecoration(
-                                          color: isDark ? kNeonLime : kLime,
-                                          borderRadius: BorderRadius.circular(
-                                            12,
+                        const SizedBox(height: 6),
+                        Container(
+                          width: 18,
+                          height: barHeight,
+                          decoration: BoxDecoration(
+                            color: trackColor,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Stack(
+                            alignment: Alignment.bottomCenter,
+                            children: [
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 600),
+                                curve: Curves.easeOutCubic,
+                                width: 18,
+                                height: math.max(val > 0 ? 10.0 : 0.0, barHeight * fraction),
+                                decoration: BoxDecoration(
+                                  color: isDark ? kNeonLime : kLime,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: isDark && val > 0
+                                      ? [
+                                          BoxShadow(
+                                            color: kNeonLime.withAlpha(80),
+                                            blurRadius: 6,
+                                            spreadRadius: 1,
                                           ),
-                                        ),
-                                      ),
-                                      if (val > 0)
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            left: 8.0,
-                                          ),
-                                          child: Text(
-                                            '$val',
-                                            style: GoogleFonts.inter(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w500,
-                                              color: valTextColor,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              );
-                            },
+                                        ]
+                                      : null,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _dayNames[i],
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: isToday ? titleColor : dayTextColor,
+                            fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
                           ),
                         ),
                       ],
-                    ),
-                  );
-                }),
+                    );
+                  }),
+                ),
               );
             },
           ),
