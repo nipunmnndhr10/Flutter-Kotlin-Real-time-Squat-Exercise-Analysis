@@ -101,7 +101,14 @@ class HomeScreen extends StatelessWidget {
               allTimeForm: allTimeForm,
             ),
             const SizedBox(height: 24),
-            _WeeklySection(data: weeklySquats),
+            _WeeklySection(
+              data: weeklySquats,
+              titleText: dateRangeText,
+              hasPreviousWeek: hasPreviousWeek,
+              hasNextWeek: hasNextWeek,
+              onPreviousWeek: onPreviousWeek,
+              onNextWeek: onNextWeek,
+            ),
             const SizedBox(height: 16),
           ],
         ),
@@ -819,8 +826,20 @@ class _StatCard extends StatelessWidget {
 
 class _WeeklySection extends StatelessWidget {
   final List<int> data;
+  final String titleText;
+  final bool hasPreviousWeek;
+  final bool hasNextWeek;
+  final VoidCallback? onPreviousWeek;
+  final VoidCallback? onNextWeek;
 
-  const _WeeklySection({required this.data});
+  const _WeeklySection({
+    required this.data,
+    this.titleText = 'Last 7 Days',
+    this.hasPreviousWeek = false,
+    this.hasNextWeek = false,
+    this.onPreviousWeek,
+    this.onNextWeek,
+  });
 
   static const _dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   static const _dayIndices = [1, 2, 3, 4, 5, 6, 0];
@@ -849,42 +868,69 @@ class _WeeklySection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: circleBg,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: SvgPicture.asset(
-                    'assets/squat-icon.svg',
-                    width: 31,
-                    height: 31,
-                    colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
                 children: [
-                  Text(
-                    'This Week',
-                    style: GoogleFonts.hankenGrotesk(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: titleColor,
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: circleBg,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: SvgPicture.asset(
+                        'assets/squat-icon.svg',
+                        width: 31,
+                        height: 31,
+                        colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+                      ),
                     ),
                   ),
-                  Text(
-                    'Squats',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: subtitleColor,
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        titleText,
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: titleColor,
+                        ),
+                      ),
+                      Text(
+                        'Squats',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: subtitleColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.chevron_left_rounded,
+                      color: hasPreviousWeek ? titleColor : subtitleColor.withAlpha(80),
+                      size: 24,
                     ),
+                    onPressed: hasPreviousWeek ? onPreviousWeek : null,
+                    tooltip: 'Previous Week',
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.chevron_right_rounded,
+                      color: hasNextWeek ? titleColor : subtitleColor.withAlpha(80),
+                      size: 24,
+                    ),
+                    onPressed: hasNextWeek ? onNextWeek : null,
+                    tooltip: 'Next Week',
                   ),
                 ],
               ),

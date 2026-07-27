@@ -395,31 +395,43 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildEmptyState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1B2319) : kSurface;
+    final cardBorder = isDark ? const Color(0xFF222B1F) : kSurfaceContainerHighest;
+    final titleTextColor = isDark ? Colors.white : kTextPrimary;
+    final subtitleTextColor = isDark ? const Color(0xFF889684) : kTextMuted;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
       decoration: BoxDecoration(
-        color: kSurface,
+        color: cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kSurfaceContainerHighest, width: 1),
+        border: Border.all(color: cardBorder, width: 1),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.history_toggle_off_rounded, size: 56, color: kTextMuted),
+          Icon(Icons.history_toggle_off_rounded, size: 56, color: subtitleTextColor),
           const SizedBox(height: 14),
           Text(
-            'No Workouts Yet',
+            'No Workouts Found',
             style: GoogleFonts.hankenGrotesk(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: kTextPrimary,
+              color: titleTextColor,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            'Start a workout to see your history here!',
-            style: GoogleFonts.inter(fontSize: 14, color: kTextMuted),
+            _selectedFilter == _HistoryFilter.thisWeek
+                ? 'No workouts recorded for this week.'
+                : _selectedFilter == _HistoryFilter.thisMonth
+                ? 'No workouts recorded for this month.'
+                : _selectedFilter == _HistoryFilter.highForm
+                ? 'No workouts with high form score (≥90%) found.'
+                : 'Start a workout to see your history here!',
+            style: GoogleFonts.inter(fontSize: 14, color: subtitleTextColor),
             textAlign: TextAlign.center,
           ),
         ],
