@@ -423,8 +423,8 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         }
 
         if (standingFrameStreak >= 2) {
-            // Validate rep depth: rep count ONLY increments if user achieved depth (<= maxValidAngle)
-            val validRep = maxDepthReachedThisRep <= maxValidAngle
+            // Validate rep depth: rep count ONLY increments if user reached parallel depth (<= targetBottom + 2f) without GO_DEEPER fault
+            val validRep = maxDepthReachedThisRep <= (depthProfile.targetBottom + 2f) && SquatFault.GO_DEEPER !in faultsAnnouncedThisRep
 
             if (validRep) {
                 repCount++
@@ -516,12 +516,12 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
         if (currentPhase == SquatPhase.STANDING && !isInsideRep) return faults
 
-        // 1) GO_DEEPER — only when the user is ascending back to standing after failing to reach parallel depth.
+        // 1) GO_DEEPER — only when the user is ascending back to standing after a real squat descent attempt failing to reach parallel depth.
         if (isInsideRep && hasLeftStandingThisRep && currentPhase == SquatPhase.ASCENDING &&
+            maxDepthReachedThisRep < 135f &&
             maxDepthReachedThisRep > (depthProfile.targetBottom + 2f) &&
             SquatFault.GO_DEEPER !in faultsAnnouncedThisRep
         ) {
-            faultsAnnouncedThisRep.add(SquatFault.GO_DEEPER)
             addFault(SquatFault.GO_DEEPER)
         }
 
