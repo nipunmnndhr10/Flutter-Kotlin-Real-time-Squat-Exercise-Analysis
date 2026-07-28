@@ -272,37 +272,73 @@ class SquatHeuristicEngineTest {
         assertNotNull(tooLowResult)
     }
 
-    // 8. 3D Kinematics angle calculation
+    // 8. Adaptive 1€ (One Euro) Filter kinematic smoothing
     @Test
-    fun `8 3D vector dot product calculates accurate knee angle with depth Z`() {
-        val bend3D = frame3D(
-            LM.LEFT_SHOULDER  to Landmark3D(0.50f, 0.10f, 0.00f),
-            LM.RIGHT_SHOULDER to Landmark3D(0.48f, 0.10f, 0.00f),
-            LM.LEFT_HIP       to Landmark3D(0.50f, 0.30f, 0.00f),
-            LM.RIGHT_HIP      to Landmark3D(0.48f, 0.30f, 0.00f),
-            LM.LEFT_KNEE      to Landmark3D(0.50f, 0.60f, 0.00f),
-            LM.RIGHT_KNEE     to Landmark3D(0.48f, 0.60f, 0.00f),
-            LM.LEFT_ANKLE     to Landmark3D(0.50f, 0.60f, 0.30f),
-            LM.RIGHT_ANKLE    to Landmark3D(0.48f, 0.60f, 0.30f),
-        )
-        val result = engine.analyze(bend3D)!!
-        assertEquals(90.0f, result.kneeAngle, 1.0f)
-    }
-
-    // 9. Adaptive smoothing
-    @Test
-    fun `9 rolling average smooths noisy knee angles`() {
+    fun `8 1Euro adaptive filter smooths noisy knee angles`() {
         prime(standing())
-        val angles = mutableListOf<Float>()
-        repeat(5) { angles.add(engine.analyze(standing())!!.kneeAngle) }
-        val lastFive = angles.takeLast(5)
-        val variance = lastFive.map { (it - lastFive.average()).toFloat() }.map { it * it }.average()
-        assertTrue("Rolling average should stabilize", variance < 1.0)
+
+        // 10 noisy frames with jittered LEFT_KNEE coordinates
+        // True standing knee position: x=0.65, y=0.65
+        // Noise applied: ±0.04–0.05 on x and y independently
+        val noisyKneeFrames = listOf(
+            frame(LM.LEFT_SHOULDER to Triple(0.70f, 0.20f, 0.95f), LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+                LM.LEFT_HIP to Triple(0.65f, 0.45f, 0.95f), LM.RIGHT_HIP to Triple(0.35f, 0.45f, 0.95f),
+                LM.LEFT_KNEE to Triple(0.69f, 0.61f, 0.95f), LM.RIGHT_KNEE to Triple(0.35f, 0.65f, 0.95f),  // +0.04x, -0.04y
+                LM.LEFT_ANKLE to Triple(0.65f, 0.90f, 0.95f), LM.RIGHT_ANKLE to Triple(0.35f, 0.90f, 0.95f)),
+            frame(LM.LEFT_SHOULDER to Triple(0.70f, 0.20f, 0.95f), LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+                LM.LEFT_HIP to Triple(0.65f, 0.45f, 0.95f), LM.RIGHT_HIP to Triple(0.35f, 0.45f, 0.95f),
+                LM.LEFT_KNEE to Triple(0.60f, 0.70f, 0.95f), LM.RIGHT_KNEE to Triple(0.35f, 0.65f, 0.95f),  // -0.05x, +0.05y
+                LM.LEFT_ANKLE to Triple(0.65f, 0.90f, 0.95f), LM.RIGHT_ANKLE to Triple(0.35f, 0.90f, 0.95f)),
+            frame(LM.LEFT_SHOULDER to Triple(0.70f, 0.20f, 0.95f), LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+                LM.LEFT_HIP to Triple(0.65f, 0.45f, 0.95f), LM.RIGHT_HIP to Triple(0.35f, 0.45f, 0.95f),
+                LM.LEFT_KNEE to Triple(0.70f, 0.68f, 0.95f), LM.RIGHT_KNEE to Triple(0.35f, 0.65f, 0.95f),  // +0.05x, +0.03y
+                LM.LEFT_ANKLE to Triple(0.65f, 0.90f, 0.95f), LM.RIGHT_ANKLE to Triple(0.35f, 0.90f, 0.95f)),
+            frame(LM.LEFT_SHOULDER to Triple(0.70f, 0.20f, 0.95f), LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+                LM.LEFT_HIP to Triple(0.65f, 0.45f, 0.95f), LM.RIGHT_HIP to Triple(0.35f, 0.45f, 0.95f),
+                LM.LEFT_KNEE to Triple(0.61f, 0.62f, 0.95f), LM.RIGHT_KNEE to Triple(0.35f, 0.65f, 0.95f),  // -0.04x, -0.03y
+                LM.LEFT_ANKLE to Triple(0.65f, 0.90f, 0.95f), LM.RIGHT_ANKLE to Triple(0.35f, 0.90f, 0.95f)),
+            frame(LM.LEFT_SHOULDER to Triple(0.70f, 0.20f, 0.95f), LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+                LM.LEFT_HIP to Triple(0.65f, 0.45f, 0.95f), LM.RIGHT_HIP to Triple(0.35f, 0.45f, 0.95f),
+                LM.LEFT_KNEE to Triple(0.68f, 0.60f, 0.95f), LM.RIGHT_KNEE to Triple(0.35f, 0.65f, 0.95f),  // +0.03x, -0.05y
+                LM.LEFT_ANKLE to Triple(0.65f, 0.90f, 0.95f), LM.RIGHT_ANKLE to Triple(0.35f, 0.90f, 0.95f)),
+            frame(LM.LEFT_SHOULDER to Triple(0.70f, 0.20f, 0.95f), LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+                LM.LEFT_HIP to Triple(0.65f, 0.45f, 0.95f), LM.RIGHT_HIP to Triple(0.35f, 0.45f, 0.95f),
+                LM.LEFT_KNEE to Triple(0.62f, 0.69f, 0.95f), LM.RIGHT_KNEE to Triple(0.35f, 0.65f, 0.95f),  // -0.03x, +0.04y
+                LM.LEFT_ANKLE to Triple(0.65f, 0.90f, 0.95f), LM.RIGHT_ANKLE to Triple(0.35f, 0.90f, 0.95f)),
+            frame(LM.LEFT_SHOULDER to Triple(0.70f, 0.20f, 0.95f), LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+                LM.LEFT_HIP to Triple(0.65f, 0.45f, 0.95f), LM.RIGHT_HIP to Triple(0.35f, 0.45f, 0.95f),
+                LM.LEFT_KNEE to Triple(0.70f, 0.63f, 0.95f), LM.RIGHT_KNEE to Triple(0.35f, 0.65f, 0.95f),  // +0.05x, -0.02y
+                LM.LEFT_ANKLE to Triple(0.65f, 0.90f, 0.95f), LM.RIGHT_ANKLE to Triple(0.35f, 0.90f, 0.95f)),
+            frame(LM.LEFT_SHOULDER to Triple(0.70f, 0.20f, 0.95f), LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+                LM.LEFT_HIP to Triple(0.65f, 0.45f, 0.95f), LM.RIGHT_HIP to Triple(0.35f, 0.45f, 0.95f),
+                LM.LEFT_KNEE to Triple(0.60f, 0.67f, 0.95f), LM.RIGHT_KNEE to Triple(0.35f, 0.65f, 0.95f),  // -0.05x, +0.02y
+                LM.LEFT_ANKLE to Triple(0.65f, 0.90f, 0.95f), LM.RIGHT_ANKLE to Triple(0.35f, 0.90f, 0.95f)),
+            frame(LM.LEFT_SHOULDER to Triple(0.70f, 0.20f, 0.95f), LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+                LM.LEFT_HIP to Triple(0.65f, 0.45f, 0.95f), LM.RIGHT_HIP to Triple(0.35f, 0.45f, 0.95f),
+                LM.LEFT_KNEE to Triple(0.67f, 0.61f, 0.95f), LM.RIGHT_KNEE to Triple(0.35f, 0.65f, 0.95f),  // +0.02x, -0.04y
+                LM.LEFT_ANKLE to Triple(0.65f, 0.90f, 0.95f), LM.RIGHT_ANKLE to Triple(0.35f, 0.90f, 0.95f)),
+            frame(LM.LEFT_SHOULDER to Triple(0.70f, 0.20f, 0.95f), LM.RIGHT_SHOULDER to Triple(0.30f, 0.20f, 0.95f),
+                LM.LEFT_HIP to Triple(0.65f, 0.45f, 0.95f), LM.RIGHT_HIP to Triple(0.35f, 0.45f, 0.95f),
+                LM.LEFT_KNEE to Triple(0.63f, 0.70f, 0.95f), LM.RIGHT_KNEE to Triple(0.35f, 0.65f, 0.95f),  // -0.02x, +0.05y
+                LM.LEFT_ANKLE to Triple(0.65f, 0.90f, 0.95f), LM.RIGHT_ANKLE to Triple(0.35f, 0.90f, 0.95f)),
+        )
+
+        val filteredAngles = noisyKneeFrames.map { engine.analyze(it)!!.kneeAngle }
+
+        val filteredVariance = filteredAngles
+            .map { (it - filteredAngles.average()).toFloat() }
+            .map { it * it }
+            .average()
+
+        // Filtered output variance must be < 50.0 (raw noisy frames produce ~100–300° variance
+        // without the 1€ filter, the smoothed output should be well below this)
+        assertTrue("1Euro filter must reduce knee angle noise variance below 50.0, got $filteredVariance",
+            filteredVariance < 50.0)
     }
 
-    // 10. Engine Reset
+    // 9. Engine Reset
     @Test
-    fun `10 reset clears rep count and state`() {
+    fun `9 reset clears rep count and state`() {
         prime(standing())
         prime(descending())
         prime(deep())

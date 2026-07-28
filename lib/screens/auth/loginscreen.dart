@@ -300,9 +300,11 @@ class _LoginScreenState extends State<LoginScreen>
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.translucent,
         child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return Column(
+          child: Center(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const HeroSection(),
@@ -571,8 +573,8 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   ),
                 ],
-              );
-            },
+              ),
+            ),
           ),
         ),
       ),
