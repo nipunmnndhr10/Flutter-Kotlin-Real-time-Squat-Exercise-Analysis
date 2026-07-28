@@ -75,55 +75,45 @@ class HomeScreen extends StatelessWidget {
     return Container(
       color: bg,
       child: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              physics: const NeverScrollableScrollPhysics(),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight,
-                  maxHeight: constraints.maxHeight,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _Header(
-                        userName: userName,
-                        greeting: greeting,
-                        profilePictureUrl: profilePictureUrl,
-                        weeklySquatsTotal: weeklySquatsTotal,
-                        weeklyForm: weeklyForm,
-                        totalSquats: totalSquats,
-                        backendNotifications: backendNotifications,
-                        onMarkNotificationsRead: onMarkNotificationsRead,
-                        onClearNotifications: onClearNotifications,
-                        onLogout: onLogout,
-                      ),
-                      _SquatSessionCard(onTap: onOpenCamera),
-                      _StatRow(
-                        totalSquats: totalSquats,
-                        weeklySquatsTotal: weeklySquatsTotal,
-                        weeklyForm: weeklyForm,
-                        allTimeForm: allTimeForm,
-                        dateRangeText: dateRangeText,
-                      ),
-                      _WeeklySection(
-                        data: weeklySquats,
-                        titleText: dateRangeText,
-                        hasPreviousWeek: hasPreviousWeek,
-                        hasNextWeek: hasNextWeek,
-                        onPreviousWeek: onPreviousWeek,
-                        onNextWeek: onNextWeek,
-                      ),
-                    ],
-                  ),
-                ),
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _Header(
+                userName: userName,
+                greeting: greeting,
+                profilePictureUrl: profilePictureUrl,
+                weeklySquatsTotal: weeklySquatsTotal,
+                weeklyForm: weeklyForm,
+                totalSquats: totalSquats,
+                backendNotifications: backendNotifications,
+                onMarkNotificationsRead: onMarkNotificationsRead,
+                onClearNotifications: onClearNotifications,
+                onLogout: onLogout,
               ),
-            );
-          },
+              const SizedBox(height: 16),
+              _SquatSessionCard(onTap: onOpenCamera),
+              const SizedBox(height: 16),
+              _StatRow(
+                totalSquats: totalSquats,
+                weeklySquatsTotal: weeklySquatsTotal,
+                weeklyForm: weeklyForm,
+                allTimeForm: allTimeForm,
+                dateRangeText: dateRangeText,
+              ),
+              const SizedBox(height: 16),
+              _WeeklySection(
+                data: weeklySquats,
+                titleText: dateRangeText,
+                hasPreviousWeek: hasPreviousWeek,
+                hasNextWeek: hasNextWeek,
+                onPreviousWeek: onPreviousWeek,
+                onNextWeek: onNextWeek,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -568,81 +558,97 @@ class _SquatSessionCard extends StatelessWidget {
     final cardBg = isDark ? kNeonLime : kLime;
     final titleColor = isDark ? kDarkBg : kOlive;
     final pillBg = isDark ? kDarkBg : kOlive;
-    final watermarkColor = isDark ? Colors.black.withAlpha(20) : Colors.black.withAlpha(13);
+    final watermarkColor = isDark ? Colors.black.withAlpha(20) : Colors.black.withAlpha(15);
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -20,
-            bottom: -20,
-            child: SvgPicture.asset(
-              'assets/squat-icon.svg',
-              width: 200,
-              height: 200,
-              colorFilter: ColorFilter.mode(
-                watermarkColor,
-                BlendMode.srcIn,
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(26),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(26),
+        child: Ink(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: [
+              BoxShadow(
+                color: cardBg.withAlpha(45),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
               ),
-            ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(26),
+            child: Stack(
               children: [
-                Text(
-                  'Start your\nSquat Session',
-                  style: GoogleFonts.hankenGrotesk(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    color: titleColor.withAlpha(230),
-                    height: 1.1,
+                Positioned(
+                  right: -25,
+                  bottom: -25,
+                  child: SvgPicture.asset(
+                    'assets/squat-icon.svg',
+                    width: 230,
+                    height: 230,
+                    colorFilter: ColorFilter.mode(
+                      watermarkColor,
+                      BlendMode.srcIn,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 18),
-                GestureDetector(
-                  onTap: onTap,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: pillBg,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.videocam_rounded,
-                          color: Colors.white,
-                          size: 18,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 26.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Start your\nSquat Session',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                          color: titleColor.withAlpha(240),
+                          height: 1.1,
+                          letterSpacing: -0.5,
                         ),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Improve your form in real-time',
-                          style: GoogleFonts.jetBrainsMono(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            height: 1.2,
-                          ),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
                         ),
-                      ],
-                    ),
+                        decoration: BoxDecoration(
+                          color: pillBg,
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.videocam_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Improve your form in real-time',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                height: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -953,17 +959,17 @@ class _WeeklySection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Builder(
             builder: (context) {
               final maxVal = data.isEmpty
                   ? 0.0
                   : data.reduce(math.max).toDouble();
               final safeMax = maxVal == 0 ? 1.0 : maxVal;
-              const barHeight = 110.0;
+              const barHeight = 150.0;
 
               return SizedBox(
-                height: 160,
+                height: 215,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -978,23 +984,23 @@ class _WeeklySection extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         SizedBox(
-                          height: 18,
+                          height: 20,
                           child: Text(
                             val > 0 ? '$val' : '',
                             style: GoogleFonts.jetBrainsMono(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: isToday ? (isDark ? kNeonLime : kLime) : valTextColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: isToday ? (isDark ? kNeonLime : kOlive) : valTextColor,
                             ),
                           ),
                         ),
                         const SizedBox(height: 6),
                         Container(
-                          width: 18,
+                          width: 22,
                           height: barHeight,
                           decoration: BoxDecoration(
                             color: trackColor,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                           child: Stack(
                             alignment: Alignment.bottomCenter,
@@ -1002,11 +1008,11 @@ class _WeeklySection extends StatelessWidget {
                               AnimatedContainer(
                                 duration: const Duration(milliseconds: 600),
                                 curve: Curves.easeOutCubic,
-                                width: 18,
-                                height: math.max(val > 0 ? 10.0 : 0.0, barHeight * fraction),
+                                width: 22,
+                                height: math.max(val > 0 ? 12.0 : 0.0, barHeight * fraction),
                                 decoration: BoxDecoration(
                                   color: isDark ? kNeonLime : kLime,
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(12),
                                   boxShadow: isDark && val > 0
                                       ? [
                                           BoxShadow(
@@ -1025,9 +1031,9 @@ class _WeeklySection extends StatelessWidget {
                         Text(
                           _dayNames[i],
                           style: GoogleFonts.inter(
-                            fontSize: 12,
+                            fontSize: 13,
                             color: isToday ? titleColor : dayTextColor,
-                            fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+                            fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
                           ),
                         ),
                       ],
