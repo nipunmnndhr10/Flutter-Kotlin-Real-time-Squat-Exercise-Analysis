@@ -224,6 +224,17 @@ class SquatHeuristicEngineTest {
         assertNotNull(goDeeperResult)
     }
 
+    private fun leaningSide() = frame(
+        LM.LEFT_SHOULDER  to Triple(0.50f, 0.65f, 0.95f),
+        LM.RIGHT_SHOULDER to Triple(0.49f, 0.65f, 0.20f),
+        LM.LEFT_HIP       to Triple(0.45f, 0.65f, 0.95f),
+        LM.RIGHT_HIP      to Triple(0.44f, 0.65f, 0.20f),
+        LM.LEFT_KNEE      to Triple(0.65f, 0.70f, 0.95f),
+        LM.RIGHT_KNEE     to Triple(0.64f, 0.70f, 0.20f),
+        LM.LEFT_ANKLE     to Triple(0.65f, 0.90f, 0.95f),
+        LM.RIGHT_ANKLE    to Triple(0.64f, 0.90f, 0.20f),
+    )
+
     // 5. Fault: LEAN_FORWARD
     @Test
     fun `5 LEAN_FORWARD fires when torso is too short or leaning forward`() {
@@ -234,6 +245,21 @@ class SquatHeuristicEngineTest {
         repeat(5) {
             val r = engine.analyze(leaningFront())!!
             if (r.activeFaults.contains(SquatFault.LEAN_FORWARD)) {
+                leanResult = r
+            }
+        }
+        assertNotNull(leanResult)
+    }
+
+    @Test
+    fun `5b LEAN_FORWARD fires in side view when hip angle drops below threshold`() {
+        prime(standing())
+        prime(descending())
+
+        var leanResult: SquatFeedback? = null
+        repeat(8) {
+            val r = engine.analyze(leaningSide())
+            if (r != null && r.activeFaults.contains(SquatFault.LEAN_FORWARD)) {
                 leanResult = r
             }
         }

@@ -99,7 +99,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
     // Adaptive smoothing filters
     private val kneeAngleFilter = OneEuroFilter(minCutoff = 1.0f, beta = 0.015f, dCutoff = 1.0f)
-    private val hipAngleFilter  = OneEuroFilter(minCutoff = 1.0f, beta = 0.015f, dCutoff = 1.0f)
+    private val hipAngleFilter  = OneEuroFilter(minCutoff = 1.0f, beta = 0.08f,  dCutoff = 1.0f)
 
     // Outlier Spike Guard tracking (clamps camera occlusion & lighting glare noise spikes before filtering)
     private var lastRawKneeAngle: Float? = null
@@ -538,12 +538,12 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
                     val torsoHeight =
                         (abs((lS.y * h) - (lH.y * h)) + abs((rS.y * h) - (rH.y * h))) / 2f
 
-                    if (torsoHeight < shoulderWidth * 0.62f) {
+                    if (torsoHeight < shoulderWidth * 0.70f) {
                         addFault(SquatFault.LEAN_FORWARD)
                     }
                 }
             } else {
-                if (hipAngle < 55f) {
+                if (hipAngle < 72f) {
                     leanForwardFrameStreak++
                 } else {
                     leanForwardFrameStreak = 0
