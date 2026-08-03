@@ -3,6 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flt_kotlin_pose/core/constants/app_constants.dart';
 import 'package:flt_kotlin_pose/screens/auth/components/login_components.dart';
 import 'package:flt_kotlin_pose/core/utils/validators.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+const _kBg = Color(0xFFFCF8F8);
+const _kDark = Color(0xFF1C1B1B);
+const _kTextMuted = Color(0xFF444933);
+const _kPrimary = Color(0xFF506600);
+const _kLime = Color(0xFFCCFF00);
 
 class ResetPasswordScreen extends StatefulWidget {
   final String email;
@@ -21,9 +28,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   String? _passwordError;
   bool _obscurePassword = true;
   bool _isLoading = false;
-
-  static const Color textDark = Color(0xFF1A2332);
-  static const Color textGray = Color(0xFF8A95A3);
 
   @override
   void dispose() {
@@ -81,8 +85,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Password reset successfully! You can now log in."),
-            backgroundColor: Colors.green,
+            content: Text("Password reset successfully! You can now log in.", style: TextStyle(color: Colors.black)),
+            backgroundColor: Color(0xFFCCFF00),
           ),
         );
         // Pop back to the first screen (LoginScreen)
@@ -98,12 +102,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
+        SnackBar(content: Text(errorMsg, style: GoogleFonts.inter()), backgroundColor: Colors.red),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Something went wrong")),
+        SnackBar(content: Text("Something went wrong", style: GoogleFonts.inter())),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -112,13 +116,20 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const scaffoldBg = _kBg;
+    const titleColor = _kDark;
+    const subtitleColor = _kTextMuted;
+    const buttonBg = _kLime;
+    const buttonText = _kDark;
+    const backBtnIcon = _kPrimary;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: textDark),
+          icon: const Icon(Icons.arrow_back, color: backBtnIcon, size: 28),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -132,35 +143,26 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   'Reset Password',
-                  style: TextStyle(
-                    fontSize: 28,
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 38,
                     fontWeight: FontWeight.w800,
-                    color: textDark,
+                    color: titleColor,
                     letterSpacing: -0.5,
                   ),
                 ),
-                const SizedBox(height: kSpacingSm),
-                RichText(
-                  text: TextSpan(
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: textGray,
-                      fontWeight: FontWeight.w400,
-                      height: 1.5,
-                    ),
-                    children: [
-                      const TextSpan(text: 'Please enter the 6-digit code sent to '),
-                      TextSpan(
-                        text: widget.email,
-                        style: const TextStyle(color: textDark, fontWeight: FontWeight.w600),
-                      ),
-                      const TextSpan(text: ' and your new password.'),
-                    ],
+                const SizedBox(height: 12),
+                Text(
+                  'Please enter the 6-digit code sent to your email and your new password.',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    color: subtitleColor,
+                    fontWeight: FontWeight.w400,
+                    height: 1.5,
                   ),
                 ),
-                const SizedBox(height: kSpacingXxl),
+                const SizedBox(height: 32),
                 InputField(
                   controller: _otpController,
                   hint: '6-digit OTP',
@@ -168,7 +170,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   keyboardType: TextInputType.number,
                   errorText: _otpError,
                 ),
-                const SizedBox(height: kSpacingMd),
+                const SizedBox(height: 16),
                 InputField(
                   controller: _passwordController,
                   hint: 'New Password',
@@ -177,44 +179,48 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   errorText: _passwordError,
                   onChanged: _onPasswordChanged,
                   suffixIcon: GestureDetector(
-                    onTap: () => setState(() => _obscurePassword = !_obscurePassword),
+                    onTap: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                     child: Icon(
-                      _obscurePassword ? Icons.visibility_off_outlined : Icons.remove_red_eye_outlined,
-                      color: textGray,
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      color: subtitleColor,
                       size: 20,
                     ),
                   ),
                 ),
-                const SizedBox(height: kSpacingXxl),
+                const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
-                  height: 52,
+                  height: 56,
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleResetPassword,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color.fromRGBO(17, 24, 32, 1),
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: const Color.fromRGBO(209, 213, 219, 1),
+                      backgroundColor: buttonBg,
+                      foregroundColor: buttonText,
+                      disabledBackgroundColor: const Color(0xFFDCD9D9),
+                      disabledForegroundColor: const Color(0x801C1B1B),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
                     ),
                     child: _isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
-                              color: Colors.white,
+                              color: buttonText,
                               strokeWidth: 2.5,
                             ),
                           )
-                        : const Text(
+                        : Text(
                             'Reset Password',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.35,
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: buttonText,
                             ),
                           ),
                   ),

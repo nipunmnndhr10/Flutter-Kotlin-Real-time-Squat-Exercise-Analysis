@@ -99,7 +99,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
     // Adaptive smoothing filters
     private val kneeAngleFilter = OneEuroFilter(minCutoff = 1.0f, beta = 0.015f, dCutoff = 1.0f)
-    private val hipAngleFilter  = OneEuroFilter(minCutoff = 1.0f, beta = 0.015f, dCutoff = 1.0f)
+    private val hipAngleFilter  = OneEuroFilter(minCutoff = 1.0f, beta = 0.08f,  dCutoff = 1.0f)
 
     // Outlier Spike Guard tracking (clamps camera occlusion & lighting glare noise spikes before filtering)
     private var lastRawKneeAngle: Float? = null
@@ -189,6 +189,27 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
     fun analyze(frame: PoseFramePayload): SquatFeedback? {
         if (isPaused) return null
 
+        val averageLuminance = frame.averageLuminance
+        val isLightingPoor = averageLuminance != -1f && (averageLuminance < 40f || averageLuminance > 230f)
+
+        fun earlyReturnOrWarning(): SquatFeedback? {
+            return if (isLightingPoor) {
+                SquatFeedback(
+                    phase = currentPhase,
+                    repCount = repCount,
+                    activeFaults = emptyList(),
+                    kneeAngle = 180f,
+                    hipAngle = 180f,
+                    isLandmarkReliable = false,
+                    targetAngleThreshold = depthProfile.targetBottom,
+                    averageLuminance = averageLuminance,
+                    isLightingPoor = true,
+                )
+            } else {
+                null
+            }
+        }
+
         // STAGE 1 & 2: 3D Spatial Landmark Spike Guard + 3D Spatial 1€ Trajectory Filtering
         landmarkArray.fill(null)
         val timestampMs = frame.timestampMs
@@ -215,7 +236,7 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             (lm?.visibility ?: 0f) >= 0.55f && (lm?.presence ?: lm?.visibility ?: 1.0f) >= 0.55f
         }
 
-        if (!leftValid && !rightValid) return null
+        if (!leftValid && !rightValid) return earlyReturnOrWarning()
 
         val useLeft = when {
             leftValid && !rightValid -> true
@@ -229,17 +250,17 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             }
         }
 
-        val hip      = if (useLeft) landmarkArray[LM.LEFT_HIP]      ?: return null else landmarkArray[LM.RIGHT_HIP]      ?: return null
-        val knee     = if (useLeft) landmarkArray[LM.LEFT_KNEE]     ?: return null else landmarkArray[LM.RIGHT_KNEE]     ?: return null
-        val ankle    = if (useLeft) landmarkArray[LM.LEFT_ANKLE]    ?: return null else landmarkArray[LM.RIGHT_ANKLE]    ?: return null
-        val shoulder = if (useLeft) landmarkArray[LM.LEFT_SHOULDER] ?: return null else landmarkArray[LM.RIGHT_SHOULDER] ?: return null
+        val hip      = if (useLeft) landmarkArray[LM.LEFT_HIP]      ?: return earlyReturnOrWarning() else landmarkArray[LM.RIGHT_HIP]      ?: return earlyReturnOrWarning()
+        val knee     = if (useLeft) landmarkArray[LM.LEFT_KNEE]     ?: return earlyReturnOrWarning() else landmarkArray[LM.RIGHT_KNEE]     ?: return earlyReturnOrWarning()
+        val ankle    = if (useLeft) landmarkArray[LM.LEFT_ANKLE]    ?: return earlyReturnOrWarning() else landmarkArray[LM.RIGHT_ANKLE]    ?: return earlyReturnOrWarning()
+        val shoulder = if (useLeft) landmarkArray[LM.LEFT_SHOULDER] ?: return earlyReturnOrWarning() else landmarkArray[LM.RIGHT_SHOULDER] ?: return earlyReturnOrWarning()
 
         // Anatomical Proportion Sanity Check: Reject non-human background object hallucinations (e.g. fans, chairs)
         val minY = minOf(shoulder.y, hip.y, knee.y, ankle.y)
         val maxY = maxOf(shoulder.y, hip.y, knee.y, ankle.y)
         val totalVerticalSpan = maxY - minY
         if (totalVerticalSpan < 0.10f) {
-            return null
+            return earlyReturnOrWarning()
         }
 
         val w = frame.frameWidth
@@ -336,6 +357,8 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
             hipAngle = hipAngle,
             isLandmarkReliable = true,
             targetAngleThreshold = depthProfile.targetBottom,
+            averageLuminance = averageLuminance,
+            isLightingPoor = isLightingPoor,
         )
     }
 
@@ -400,8 +423,8 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
         }
 
         if (standingFrameStreak >= 2) {
-            // Validate rep depth: rep count ONLY increments if user achieved depth (<= maxValidAngle)
-            val validRep = maxDepthReachedThisRep <= maxValidAngle
+            // Validate rep depth: rep count ONLY increments if user reached parallel depth (<= targetBottom + 2f) without GO_DEEPER fault
+            val validRep = maxDepthReachedThisRep <= (depthProfile.targetBottom + 2f) && SquatFault.GO_DEEPER !in faultsAnnouncedThisRep
 
             if (validRep) {
                 repCount++
@@ -493,12 +516,12 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
 
         if (currentPhase == SquatPhase.STANDING && !isInsideRep) return faults
 
-        // 1) GO_DEEPER — only when the user is ascending back to standing after failing to reach parallel depth.
+        // 1) GO_DEEPER — only when the user is ascending back to standing after a real squat descent attempt failing to reach parallel depth.
         if (isInsideRep && hasLeftStandingThisRep && currentPhase == SquatPhase.ASCENDING &&
+            maxDepthReachedThisRep < 135f &&
             maxDepthReachedThisRep > (depthProfile.targetBottom + 2f) &&
             SquatFault.GO_DEEPER !in faultsAnnouncedThisRep
         ) {
-            faultsAnnouncedThisRep.add(SquatFault.GO_DEEPER)
             addFault(SquatFault.GO_DEEPER)
         }
 
@@ -515,12 +538,12 @@ class SquatHeuristicEngine(private val audioController: SquatAudioController) {
                     val torsoHeight =
                         (abs((lS.y * h) - (lH.y * h)) + abs((rS.y * h) - (rH.y * h))) / 2f
 
-                    if (torsoHeight < shoulderWidth * 0.62f) {
+                    if (torsoHeight < shoulderWidth * 0.70f) {
                         addFault(SquatFault.LEAN_FORWARD)
                     }
                 }
             } else {
-                if (hipAngle < 55f) {
+                if (hipAngle < 72f) {
                     leanForwardFrameStreak++
                 } else {
                     leanForwardFrameStreak = 0

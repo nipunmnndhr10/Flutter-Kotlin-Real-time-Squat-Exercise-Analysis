@@ -17,6 +17,7 @@ internal object SquatFeedbackEventBus {
     private var lastFaults: List<SquatFault> = emptyList()
     private var lastKneeAngle: Float? = null
     private var lastHipAngle: Float? = null
+    private var lastLightingPoor: Boolean? = null
     private var lastEmitTime: Long = 0L
 
     @Synchronized
@@ -25,7 +26,8 @@ internal object SquatFeedbackEventBus {
         val timeSinceLastEmit = now - lastEmitTime
         val stateChanged = feedback.phase != lastPhase ||
                 feedback.repCount != lastRepCount ||
-                feedback.activeFaults != lastFaults
+                feedback.activeFaults != lastFaults ||
+                feedback.isLightingPoor != lastLightingPoor
 
         val angleChanged = lastKneeAngle == null || lastHipAngle == null ||
                 abs(feedback.kneeAngle - lastKneeAngle!!) > 0.5f ||
@@ -42,6 +44,7 @@ internal object SquatFeedbackEventBus {
         lastFaults = feedback.activeFaults
         lastKneeAngle = feedback.kneeAngle
         lastHipAngle = feedback.hipAngle
+        lastLightingPoor = feedback.isLightingPoor
         lastEmitTime = now
 
         mainHandler.post {
@@ -54,6 +57,8 @@ internal object SquatFeedbackEventBus {
                     "hipAngle"           to feedback.hipAngle,
                     "isLandmarkReliable" to feedback.isLandmarkReliable,
                     "angleThreshold"     to feedback.targetAngleThreshold,
+                    "averageLuminance"   to feedback.averageLuminance,
+                    "isLightingPoor"     to feedback.isLightingPoor,
                 )
             )
         }
@@ -66,6 +71,7 @@ internal object SquatFeedbackEventBus {
         lastFaults = emptyList()
         lastKneeAngle = null
         lastHipAngle = null
+        lastLightingPoor = null
         lastEmitTime = 0L
     }
 }

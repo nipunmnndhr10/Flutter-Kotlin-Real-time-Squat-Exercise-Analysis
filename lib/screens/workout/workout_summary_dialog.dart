@@ -61,8 +61,8 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
     super.dispose();
   }
 
-  int _calculateFormScore(int reps, Map faultMap) {
-    if (reps <= 0) return faultMap.isEmpty ? 100 : 0;
+  int? _calculateFormScore(int reps, Map faultMap) {
+    if (reps <= 0) return null;
 
     const weights = <String, double>{
       'knee_valgus': 2.5,
@@ -101,7 +101,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
   Widget build(BuildContext context) {
     // Extract and parse data
     final totalReps =
-        widget.summary['totalReps'] ?? widget.summary['total_reps'] ?? 0;
+        (widget.summary['totalReps'] ?? widget.summary['total_reps'] ?? 0) as int;
     final duration =
         widget.summary['durationSeconds'] ??
         widget.summary['duration_seconds'] ??
@@ -119,14 +119,18 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
     }
     final faultMap = rawFaults as Map? ?? {};
 
-    // Dynamic Form Score Calculation
-    final computedScore = _calculateFormScore(totalReps as int, faultMap);
+    // Dynamic Form Score Calculation (null if 0 reps)
+    final computedScore = _calculateFormScore(totalReps, faultMap);
     final rawFormScore = widget.summary['form_score'] ?? widget.summary['formScore'];
-    final formScore = (rawFormScore != null && (rawFormScore != 100 || faultMap.isEmpty))
-        ? (rawFormScore as num).toInt()
-        : computedScore;
+    final int? formScore = (totalReps <= 0)
+        ? null
+        : ((rawFormScore != null && rawFormScore is num)
+            ? rawFormScore.toInt()
+            : computedScore);
 
-    final scoreColor = _getScoreColor(formScore);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final subtitleTextColor = isDark ? const Color(0xFF889684) : kTextMuted;
+    final scoreColor = formScore != null ? _getScoreColor(formScore) : subtitleTextColor;
 
     // Date formatting
     String dateStr = '';
@@ -143,8 +147,13 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
     final cameraMode = (widget.summary['camera']?.toString() ?? 'UNKNOWN')
         .toUpperCase();
 
+    final dialogBg = isDark ? const Color(0xFF1B2319) : kSurface;
+    final containerBg = isDark ? const Color(0xFF222B1F) : kSurfaceContainer;
+    final titleTextColor = isDark ? Colors.white : kTextPrimary;
+    final trackColor = isDark ? const Color(0xFF222B1F) : const Color(0xFFE5E2E1);
+
     return Dialog(
-      backgroundColor: kSurface,
+      backgroundColor: dialogBg,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: ConstrainedBox(
@@ -165,7 +174,9 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                     Center(
                       child: GestureDetector(
                         onTap: () {
-                          _animController.forward(from: 0.0);
+                          if (formScore != null) {
+                            _animController.forward(from: 0.0);
+                          }
                         },
                         child: SizedBox(
                           width: 124,
@@ -173,31 +184,31 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                           child: AnimatedBuilder(
                             animation: _scoreAnimation,
                             builder: (context, _) {
-                              final rawProgress =
-                                  (_scoreAnimation.value * formScore) / 100.0;
-                              // Scale indicator slightly when < 100% so StrokeCap.round leaves a crisp visible gap
-                              final displayProgress = formScore < 100
-                                  ? (rawProgress * 0.96)
-                                  : rawProgress;
-                              final animatedScore =
-                                  (_scoreAnimation.value * formScore).round();
+                              final double displayProgress = formScore != null
+                                  ? (formScore < 100
+                                      ? (((_scoreAnimation.value * formScore) / 100.0) * 0.96)
+                                      : ((_scoreAnimation.value * formScore) / 100.0))
+                                  : 0.0;
+                              final String animatedScoreText = formScore != null
+                                  ? '${(_scoreAnimation.value * formScore).round()}%'
+                                  : '-';
                               return Stack(
                                 fit: StackFit.expand,
                                 children: [
                                   CircularProgressIndicator(
                                     value: displayProgress,
                                     strokeWidth: 10,
-                                    backgroundColor: const Color(0xFFE5E2E1),
+                                    backgroundColor: trackColor,
                                     color: scoreColor,
                                     strokeCap: StrokeCap.round,
                                   ),
                                   Center(
                                     child: Text(
-                                      '$animatedScore%',
+                                      animatedScoreText,
                                       style: GoogleFonts.hankenGrotesk(
-                                        fontSize: 34,
+                                        fontSize: formScore != null ? 34 : 44,
                                         fontWeight: FontWeight.w800,
-                                        color: kTextPrimary,
+                                        color: titleTextColor,
                                       ),
                                     ),
                                   ),
@@ -217,7 +228,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 24,
                         fontWeight: FontWeight.w700,
-                        color: kTextPrimary,
+                        color: titleTextColor,
                       ),
                     ),
                     if (dateStr.isNotEmpty) ...[
@@ -228,7 +239,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: kTextMuted,
+                          color: subtitleTextColor,
                         ),
                       ),
                     ],
@@ -239,17 +250,17 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                         controller: _nameController,
                         style: GoogleFonts.inter(
                           fontSize: 14,
-                          color: kTextPrimary,
+                          color: titleTextColor,
                           fontWeight: FontWeight.w600,
                         ),
                         decoration: InputDecoration(
                           hintText: 'Name this workout (e.g., Leg Day)',
                           hintStyle: GoogleFonts.inter(
-                            color: kTextMuted,
+                            color: subtitleTextColor,
                             fontWeight: FontWeight.normal,
                           ),
                           filled: true,
-                          fillColor: kSurfaceContainer,
+                          fillColor: containerBg,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
@@ -266,7 +277,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           decoration: BoxDecoration(
-                            color: kSurfaceContainer,
+                            color: containerBg,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -275,7 +286,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                             style: GoogleFonts.inter(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: kTextPrimary,
+                              color: titleTextColor,
                             ),
                           ),
                         ),
@@ -310,7 +321,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 1.0,
-                          color: kTextMuted,
+                          color: subtitleTextColor,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -338,7 +349,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 1.0,
-                            color: kTextMuted,
+                            color: subtitleTextColor,
                           ),
                         ),
                         Container(
@@ -347,7 +358,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: kSurfaceContainer,
+                            color: containerBg,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -355,7 +366,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                             style: GoogleFonts.jetBrainsMono(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
-                              color: kTextMuted,
+                              color: subtitleTextColor,
                             ),
                           ),
                         ),
@@ -411,12 +422,15 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
             // Bottom Action Bar
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: kSurface,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1B2319) : kSurface,
                 border: Border(
-                  top: BorderSide(color: kSurfaceContainer, width: 1),
+                  top: BorderSide(
+                    color: isDark ? const Color(0xFF222B1F) : kSurfaceContainer,
+                    width: 1,
+                  ),
                 ),
-                borderRadius: BorderRadius.vertical(
+                borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(24),
                 ),
               ),
@@ -427,8 +441,8 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                       child: ElevatedButton(
                         onPressed: widget.onClose,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: kPrimaryLime,
-                          foregroundColor: kTextPrimary,
+                          backgroundColor: isDark ? const Color(0xFF82D616) : kPrimaryLime,
+                          foregroundColor: isDark ? const Color(0xFF111710) : kTextPrimary,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -456,8 +470,8 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                               }
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: kPrimaryLime,
-                              foregroundColor: kTextPrimary,
+                              backgroundColor: isDark ? const Color(0xFF82D616) : kPrimaryLime,
+                              foregroundColor: isDark ? const Color(0xFF111710) : kTextPrimary,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -481,9 +495,9 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                                 child: OutlinedButton(
                                   onPressed: widget.onDiscard,
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: kTextMuted,
-                                    side: const BorderSide(
-                                      color: kSurfaceContainer,
+                                    foregroundColor: subtitleTextColor,
+                                    side: BorderSide(
+                                      color: isDark ? const Color(0xFF222B1F) : kSurfaceContainer,
                                       width: 1.5,
                                     ),
                                     shape: RoundedRectangleBorder(
@@ -495,6 +509,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                                     style: GoogleFonts.inter(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
+                                      color: subtitleTextColor,
                                     ),
                                   ),
                                 ),
@@ -507,9 +522,9 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                                 child: OutlinedButton(
                                   onPressed: widget.onClose,
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: kTextPrimary,
-                                    side: const BorderSide(
-                                      color: kSurfaceContainer,
+                                    foregroundColor: titleTextColor,
+                                    side: BorderSide(
+                                      color: isDark ? const Color(0xFF222B1F) : kSurfaceContainer,
                                       width: 1.5,
                                     ),
                                     shape: RoundedRectangleBorder(
@@ -521,6 +536,7 @@ class _WorkoutSummaryDialogState extends State<WorkoutSummaryDialog>
                                     style: GoogleFonts.inter(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
+                                      color: titleTextColor,
                                     ),
                                   ),
                                 ),
@@ -546,10 +562,15 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF222B1F) : kSurfaceContainer;
+    final labelColor = isDark ? const Color(0xFF889684) : kTextMuted;
+    final valColor = isDark ? Colors.white : kTextPrimary;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: kSurfaceContainer,
+        color: bg,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -561,7 +582,7 @@ class _StatCard extends StatelessWidget {
               fontSize: 10,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.5,
-              color: kTextMuted,
+              color: labelColor,
             ),
           ),
           const SizedBox(height: 8),
@@ -570,7 +591,7 @@ class _StatCard extends StatelessWidget {
             style: GoogleFonts.hankenGrotesk(
               fontSize: 24,
               fontWeight: FontWeight.w800,
-              color: kTextPrimary,
+              color: valColor,
             ),
           ),
         ],
@@ -593,13 +614,18 @@ class _FaultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF3B1E1E) : kErrorContainer;
+    final nameColor = isDark ? const Color(0xFFFFB4AB) : kTextPrimary;
+    final subColor = isDark ? const Color(0xFFE0C2BF) : kTextPrimary.withValues(alpha: 0.7);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: kErrorContainer,
+        color: cardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: kErrorContainer.withValues(alpha: 0.8),
+          color: cardBg.withValues(alpha: 0.8),
           width: 1,
         ),
       ),
@@ -626,7 +652,7 @@ class _FaultCard extends StatelessWidget {
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: kTextPrimary,
+                    color: nameColor,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -635,7 +661,7 @@ class _FaultCard extends StatelessWidget {
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
-                    color: kTextPrimary.withValues(alpha: 0.7),
+                    color: subColor,
                   ),
                 ),
               ],

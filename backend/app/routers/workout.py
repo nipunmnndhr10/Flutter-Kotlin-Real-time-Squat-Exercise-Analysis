@@ -26,9 +26,9 @@ def get_user_workouts(
     )
 
 
-def calculate_form_score(reps: int, fault_json: dict | None) -> int:
+def calculate_form_score(reps: int, fault_json: dict | None) -> int | None:
     if not reps or reps <= 0:
-        return 100 if not fault_json else 0
+        return None
     if not fault_json:
         return 100
     weights = {
@@ -51,8 +51,11 @@ def save_session_summary(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    computed_score = calculate_form_score(session.total_reps, session.fault_summary_json)
-    final_score = session.form_score if (session.form_score is not None and session.form_score != 100) else computed_score
+    if session.total_reps and session.total_reps > 0:
+        computed_score = calculate_form_score(session.total_reps, session.fault_summary_json)
+        final_score = session.form_score if session.form_score is not None else computed_score
+    else:
+        final_score = None
 
     new_session = WorkoutSession(
         user_id=current_user.id,

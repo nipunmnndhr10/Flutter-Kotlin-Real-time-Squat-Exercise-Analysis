@@ -102,10 +102,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final displayWorkouts = _filteredWorkouts;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF111710) : kBackground;
+
+    final titleColor = isDark ? Colors.white : kTextPrimary;
+    final subtitleColor = isDark ? const Color(0xFF889684) : kTextMuted;
 
     return SafeArea(
       child: Scaffold(
-        backgroundColor: kBackground,
+        backgroundColor: bg,
         body: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -117,7 +122,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 32,
                   fontWeight: FontWeight.w700,
-                  color: kTextPrimary,
+                  color: titleColor,
                   height: 1.25,
                 ),
               ),
@@ -127,7 +132,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 style: GoogleFonts.inter(
                   fontSize: 15,
                   fontWeight: FontWeight.w400,
-                  color: kTextMuted,
+                  color: subtitleColor,
                   height: 1.4,
                 ),
               ),
@@ -142,7 +147,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 22,
                       fontWeight: FontWeight.w600,
-                      color: kTextPrimary,
+                      color: titleColor,
                     ),
                   ),
                   PopupMenuButton<_HistoryFilter>(
@@ -166,12 +171,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     },
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
-                      side: const BorderSide(
-                        color: kSurfaceContainerHighest,
+                      side: BorderSide(
+                        color: isDark ? const Color(0xFF222B1F) : kSurfaceContainerHighest,
                         width: 1,
                       ),
                     ),
-                    color: kSurface,
+                    color: isDark ? const Color(0xFF1B2319) : kSurface,
                     elevation: 6,
                     itemBuilder: (context) => [
                       PopupMenuItem(
@@ -183,8 +188,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               Icons.clear_all_rounded,
                               size: 16,
                               color: _selectedFilter == _HistoryFilter.all
-                                  ? kPrimary
-                                  : kTextMuted,
+                                  ? (isDark ? const Color(0xFF82D616) : kPrimary)
+                                  : subtitleColor,
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -196,8 +201,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     ? FontWeight.w700
                                     : FontWeight.w500,
                                 color: _selectedFilter == _HistoryFilter.all
-                                    ? kPrimary
-                                    : kTextPrimary,
+                                    ? (isDark ? const Color(0xFF82D616) : kPrimary)
+                                    : titleColor,
                               ),
                             ),
                           ],
@@ -212,8 +217,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               Icons.date_range_rounded,
                               size: 16,
                               color: _selectedFilter == _HistoryFilter.thisWeek
-                                  ? kPrimary
-                                  : kTextMuted,
+                                  ? (isDark ? const Color(0xFF82D616) : kPrimary)
+                                  : subtitleColor,
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -226,8 +231,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     : FontWeight.w500,
                                 color:
                                     _selectedFilter == _HistoryFilter.thisWeek
-                                    ? kPrimary
-                                    : kTextPrimary,
+                                    ? (isDark ? const Color(0xFF82D616) : kPrimary)
+                                    : titleColor,
                               ),
                             ),
                           ],
@@ -242,8 +247,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               Icons.calendar_month_rounded,
                               size: 16,
                               color: _selectedFilter == _HistoryFilter.thisMonth
-                                  ? kPrimary
-                                  : kTextMuted,
+                                  ? (isDark ? const Color(0xFF82D616) : kPrimary)
+                                  : subtitleColor,
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -256,8 +261,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     : FontWeight.w500,
                                 color:
                                     _selectedFilter == _HistoryFilter.thisMonth
-                                    ? kPrimary
-                                    : kTextPrimary,
+                                    ? (isDark ? const Color(0xFF82D616) : kPrimary)
+                                    : titleColor,
                               ),
                             ),
                           ],
@@ -272,8 +277,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               Icons.stars_rounded,
                               size: 16,
                               color: _selectedFilter == _HistoryFilter.highForm
-                                  ? kPrimary
-                                  : kTextMuted,
+                                  ? (isDark ? const Color(0xFF82D616) : kPrimary)
+                                  : subtitleColor,
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -286,8 +291,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     : FontWeight.w500,
                                 color:
                                     _selectedFilter == _HistoryFilter.highForm
-                                    ? kPrimary
-                                    : kTextPrimary,
+                                    ? (isDark ? const Color(0xFF82D616) : kPrimary)
+                                    : titleColor,
                               ),
                             ),
                           ],
@@ -302,13 +307,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       ),
                       decoration: BoxDecoration(
                         color: _selectedFilter != _HistoryFilter.all
-                            ? kPrimary.withAlpha(25)
-                            : kSurfaceContainerHigh,
+                            ? (isDark ? const Color(0xFF82D616).withAlpha(40) : kPrimary.withAlpha(25))
+                            : (isDark ? const Color(0xFF1B2319) : kSurfaceContainerHigh),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: _selectedFilter != _HistoryFilter.all
-                              ? kPrimary.withAlpha(100)
-                              : Colors.transparent,
+                              ? (isDark ? const Color(0xFF82D616) : kPrimary)
+                              : (isDark ? const Color(0xFF222B1F) : Colors.transparent),
                         ),
                       ),
                       child: Row(
@@ -318,8 +323,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             Icons.tune_rounded,
                             size: 14,
                             color: _selectedFilter != _HistoryFilter.all
-                                ? kPrimary
-                                : kTextMuted,
+                                ? (isDark ? const Color(0xFF82D616) : kPrimary)
+                                : subtitleColor,
                           ),
                           const SizedBox(width: 5),
                           AnimatedSwitcher(
@@ -337,8 +342,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 color: _selectedFilter != _HistoryFilter.all
-                                    ? kPrimary
-                                    : kTextPrimary,
+                                    ? (isDark ? const Color(0xFF82D616) : kPrimary)
+                                    : titleColor,
                               ),
                             ),
                           ),
@@ -347,8 +352,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             Icons.arrow_drop_down_rounded,
                             size: 16,
                             color: _selectedFilter != _HistoryFilter.all
-                                ? kPrimary
-                                : kTextMuted,
+                                ? (isDark ? const Color(0xFF82D616) : kPrimary)
+                                : subtitleColor,
                           ),
                         ],
                       ),
@@ -390,31 +395,43 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildEmptyState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1B2319) : kSurface;
+    final cardBorder = isDark ? const Color(0xFF222B1F) : kSurfaceContainerHighest;
+    final titleTextColor = isDark ? Colors.white : kTextPrimary;
+    final subtitleTextColor = isDark ? const Color(0xFF889684) : kTextMuted;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
       decoration: BoxDecoration(
-        color: kSurface,
+        color: cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kSurfaceContainerHighest, width: 1),
+        border: Border.all(color: cardBorder, width: 1),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.history_toggle_off_rounded, size: 56, color: kTextMuted),
+          Icon(Icons.history_toggle_off_rounded, size: 56, color: subtitleTextColor),
           const SizedBox(height: 14),
           Text(
-            'No Workouts Yet',
+            'No Workouts Found',
             style: GoogleFonts.hankenGrotesk(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: kTextPrimary,
+              color: titleTextColor,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            'Start a workout to see your history here!',
-            style: GoogleFonts.inter(fontSize: 14, color: kTextMuted),
+            _selectedFilter == _HistoryFilter.thisWeek
+                ? 'No workouts recorded for this week.'
+                : _selectedFilter == _HistoryFilter.thisMonth
+                ? 'No workouts recorded for this month.'
+                : _selectedFilter == _HistoryFilter.highForm
+                ? 'No workouts with high form score (≥90%) found.'
+                : 'Start a workout to see your history here!',
+            style: GoogleFonts.inter(fontSize: 14, color: subtitleTextColor),
             textAlign: TextAlign.center,
           ),
         ],
@@ -426,9 +443,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
     BuildContext context,
     Map<String, dynamic> workout,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = isDark ? const Color(0xFF1B2319) : kBackground;
+    final textColor = isDark ? Colors.white : kTextPrimary;
+    final handleColor = isDark ? const Color(0xFF222B1F) : kSurfaceContainerHigh;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: kBackground,
+      backgroundColor: dialogBg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -444,17 +466,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: kSurfaceContainerHigh,
+                    color: handleColor,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.info_outline, color: kTextPrimary),
+                  leading: Icon(Icons.info_outline, color: textColor),
                   title: Text(
                     'View Session Details',
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w500,
-                      color: kTextPrimary,
+                      color: textColor,
                     ),
                   ),
                   onTap: () {
@@ -463,12 +485,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.edit_outlined, color: kTextPrimary),
+                  leading: Icon(Icons.edit_outlined, color: textColor),
                   title: Text(
                     'Rename Workout Session',
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w500,
-                      color: kTextPrimary,
+                      color: textColor,
                     ),
                   ),
                   onTap: () {
@@ -500,7 +522,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   void _showRenameDialog(BuildContext context, Map<String, dynamic> workout) {
     if (widget.onRenameWorkout == null) return;
-    
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = isDark ? const Color(0xFF1B2319) : kBackground;
+    final textColor = isDark ? Colors.white : kTextPrimary;
+    final fieldBg = isDark ? const Color(0xFF222B1F) : kSurfaceContainerHighest;
+
     final TextEditingController controller = TextEditingController(
       text: workout['session_name'] ?? '',
     );
@@ -509,22 +535,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor: kBackground,
+          backgroundColor: dialogBg,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(
             'Rename Session',
             style: GoogleFonts.hankenGrotesk(
               fontWeight: FontWeight.w700,
-              color: kTextPrimary,
+              color: textColor,
             ),
           ),
           content: TextField(
             controller: controller,
-            style: GoogleFonts.inter(color: kTextPrimary),
+            style: GoogleFonts.inter(color: textColor),
             decoration: InputDecoration(
               hintText: 'e.g., Leg Day',
               filled: true,
-              fillColor: kSurfaceContainerHighest,
+              fillColor: fieldBg,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
@@ -538,14 +564,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 'Cancel',
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
-                  color: kTextMuted,
+                  color: isDark ? const Color(0xFF889684) : kTextMuted,
                 ),
               ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: kPrimaryContainer,
-                foregroundColor: kOnPrimaryContainer,
+                backgroundColor: isDark ? const Color(0xFF82D616) : kPrimaryContainer,
+                foregroundColor: isDark ? const Color(0xFF111710) : kOnPrimaryContainer,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -558,7 +584,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
               },
               child: Text(
                 'Rename',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? const Color(0xFF111710) : kOnPrimaryContainer,
+                ),
               ),
             ),
           ],
@@ -582,6 +611,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     BuildContext context,
     Map<String, dynamic> workout,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = isDark ? const Color(0xFF1B2319) : kBackground;
+    final textColor = isDark ? Colors.white : kTextPrimary;
+
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -589,24 +622,32 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             return AlertDialog(
-              backgroundColor: kBackground,
+              backgroundColor: dialogBg,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
               title: Text(
                 'Delete Workout?',
-                style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.bold),
+                style: GoogleFonts.hankenGrotesk(
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
               ),
               content: deleting
-                  ? const SizedBox(
+                  ? SizedBox(
                       height: 80,
                       child: Center(
-                        child: CircularProgressIndicator(color: kPrimary),
+                        child: CircularProgressIndicator(
+                          color: isDark ? const Color(0xFF82D616) : kPrimary,
+                        ),
                       ),
                     )
                   : Text(
                       'Are you sure you want to permanently delete this workout session? This cannot be undone.',
-                      style: GoogleFonts.inter(fontSize: 14),
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: isDark ? const Color(0xFF889684) : kTextPrimary,
+                      ),
                     ),
               actions: deleting
                   ? []
@@ -629,11 +670,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             if (!dialogContext.mounted) return;
                             Navigator.of(dialogContext).pop();
                             messenger.showSnackBar(
-                              const SnackBar(
+                              SnackBar(
                                 content: Text(
                                   'Workout session deleted successfully',
+                                  style: GoogleFonts.inter(color: Colors.black),
                                 ),
-                                backgroundColor: kPrimary,
+                                backgroundColor: const Color(0xFFCCFF00),
                               ),
                             );
                           } catch (e) {
@@ -642,9 +684,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               deleting = false;
                             });
                             messenger.showSnackBar(
-                              const SnackBar(
+                              SnackBar(
                                 content: Text(
                                   'Failed to delete workout session',
+                                  style: GoogleFonts.inter(),
                                 ),
                                 backgroundColor: Colors.red,
                               ),
@@ -784,6 +827,14 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1B2319) : kSurface;
+    final cardBorder = isDark ? const Color(0xFF222B1F) : kSurfaceContainerHighest;
+    final titleLabelColor = isDark ? const Color(0xFF889684) : kTextMuted;
+    final activeIconColor = isDark ? const Color(0xFF82D616) : iconColor;
+    final valueColor = isDark ? Colors.white : kTextPrimary;
+    final unitColor = isDark ? const Color(0xFF889684) : kTextMuted;
+
     return Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(16),
@@ -793,9 +844,9 @@ class _SummaryCard extends StatelessWidget {
         child: Ink(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: kSurface,
+            color: cardBg,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: kSurfaceContainerHighest, width: 1),
+            border: Border.all(color: cardBorder, width: 1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -808,11 +859,11 @@ class _SummaryCard extends StatelessWidget {
                     style: GoogleFonts.jetBrainsMono(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: kTextMuted,
+                      color: titleLabelColor,
                       letterSpacing: 0.5,
                     ),
                   ),
-                  Icon(icon, size: 16, color: iconColor),
+                  Icon(icon, size: 16, color: activeIconColor),
                 ],
               ),
               const SizedBox(height: 12),
@@ -821,7 +872,7 @@ class _SummaryCard extends StatelessWidget {
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 36,
                   fontWeight: FontWeight.w800,
-                  color: kTextPrimary,
+                  color: valueColor,
                   height: 1.0,
                   letterSpacing: -0.36,
                 ),
@@ -832,7 +883,7 @@ class _SummaryCard extends StatelessWidget {
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
-                  color: kTextMuted,
+                  color: unitColor,
                 ),
               ),
             ],
@@ -895,6 +946,15 @@ class _WorkoutHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1B2319) : kSurface;
+    final cardBorder = isDark ? const Color(0xFF222B1F) : kSurfaceContainerHighest;
+    final circleBg = isDark ? const Color(0xFF222B1F) : const Color(0x1A506600);
+    final circleIconColor = isDark ? const Color(0xFF82D616) : kPrimary;
+    final titleTextColor = isDark ? Colors.white : kTextPrimary;
+    final dateTextColor = isDark ? const Color(0xFF889684) : kTextMuted;
+    final durationTextColor = isDark ? Colors.white : kTextPrimary;
+
     final String sessionName = workout['session_name']?.toString() ?? '';
     final String workoutTitle = sessionName.isNotEmpty ? sessionName : 'Squat Session';
 
@@ -910,9 +970,9 @@ class _WorkoutHistoryCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: kSurface,
+        color: cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kSurfaceContainerHighest, width: 1),
+        border: Border.all(color: cardBorder, width: 1),
       ),
       child: Material(
         color: Colors.transparent,
@@ -927,13 +987,13 @@ class _WorkoutHistoryCard extends StatelessWidget {
                 Container(
                   width: 44,
                   height: 44,
-                  decoration: const BoxDecoration(
-                    color: Color(0x1A506600),
+                  decoration: BoxDecoration(
+                    color: circleBg,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.fitness_center_rounded,
-                    color: kPrimary,
+                    color: circleIconColor,
                     size: 22,
                   ),
                 ),
@@ -947,7 +1007,7 @@ class _WorkoutHistoryCard extends StatelessWidget {
                         style: GoogleFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: kTextPrimary,
+                          color: titleTextColor,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -955,7 +1015,7 @@ class _WorkoutHistoryCard extends StatelessWidget {
                         _formatWorkoutDateTime(workout['started_at']),
                         style: GoogleFonts.jetBrainsMono(
                           fontSize: 12,
-                          color: kTextMuted,
+                          color: dateTextColor,
                         ),
                       ),
                     ],
@@ -967,7 +1027,7 @@ class _WorkoutHistoryCard extends StatelessWidget {
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: kTextPrimary,
+                    color: durationTextColor,
                   ),
                 ),
               ],
